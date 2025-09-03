@@ -5,7 +5,7 @@ technitium_api_port: "{{ lookup('env', 'TECHNITIUM_API_PORT') | int }}"
 validate_certs: "{{ lookup('env', 'VALIDATE_CERTS') | default('false') | bool }}"
 
 # Notify Name Server, used for Zone testing
-notify_name_server: notify_name_server: "{{ lookup('env', 'NOTIFY_NAME_SERVER') }}"
+notify_name_server: "{{ lookup('env', 'NOTIFY_NAME_SERVER') }}"
 
 # Debugging options
 debug: "{{ lookup('env', 'DEBUG') | default('false') | bool }}"

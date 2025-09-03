@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # Ansible module to add DNS records to Technitium DNS using TechnitiumModule base class
 
-from ansible_collections.technitium.dns.plugins.module_utils.technitium import TechnitiumModule
+from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 DOCUMENTATION = r'''
 ---
@@ -10,376 +10,455 @@ module: technitium_dns_add_record
 short_description: Add a DNS record to a Technitium DNS zone
 version_added: "0.0.1"
 description:
-    - Add a DNS resource record to a Technitium DNS authoritative zone using its API.
+    - Add a DNS record to a Technitium DNS zone.
+    - The module supports all common DNS record types.
+    - Some parameters are only valid or required for specific record types.
+    - For example, C(ipAddress) is required for A and AAAA records, while C(cname) is required for CNAME records.
+seealso:
+    - module: effectivelywild.technitium_dns.technitium_dns_delete_record
+      description: Used to delete DNS records
+    - module: effectivelywild.technitium_dns.technitium_dns_update_record
+      description: Used to update DNS records
 options:
-    api_url:
+    algorithm:
         description:
-            - Base URL for the Technitium DNS API (e.g., http://localhost)
-            - Do not include the port; use the 'port' parameter instead.
-        required: true
+            - Algorithm (DS only)
+        choices:
+            - RSAMD5
+            - DSA
+            - RSASHA1
+            - DSA-NSEC3-SHA1
+            - RSASHA1-NSEC3-SHA1
+            - RSASHA256
+            - RSASHA512
+            - ECC-GOST
+            - ECDSAP256SHA256
+            - ECDSAP384SHA384
+            - ED25519
+            - ED448
+        required: false
         type: str
-    port:
+    aname:
         description:
-            - Port for the Technitium DNS API. Defaults to 5380.
+            - ANAME target (ANAME only)
+        required: false
+        type: str
+    api_port:
+        description:
+            - Port for the Technitium DNS API. Defaults to 5380
         required: false
         type: int
         default: 5380
     api_token:
         description:
-            - API token for authenticating with the Technitium DNS API.
+            - API token for authenticating with the Technitium DNS API
         required: true
         type: str
-    validate_certs:
+    api_url:
         description:
-            - Whether to validate SSL certificates when making API requests.
-            - Set to false to disable SSL certificate validation (not recommended for production).
-        required: false
-        type: bool
-        default: true
-    name:
-        description:
-            - The record name (e.g., test.example.com).
-            - The use of domain is also supported to align with API.
+            - Base URL for the Technitium DNS API (e.g., http://localhost)
         required: true
         type: str
-    zone:
+    appName:
         description:
-            - The authoritative zone name (optional, defaults to closest match).
-        required: false
-        type: str
-    type:
-        description:
-            - The DNS record type (A, AAAA, CNAME, MX, etc).
-        required: true
-        type: str
-    ttl:
-        description:
-            - TTL for the record in seconds.
-        required: false
-        type: int
-    overwrite:
-        description:
-            - Overwrite existing record set for this type.
-        required: false
-        type: bool
-        default: false
-    comments:
-        description:
-            - Comments for the record.
-        required: false
-        type: str
-    expiryTtl:
-        description:
-            - Expiry in seconds for auto-deletion.
-        required: false
-        type: int
-    ipAddress:
-        description:
-            - IP address for A/AAAA record.
-        required: false
-        type: str
-    ptr:
-        description:
-            - Add reverse PTR record (A/AAAA only).
-        required: false
-        type: bool
-    createPtrZone:
-        description:
-            - Create reverse zone for PTR (A/AAAA only).
-        required: false
-        type: bool
-    updateSvcbHints:
-        description:
-            - Update SVCB/HTTPS hints (A/AAAA only).
-        required: false
-        type: bool
-    nameServer:
-        description:
-            - Name server domain (NS only).
-        required: false
-        type: str
-    glue:
-        description:
-            - Glue address for NS record.
-        required: false
-        type: str
-    cname:
-        description:
-            - CNAME target (CNAME only).
-        required: false
-        type: str
-    ptrName:
-        description:
-            - PTR domain name (PTR only).
-        required: false
-        type: str
-    exchange:
-        description:
-            - MX exchange domain (MX only).
-        required: false
-        type: str
-    preference:
-        description:
-            - MX preference (MX only).
-        required: false
-        type: int
-    text:
-        description:
-            - TXT record text (TXT only).
-        required: false
-        type: str
-    splitText:
-        description:
-            - Split TXT into multiple strings (TXT only).
-        required: false
-        type: bool
-    mailbox:
-        description:
-            - Responsible mailbox for MX record.
-        required: false
-        type: str
-    txtDomain:
-        description:
-            - Domain for TXT record (if different from the main domain).
-        required: false
-        type: str
-    priority:
-        description:
-            - Priority for SRV record.
-        required: false
-        type: int
-    weight:
-        description:
-            - Weight for SRV record.
-        required: false
-        type: int
-    port:
-        description:
-            - Port for SRV record.
-        required: false
-        type: int
-    target:
-        description:
-            - Target for SRV record.
-        required: false
-        type: str
-    naptrOrder:
-        description:
-            - Order for NAPTR record.
-        required: false
-        type: int
-    naptrPreference:
-        description:
-            - Preference for NAPTR record.
-        required: false
-        type: int
-    naptrFlags:
-        description:
-            - Flags for NAPTR record.
-        required: false
-        type: str
-    naptrServices:
-        description:
-            - Services for NAPTR record.
-        required: false
-        type: str
-    naptrRegexp:
-        description:
-            - Regular expression for NAPTR record.
-        required: false
-        type: str
-    naptrReplacement:
-        description:
-            - Replacement string for NAPTR record.
-        required: false
-        type: str
-    dname:
-        description:
-            - DNAME target.
-        required: false
-        type: str
-    keyTag:
-        description:
-            - Key tag for DNSKEY record.
-        required: false
-        type: int
-    algorithm:
-        description:
-            - Algorithm for DNSKEY record.
-        required: false
-        type: str
-    digestType:
-        description:
-            - Digest type for DS and SSHFP records.
-        required: false
-        type: str
-    digest:
-        description:
-            - Digest for DS and SSHFP records.
-        required: false
-        type: str
-    sshfpAlgorithm:
-        description:
-            - SSHFP algorithm.
-        required: false
-        type: str
-    sshfpFingerprintType:
-        description:
-            - SSHFP fingerprint type.
-        required: false
-        type: str
-    sshfpFingerprint:
-        description:
-            - SSHFP fingerprint.
-        required: false
-        type: str
-    tlsaCertificateUsage:
-        description:
-            - TLSA certificate usage.
-        required: false
-        type: str
-    tlsaSelector:
-        description:
-            - TLSA selector.
-        required: false
-        type: str
-    tlsaMatchingType:
-        description:
-            - TLSA matching type.
-        required: false
-        type: str
-    tlsaCertificateAssociationData:
-        description:
-            - TLSA certificate association data.
-        required: false
-        type: str
-    svcPriority:
-        description:
-            - SVCB/HTTPS priority.
-        required: false
-        type: int
-    svcTargetName:
-        description:
-            - SVCB/HTTPS target name.
-        required: false
-        type: str
-    svcParams:
-        description:
-            - SVCB/HTTPS parameters.
+            - Application name (APP only)
         required: false
         type: str
     autoIpv4Hint:
         description:
-            - Automatic IPv4 hint.
+            - Automatic IPv4 hint (SVCB and HTTPS only)
         required: false
         type: bool
     autoIpv6Hint:
         description:
-            - Automatic IPv6 hint.
+            - Automatic IPv6 hint (SVCB and HTTPS only)
         required: false
         type: bool
-    uriPriority:
+    classPath:
         description:
-            - URI priority.
-        required: false
-        type: int
-    uriWeight:
-        description:
-            - URI weight.
-        required: false
-        type: int
-    uri:
-        description:
-            - URI target.
+            - Class path (APP only)
         required: false
         type: str
+    cname:
+        description:
+            - CNAME target (CNAME only)
+        required: false
+        type: str
+    comments:
+        description:
+            - Comments for the record
+        required: false
+        type: str
+    createPtrZone:
+        description:
+            - Create reverse zone for PTR (A/AAAA only)
+        required: false
+        type: bool
+    digest:
+        description:
+            - Digest (DS and SSHFP only)
+        required: false
+        type: str
+    digestType:
+        description:
+            - Digest type (DS and SSHFP only)
+        choices:
+            - SHA1
+            - SHA256
+            - GOST-R-34-11-94
+            - SHA384
+        required: false
+        type: str
+    dname:
+        description:
+            - DNAME target (DNAME only)
+        required: false
+        type: str
+    dnssecValidation:
+        description:
+            - DNSSEC validation flag (FWD only)
+        required: false
+        type: bool
+    exchange:
+        description:
+            - MX exchange domain (MX only)
+        required: false
+        type: str
+    expiryTtl:
+        description:
+            - Expiry in seconds for auto-deletion
+        required: false
+        type: int
     flags:
         description:
-            - Flags for CAA record.
-        required: false
-        type: str
-    tag:
-        description:
-            - Tag for CAA record.
-        required: false
-        type: str
-    value:
-        description:
-            - Value for CAA record.
-        required: false
-        type: str
-    aname:
-        description:
-            - ANAME target.
-        required: false
-        type: str
-    protocol:
-        description:
-            - Protocol for FWD record.
+            - Flags (CAA only)
         required: false
         type: str
     forwarder:
         description:
-            - Forwarder address for FWD record.
+            - Forwarder address (FWD only)
         required: false
         type: str
     forwarderPriority:
         description:
-            - Forwarder priority for FWD record.
+            - Forwarder priority (FWD only)
         required: false
         type: int
-    dnssecValidation:
+    glue:
         description:
-            - DNSSEC validation flag.
+            - Glue address (NS only)
+        required: false
+        type: str
+    ipAddress:
+        description:
+            - IP address (A/AAAA only)
+        required: false
+        type: str
+    keyTag:
+        description:
+            - Key tag (DS only)
+        required: false
+        type: int
+    mailbox:
+        description:
+            - Responsible mailbox (MX only)
+        required: false
+        type: str
+    name:
+        description:
+            - The record name (e.g., test.example.com)
+            - The use of domain is also supported to align with API
+        required: true
+        type: str
+    nameServer:
+        description:
+            - Name server domain (NS only)
+        required: false
+        type: str
+    naptrFlags:
+        description:
+            - Flags (NAPTR only)
+        required: false
+        type: str
+    naptrOrder:
+        description:
+            - Order (NAPTR only)
+        required: false
+        type: int
+    naptrPreference:
+        description:
+            - Preference (NAPTR only)
+        required: false
+        type: int
+    naptrRegexp:
+        description:
+            - Regular expression (NAPTR only)
+        required: false
+        type: str
+    naptrReplacement:
+        description:
+            - Replacement string (NAPTR only)
+        required: false
+        type: str
+    naptrServices:
+        description:
+            - Services (NAPTR only)
+        required: false
+        type: str
+    overwrite:
+        description:
+            - Overwrite existing record set for this type
         required: false
         type: bool
-    proxyType:
+        default: false
+    preference:
         description:
-            - Proxy type for FWD record.
+            - MX preference (MX only)
+        required: false
+        type: int
+    priority:
+        description:
+            - Priority (SRV only)
+        required: false
+        type: int
+    protocol:
+        description:
+            - Protocol (FWD only)
+        choices:
+            - Udp
+            - Tcp
+            - Tls
+            - Https
+            - Quic
         required: false
         type: str
     proxyAddress:
         description:
-            - Proxy address for FWD record.
-        required: false
-        type: str
-    proxyPort:
-        description:
-            - Proxy port for FWD record.
-        required: false
-        type: int
-    proxyUsername:
-        description:
-            - Proxy username for FWD record.
+            - Proxy address (FWD only)
         required: false
         type: str
     proxyPassword:
         description:
-            - Proxy password for FWD record.
+            - Proxy password (FWD only)
         required: false
         type: str
-    appName:
+    proxyPort:
         description:
-            - Application name for APP record.
+            - Proxy port (FWD only)
+        required: false
+        type: int
+    proxyType:
+        description:
+            - Proxy type (FWD only)
+        choices:
+            - NoProxy
+            - DefaultProxy
+            - Http
+            - Socks5
         required: false
         type: str
-    classPath:
+    proxyUsername:
         description:
-            - Class path for APP record.
+            - Proxy username (FWD only)
         required: false
         type: str
-    recordData:
+    ptr:
         description:
-            - Record data for APP record.
+            - Add reverse PTR record (A/AAAA only)
+        required: false
+        type: bool
+    ptrName:
+        description:
+            - PTR domain name (PTR only)
         required: false
         type: str
     rdata:
         description:
-            - Used for adding unknown i.e. unsupported record types. The value must be formatted as a hex string or a colon separated hex string
+            - Used for adding unknown i.e. unsupported record types (UNKNOWN Only)
+            - The value must be formatted as a hex string or a colon separated hex string
+        required: false
+        type: str
+    recordData:
+        description:
+            - Record data (APP only)
+        required: false
+        type: str
+    splitText:
+        description:
+            - Split TXT into multiple strings (TXT only)
+        required: false
+        type: bool
+    sshfpAlgorithm:
+        description:
+            - SSHFP algorithm (SSHFP only)
+        choices:
+            - RSA
+            - DSA
+            - ECDSA
+            - Ed25519
+            - Ed448
+        required: false
+        type: str
+    sshfpFingerprint:
+        description:
+            - SSHFP fingerprint (SSHFP only)
+        required: false
+        type: str
+    sshfpFingerprintType:
+        description:
+            - SSHFP fingerprint type (SSHFP only)
+        choices:
+            - SHA1
+            - SHA256
+        required: false
+        type: str
+    srv_port:
+        description:
+            - Port (SRV only)
+        required: false
+        type: int
+    svcParams:
+        description:
+            - SVCB/HTTPS parameters (SVCB and HTTPS only)
+        required: false
+        type: str
+    svcPriority:
+        description:
+            - SVCB/HTTPS priority (SVCB and HTTPS only)
+        required: false
+        type: int
+    svcTargetName:
+        description:
+            - SVCB/HTTPS target name (SVCB and HTTPS only)
+        required: false
+        type: str
+    tag:
+        description:
+            - Tag (CAA only)
+        required: false
+        type: str
+    target:
+        description:
+            - Target (SRV only)
+        required: false
+        type: str
+    text:
+        description:
+            - TXT record text (TXT only)
+        required: false
+        type: str
+    tlsaCertificateAssociationData:
+        description:
+            - TLSA certificate association data (TLSA only)
+        required: false
+        type: str
+    tlsaCertificateUsage:
+        description:
+            - TLSA certificate usage (TLSA only)
+        choices: 
+            - PKIX-TA
+            - PKIX-EE
+            - DANE-TA
+            - DANE-EE
+        required: false
+        type: str
+    tlsaMatchingType:
+        description:
+            - TLSA matching type (TLSA only)
+        choices:
+            - Full
+            - SHA2-256
+            - SHA2-512
+        required: false
+        type: str
+    tlsaSelector:
+        description:
+            - TLSA selector (TLSA only)
+        choices:
+            - Cert
+            - SPKI
+        required: false
+        type: str
+    ttl:
+        description:
+            - TTL for the record in seconds
+        required: false
+        type: int
+    txtDomain:
+        description:
+            - Domain for TXT record (if different from the main domain, TXT only)
+        required: false
+        type: str
+    type:
+        description:
+            - The DNS record type
+        choices:
+            - A
+            - AAAA
+            - ANAME
+            - APP
+            - CNAME
+            - CAA
+            - DNAME
+            - DS
+            - FWD
+            - HTTPS
+            - MX
+            - NAPTR
+            - NS
+            - PTR
+            - SSHFP
+            - SRV
+            - SVCB
+            - TLSA
+            - TXT
+            - UNKNOWN
+            - URI
+        required: true
+        type: str
+    updateSvcbHints:
+        description:
+            - Update SVCB/HTTPS hints (A/AAAA only)
+        required: false
+        type: bool
+    uri:
+        description:
+            - URI target (URI only)
+        required: false
+        type: str
+    uriPriority:
+        description:
+            - URI priority (URI only)
+        required: false
+        type: int
+    uriWeight:
+        description:
+            - URI weight (URI only)
+        required: false
+        type: int
+    validate_certs:
+        description:
+            - Whether to validate SSL certificates when making API requests
+            - Set to false to disable SSL certificate validation
+        required: false
+        type: bool
+        default: true
+    value:
+        description:
+            - Value (CAA only)
+        required: false
+        type: str
+    weight:
+        description:
+            - Weight (SRV only)
+        required: false
+        type: int
+    zone:
+        description:
+            - The authoritative zone name (optional, defaults to closest match)
         required: false
         type: str
 '''
-
 EXAMPLES = r'''
 # Basic A record
 - name: Add an A record
@@ -387,7 +466,6 @@ EXAMPLES = r'''
     api_url: "http://localhost"
     api_token: "myapitoken"
     name: "www.example.com"
-    zone: "example.com"
     type: "A"
     ipAddress: "192.0.2.1"
     ttl: 3600
@@ -538,8 +616,8 @@ EXAMPLES = r'''
     api_token: "myapitoken"
     name: "server.example.com"
     type: "SSHFP"
-    sshfpAlgorithm: 1
-    sshfpFingerprintType: 1
+    sshfpAlgorithm: RSA
+    sshfpFingerprintType: SHA256
     sshfpFingerprint: "123456789abcdef67890123456789abcdef67890"
     ttl: 3600
 
@@ -577,9 +655,9 @@ EXAMPLES = r'''
     name: "_443._tcp.example.com"
     zone: "example.com"
     type: "TLSA"
-    tlsaCertificateUsage: 3
-    tlsaSelector: 1
-    tlsaMatchingType: 1
+    tlsaCertificateUsage: PKIX-TA
+    tlsaSelector: Cert
+    tlsaMatchingType: SHA2-256
     tlsaCertificateAssociationData: "abcdef1234567890abcdef1234567890abcdef12"
     ttl: 3600
 
@@ -605,10 +683,22 @@ EXAMPLES = r'''
     zone: "example.com"
     type: "DS"
     keyTag: 12345
-    algorithm: 7
-    digestType: 1
+    algorithm: RSASHA256
+    digestType: SHA256
     digest: "abcdef1234567890abcdef1234567890abcdef1234567890"
     ttl: 86400
+
+# FWD record
+- name: Add a FWD record
+  technitium_dns_add_record:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    name: "fwdrec.fwd.example.com"
+    zone: "fwd.example.com"
+    type: "FWD"
+    protocol: Udp, 
+    forwarder: 192.0.2.10
+    forwarderPriority: 10
 
 # Record with overwrite and comments
 - name: Add record with overwrite and comments
@@ -647,7 +737,138 @@ EXAMPLES = r'''
     ipAddress: "192.0.2.50"
     ttl: 3600
     validate_certs: true
+'''
+RETURN = r''' 
+api_response:
+    description: The raw response from the Technitium DNS API.
+    type: dict
+    returned: always
+    contains:
+        response:
+            description: The core data payload from the API.
+            type: dict
+            returned: always
+            contains:
+                addedRecord:
+                    description: The details of the record that was added or modified.
+                    type: dict
+                    returned: always
+                    contains:
+                        disabled:
+                            description: Whether the record is disabled.
+                            type: bool
+                            returned: always
+                        dnssecStatus:
+                            description: The DNSSEC status of the record.
+                            type: str
+                            returned: always
+                        expiryTtl:
+                            description: The record's expiration TTL in seconds.
+                            type: int
+                            returned: always
+                        expiryTtlString:
+                            description: The record's expiration TTL as a human-readable string.
+                            type: str
+                            returned: always
+                        lastModified:
+                            description: The date and time the record was last modified.
+                            type: str
+                            returned: always
+                        lastUsedOn:
+                            description: The date and time the record was last used.
+                            type: str
+                            returned: always
+                        name:
+                            description: The full domain name of the record.
+                            type: str
+                            returned: always
+                        rData:
+                            description: The data specific to the record type.
+                            type: dict
+                            returned: always
+                            contains:
+                                ipAddress:
+                                    description: The IP address for A/AAAA records.
+                                    type: str
+                                    returned: when record is of type A or AAAA
+                                otherOptions:
+                                    description: Other options that would have been passed when creating the record
+                                    type: str
+                                    returned: When option was used adding that record, don't want to add every option here
+                        ttl:
+                            description: The record's TTL in seconds.
+                            type: int
+                            returned: always
+                        ttlString:
+                            description: The record's TTL as a human-readable string.
+                            type: str
+                            returned: always
+                        type:
+                            description: The type of the DNS record.
+                            type: str
+                            returned: always
+                zone:
+                    description: Information about the zone the record belongs to.
+                    type: dict
+                    returned: always
+                    contains:
+                        catalog:
+                            description: The zone's catalog.
+                            type: str
+                            returned: always
+                        disabled:
+                            description: Whether the zone is disabled.
+                            type: bool
+                            returned: always
+                        dnssecStatus:
+                            description: The DNSSEC status of the zone.
+                            type: str
+                            returned: always
+                        internal:
+                            description: Whether the zone is internal.
+                            type: bool
+                            returned: always
+                        lastModified:
+                            description: The date and time the zone was last modified.
+                            type: str
+                            returned: always
+                        name:
+                            description: The name of the zone.
+                            type: str
+                            returned: always
+                        notifyFailed:
+                            description: Whether zone notification failed.
+                            type: bool
+                            returned: always
+                        notifyFailedFor:
+                            description: A list of hosts for which notification failed.
+                            type: list
+                            returned: always
+                        soaSerial:
+                            description: The SOA serial number of the zone.
+                            type: int
+                            returned: always
+                        type:
+                            description: The type of the zone.
+                            type: str
+                            returned: always
+        status:
+            description: The status of the API request.
+            type: str
+            returned: always
 
+changed:
+    description: A boolean indicating if the module made changes to the system.
+    returned: always
+    type: bool
+failed:
+    description: A boolean indicating if the module failed.
+    returned: always
+    type: bool
+msg:
+    description: A message indicating the result of the operation.
+    returned: always
+    type: str
 '''
 
 class AddRecordModule(TechnitiumModule):

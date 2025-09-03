@@ -1,3 +1,5 @@
 # Test output directories
 tests/output/
 out
+.venv/
+dest/
