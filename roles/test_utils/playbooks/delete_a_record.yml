@@ -1,0 +1,32 @@
+- name: Delete record test and return response
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - "{{ playbook_dir }}/../../../tests/integration/integration_config.yml"
+  tasks:
+    - name: Debug technitium_api_url
+      debug:
+        var: technitium_api_url
+        
+    - name: Add record
+      technitium_dns_add_record:
+        api_url: "{{ technitium_api_url }}"
+        api_token: "{{ technitium_api_token }}"
+        api_port: "{{ technitium_api_port }}"
+        name: "arecord.test-primary.example.com"
+        type: "A"
+        ipAddress: "192.0.2.1"
+
+    - name: Delete record
+      technitium_dns_delete_record:
+        api_url: "{{ technitium_api_url }}"
+        api_token: "{{ technitium_api_token }}"
+        api_port: "{{ technitium_api_port }}"
+        name: "arecord.test-primary.example.com"
+        type: "A"
+        ipAddress: "192.0.2.1"
+      register: delete_record
+
+    - name: Debug record
+      ansible.builtin.debug:
+        var: delete_record

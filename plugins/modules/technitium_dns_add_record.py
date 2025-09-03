@@ -11,7 +11,7 @@ short_description: Add a DNS record to a Technitium DNS zone
 version_added: "0.0.1"
 description:
     - Add a DNS record to a Technitium DNS zone.
-    - The module supports all common DNS record types.
+    - The module supports all DNS record types.
     - Some parameters are only valid or required for specific record types.
     - For example, C(ipAddress) is required for A and AAAA records, while C(cname) is required for CNAME records.
 seealso:
@@ -19,6 +19,8 @@ seealso:
       description: Used to delete DNS records
     - module: effectivelywild.technitium_dns.technitium_dns_update_record
       description: Used to update DNS records
+    - module: effectivelywild.technitium_dns.technitium_dns_get_record
+      description: Used to get DNS record details
 options:
     algorithm:
         description:
