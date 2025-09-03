@@ -1,0 +1,393 @@
+---
+# FWD Record Tests
+
+- name: "Define FWD test records (forwarder zone only)"
+  ansible.builtin.set_fact:
+    add_fwd_test_records:
+      - { idx: 1, name: basic-fwd,   protocol: Udp, forwarder: 192.0.2.10,   forwarderPriority: 10, comments: "Basic FWD with priority", zone: "{{ forwarder_zone_name }}" }
+      - { idx: 2, name: proxy-fwd,   protocol: Udp, forwarder: 2001:db8::20, forwarderPriority: 20, proxyType: Http, proxyAddress: proxy.example.com, proxyPort: 8080, proxyUsername: user1, proxyPassword: pass1, zone: "{{ forwarder_zone_name }}" }
+      - { idx: 3, name: dnssec-fwd,  protocol: Udp, forwarder: 192.0.2.30,   forwarderPriority: 5,  dnssecValidation: true, comments: "DNSSEC validating forwarder", zone: "{{ forwarder_zone_name }}" }
+    # Overwrite test record (will overwrite basic-fwd)
+    overwrite_fwd_record:
+      idx: 1
+      name: basic-fwd
+      zone: "{{ forwarder_zone_name }}"
+      protocol: Udp
+      forwarder: 203.0.113.53
+      forwarderPriority: 99
+      comments: "Overwrite test comment"
+
+# Phase 1: Check mode
+- name: "Check mode - Add FWD records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: FWD
+    protocol: "{{ rec.protocol }}"
+    forwarder: "{{ rec.forwarder }}"
+    forwarderPriority: "{{ rec.forwarderPriority }}"
+    dnssecValidation: "{{ rec.dnssecValidation | default(omit) }}"
+    proxyType: "{{ rec.proxyType | default(omit) }}"
+    proxyAddress: "{{ rec.proxyAddress | default(omit) }}"
+    proxyPort: "{{ rec.proxyPort | default(omit) }}"
+    proxyUsername: "{{ rec.proxyUsername | default(omit) }}"
+    proxyPassword: "{{ rec.proxyPassword | default(omit) }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_fwd_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: plan_fwd_results
+
+- name: "Assert change"
+  ansible.builtin.assert:
+    that:
+      - (plan_fwd_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 2: external verify absence via get_records
+- name: "Verify check_mode didn't add records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+  loop: "{{ add_fwd_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: absent_get_fwd_results
+  ignore_errors: true
+
+- name: Debug absent_get_fwd_results
+  ansible.builtin.debug:
+    var: absent_get_fwd_results
+  when: debug | default(false)
+
+- name: "Assert no records were found"
+  ansible.builtin.assert:
+    that:
+      - (absent_get_fwd_results.results | map(attribute='failed') | list | unique) == [ true ]
+
+# Phase 3: real creation
+- name: "Create FWD records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: FWD
+    protocol: "{{ rec.protocol }}"
+    forwarder: "{{ rec.forwarder }}"
+    forwarderPriority: "{{ rec.forwarderPriority }}"
+    dnssecValidation: "{{ rec.dnssecValidation | default(omit) }}"
+    proxyType: "{{ rec.proxyType | default(omit) }}"
+    proxyAddress: "{{ rec.proxyAddress | default(omit) }}"
+    proxyPort: "{{ rec.proxyPort | default(omit) }}"
+    proxyUsername: "{{ rec.proxyUsername | default(omit) }}"
+    proxyPassword: "{{ rec.proxyPassword | default(omit) }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_fwd_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Create: {{ rec.idx }}-{{ rec.name }}.{{ rec.zone }}"
+  register: create_fwd_results
+
+- name: "Assert creations changed"
+  ansible.builtin.assert:
+    that:
+      - (create_fwd_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 4: verify presence via get_records
+- name: "Get FWD records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+  loop: "{{ add_fwd_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: present_get_fwd_results
+
+- name: Debug present_get_fwd_results
+  debug:
+    var: present_get_fwd_results
+  when: debug | default(false)
+
+- name: "Assert records exist"
+  ansible.builtin.assert:
+    that: (present_get_fwd_results.results | map(attribute='api_response.status') | list | unique) == ['ok']
+    quiet: true
+
+- name: "Assert FWD record parameters match request"
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','FWD')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.protocol) == item.rec.protocol
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','FWD')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.forwarder) == item.rec.forwarder
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','FWD')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.priority | int) == (item.rec.forwarderPriority | int)
+      - >-
+        ('dnssecValidation' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','FWD')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).rData.dnssecValidation | string) == (item.rec.dnssecValidation | string)
+        )
+      - >-
+        ('proxyType' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','FWD')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).rData.proxyType) == item.rec.proxyType
+        )
+      - >-
+        ('proxyAddress' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','FWD')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).rData.proxyAddress) == item.rec.proxyAddress
+        )
+      - >-
+        ('proxyPort' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','FWD')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).rData.proxyPort | int) == (item.rec.proxyPort | int)
+        )
+      - >-
+        ('proxyUsername' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','FWD')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).rData.proxyUsername) == item.rec.proxyUsername
+        )
+      - >-
+        ('proxyPassword' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','FWD')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).rData.proxyPassword) == item.rec.proxyPassword
+        )
+      - >-
+        ('ttl' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','FWD')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).ttl | int) == (item.rec.ttl | int)
+        )
+      - >-
+        ('comments' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','FWD')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).comments | default(item.rec.comments)) == item.rec.comments
+        )
+    quiet: true
+  loop: "{{ present_get_fwd_results.results }}"
+  loop_control:
+    label: "Params: {{ item.rec.name }}.{{ item.rec.zone }}"
+
+# Phase 5: re-plan (no change)
+- name: "Check mode: Re-add FWD records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: FWD
+    protocol: "{{ rec.protocol }}"
+    forwarder: "{{ rec.forwarder }}"
+    forwarderPriority: "{{ rec.forwarderPriority }}"
+    dnssecValidation: "{{ rec.dnssecValidation | default(omit) }}"
+    proxyType: "{{ rec.proxyType | default(omit) }}"
+    proxyAddress: "{{ rec.proxyAddress | default(omit) }}"
+    proxyPort: "{{ rec.proxyPort | default(omit) }}"
+    proxyUsername: "{{ rec.proxyUsername | default(omit) }}"
+    proxyPassword: "{{ rec.proxyPassword | default(omit) }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_fwd_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: replan_fwd_results
+
+- name: "Assert re-add had no changes"
+  ansible.builtin.assert:
+    that:
+      - (replan_fwd_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 6: re-run real (no change)
+- name: "Idempotency: Re-run add FWD records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: FWD
+    protocol: "{{ rec.protocol }}"
+    forwarder: "{{ rec.forwarder }}"
+    forwarderPriority: "{{ rec.forwarderPriority }}"
+    dnssecValidation: "{{ rec.dnssecValidation | default(omit) }}"
+    proxyType: "{{ rec.proxyType | default(omit) }}"
+    proxyAddress: "{{ rec.proxyAddress | default(omit) }}"
+    proxyPort: "{{ rec.proxyPort | default(omit) }}"
+    proxyUsername: "{{ rec.proxyUsername | default(omit) }}"
+    proxyPassword: "{{ rec.proxyPassword | default(omit) }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_fwd_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Recreate: {{ rec.name }}.{{ rec.zone }}"
+  register: rerun_fwd_results
+
+- name: "Assert re-run no changes"
+  ansible.builtin.assert:
+    that:
+      - (rerun_fwd_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 7: overwrite tests
+- name: "Overwrite FWD record (basic-fwd) with new values"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_fwd_record.name }}.{{ overwrite_fwd_record.zone }}"
+    zone: "{{ overwrite_fwd_record.zone }}"
+    type: FWD
+    protocol: "{{ overwrite_fwd_record.protocol }}"
+    forwarder: "{{ overwrite_fwd_record.forwarder }}"
+    forwarderPriority: "{{ overwrite_fwd_record.forwarderPriority }}"
+    comments: "{{ overwrite_fwd_record.comments }}"
+    overwrite: true
+  register: overwrite_fwd_result
+
+- name: "Assert overwrite operation reports changed"
+  ansible.builtin.assert:
+    that:
+      - overwrite_fwd_result.changed
+
+- name: "Fetch overwritten FWD record for presence (get_records)"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_fwd_record.name }}.{{ overwrite_fwd_record.zone }}"
+    zone: "{{ overwrite_fwd_record.zone }}"
+  register: overwritten_fwd_get_result
+
+- name: Debug overwritten_fwd_get_result
+  ansible.builtin.debug:
+    var: overwritten_fwd_get_result
+  when: debug | default(false)
+
+- name: "Assert overwritten FWD record has new values"
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((overwritten_fwd_get_result.records | default([])
+           | selectattr('type','equalto','FWD')
+           | selectattr('name','equalto', (overwrite_fwd_record.name ~ '.' ~ overwrite_fwd_record.zone))
+           | list | first).rData.protocol) == overwrite_fwd_record.protocol
+      - >-
+        ((overwritten_fwd_get_result.records | default([])
+           | selectattr('type','equalto','FWD')
+           | selectattr('name','equalto', (overwrite_fwd_record.name ~ '.' ~ overwrite_fwd_record.zone))
+           | list | first).rData.forwarder) == overwrite_fwd_record.forwarder
+      - >-
+        ((overwritten_fwd_get_result.records | default([])
+           | selectattr('type','equalto','FWD')
+           | selectattr('name','equalto', (overwrite_fwd_record.name ~ '.' ~ overwrite_fwd_record.zone))
+           | list | first).rData.priority | int) == (overwrite_fwd_record.forwarderPriority | int)
+      - >-
+        ((overwritten_fwd_get_result.records | default([])
+           | selectattr('type','equalto','FWD')
+           | selectattr('name','equalto', (overwrite_fwd_record.name ~ '.' ~ overwrite_fwd_record.zone))
+           | list | first).comments) == overwrite_fwd_record.comments
+
+# Phase 8: negative tests
+- name: "Negative: missing forwarder"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-missing-forwarder.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
+    protocol: Udp
+  register: neg_fwd_missing_forwarder
+  ignore_errors: true
+
+- name: Debug neg_fwd_missing_forwarder
+  ansible.builtin.debug:
+    var: neg_fwd_missing_forwarder
+  when: debug | default(false)
+
+- name: Assert failure of missing forwarder
+  ansible.builtin.assert:
+    that:
+      - neg_fwd_missing_forwarder.failed
+      - "'forwarder' in (neg_fwd_missing_forwarder.msg | default(''))"
+
+- name: "Negative: unsupported param for FWD (cname)"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-badparam-fwd.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
+    protocol: Udp
+    forwarder: 192.0.2.200
+    cname: other.example.com
+  register: neg_fwd_bad_param
+  ignore_errors: true
+  
+- name: Assert failure of unsupported param
+  ansible.builtin.assert:
+    that:
+      - neg_fwd_bad_param.failed
+      - "'cname' in (neg_fwd_bad_param.msg | default(''))"
+
+- name: "Negative: invalid API token"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: BADTOKEN
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-badtoken-fwd.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
+    protocol: Udp
+    forwarder: 192.0.2.210
+  register: neg_fwd_bad_token
+  ignore_errors: true
+
+- name: Assert failure of invalid API token
+  ansible.builtin.assert:
+    that:
+      - neg_fwd_bad_token.failed
+      - "'Invalid token' in (neg_fwd_bad_token.msg)"

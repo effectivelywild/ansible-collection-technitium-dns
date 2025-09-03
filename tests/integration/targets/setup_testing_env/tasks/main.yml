@@ -1,0 +1,49 @@
+---
+- name: Convert dns_servers_to_create
+  set_fact:
+    dns_servers: "{{ dns_servers | default({}) | combine({ item.name: item }) }}"
+  loop: "{{ dns_servers_to_create }}"
+
+- name: "Create Technitium containers"
+  docker_container:
+    name: "{{ item.name }}"
+    image: technitium/dns-server
+    state: started
+    ports:
+     - "{{ item.http_port }}:5380/tcp"
+     - "{{ item.https_port }}:53443/tcp"
+    volumes:
+      - "{{ item.name }}-config:/etc/dns"
+    restart_policy: unless-stopped
+    sysctls:
+      net.ipv4.ip_local_port_range: "1024 65000"
+    env:
+      DNS_SERVER_DOMAIN: testing.local
+      DNS_SERVER_ADMIN_PASSWORD: "{{ dns_server_admin_password }}"
+  loop: "{{ dns_servers_to_create }}"
+
+- name: Create API token for both containers
+  ansible.builtin.uri:
+    url: "http://localhost:{{ item.http_port }}/api/user/createToken?user=admin&pass={{ dns_server_admin_password }}&tokenName=MyToken1"
+    method: GET
+  loop: "{{ dns_servers_to_create }}"
+  register: api_token
+
+- name: Set facts for each Technitium container
+  set_fact:
+    technitium_tokens: "{{ technitium_tokens | default({}) | combine({ item.item.name: {
+      'token': item.json.token
+    } }) }}"
+  loop: "{{ api_token.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+
+- name: Print technitium_tokens
+  ansible.builtin.debug:
+    var: technitium_tokens
+
+- name: Update zone options to allow zone transfers
+  ansible.builtin.uri:
+    url: "http://localhost:{{ dns_servers.technitium01.http_port }}/api/zones/options/set?token={{ technitium_tokens.technitium01.token }}&zone={{ item.name }}&zoneTransfer=Allow"
+  loop: "{{ zones_to_create }}"
+

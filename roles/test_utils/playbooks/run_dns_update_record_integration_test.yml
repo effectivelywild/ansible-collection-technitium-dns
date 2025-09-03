@@ -1,0 +1,12 @@
+---
+- name: Run technitium_dns_update_record integration tests
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - "{{ playbook_dir }}/../../../tests/integration/integration_config.yml"
+
+  tasks:
+    - name: Run technitium_dns_update_record integration tests
+      include_tasks: "{{ playbook_dir }}/../../../tests/integration/targets/technitium_dns_update_record/tasks/main.yml"
+      vars:
+        debug: "{{ debug_tests | default(false) }}"

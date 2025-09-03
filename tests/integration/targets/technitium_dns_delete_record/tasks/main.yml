@@ -1,0 +1,98 @@
+---
+- name: "Load zone configuration"
+  include_vars: ../vars/zones.yml
+
+- name: "Cleanup test zones if they exist before starting"
+  include_role:
+    name: test_utils
+  vars:
+    action: "delete_zones"
+    zones_to_delete: "{{ zones_to_create }}"
+
+- name: "Setup test zones"
+  include_role:
+    name: test_utils
+  vars:
+    action: "setup_zones"
+
+- name: "Wait for zone creation to complete"
+  pause:
+    seconds: "{{ creation_verification_delay | default(3) }}"
+
+- name: "Debug zone setup results"
+  debug:
+    var: zone_creation_results
+  when: debug | default(false)
+
+# Include all delete record integration tests in alpha order
+- name: "Include delete A record integration test"
+  ansible.builtin.include_tasks: test_delete_a_records.yml
+
+- name: "Include delete AAAA record integration test"
+  ansible.builtin.include_tasks: test_delete_aaaa_records.yml
+
+- name: "Include delete ANAME record integration test"
+  ansible.builtin.include_tasks: test_delete_aname_records.yml
+
+- name: "Include delete APP record integration test"
+  ansible.builtin.include_tasks: test_delete_app_records.yml
+
+- name: "Include delete CAA record integration test"
+  ansible.builtin.include_tasks: test_delete_caa_records.yml
+
+- name: "Include delete CNAME record integration test"
+  ansible.builtin.include_tasks: test_delete_cname_records.yml
+
+- name: "Include delete DNAME record integration test"
+  ansible.builtin.include_tasks: test_delete_dname_records.yml
+
+- name: "Include delete DS record integration test"
+  ansible.builtin.include_tasks: test_delete_ds_records.yml
+
+- name: "Include delete FWD record integration test"
+  ansible.builtin.include_tasks: test_delete_fwd_records.yml
+
+- name: "Include delete HTTPS record integration test"
+  ansible.builtin.include_tasks: test_delete_https_records.yml
+
+- name: "Include delete MX record integration test"
+  ansible.builtin.include_tasks: test_delete_mx_records.yml
+
+- name: "Include delete NS record integration test"
+  ansible.builtin.include_tasks: test_delete_ns_records.yml
+
+- name: "Include delete PTR record integration test"
+  ansible.builtin.include_tasks: test_delete_ptr_records.yml
+
+- name: "Include delete SRV record integration test"
+  ansible.builtin.include_tasks: test_delete_srv_records.yml
+
+- name: "Include delete SSHFP record integration test"
+  ansible.builtin.include_tasks: test_delete_sshfp_records.yml
+
+- name: "Include delete SVCB record integration test"
+  ansible.builtin.include_tasks: test_delete_svcb_records.yml
+
+- name: "Include delete TLSA record integration test"
+  ansible.builtin.include_tasks: test_delete_tlsa_records.yml
+
+- name: "Include delete TXT record integration test"
+  ansible.builtin.include_tasks: test_delete_txt_records.yml
+
+- name: "Include delete UNKNOWN record integration test"
+  ansible.builtin.include_tasks: test_delete_unknown_records.yml
+
+- name: "Include delete URI record integration test"
+  ansible.builtin.include_tasks: test_delete_uri_records.yml
+
+- name: "Include delete TLSA record integration test"
+  ansible.builtin.include_tasks: test_delete_tlsa_records.yml
+
+- name: "Include delete TXT record integration test"
+  ansible.builtin.include_tasks: test_delete_txt_records.yml
+
+- name: "Include delete UNKNOWN record integration test"
+  ansible.builtin.include_tasks: test_delete_unknown_records.yml
+
+- name: "Include delete URI record integration test"
+  ansible.builtin.include_tasks: test_delete_uri_records.yml

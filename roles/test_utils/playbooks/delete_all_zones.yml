@@ -1,0 +1,33 @@
+- name: Delete all non-internal zones from Technitium DNS
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - "{{ playbook_dir }}/../../../tests/integration/integration_config.yml"
+  tasks:
+    - name: Get all zones
+      technitium_dns_get_zone_info:
+        api_url: "{{ technitium_api_url }}"
+        api_token: "{{ technitium_api_token }}"
+        api_port: "{{ technitium_api_port }}"
+        validate_certs: false
+      register: zone_info
+
+    - name: debug zone_info
+      debug:
+        var: zone_info
+
+    - name: Build list of non-internal zones
+      set_fact:
+        non_internal_zones: "{{ zone_info.zones | rejectattr('internal', 'defined') | map(attribute='name') | list + zone_info.zones | selectattr('internal', 'defined') | selectattr('internal', 'equalto', false) | map(attribute='name') | list }}"
+
+    - name: Delete all non-internal zones
+      technitium_dns_delete_zone:
+        api_url: "{{ technitium_api_url }}"
+        api_token: "{{ technitium_api_token }}"
+        api_port: "{{ technitium_api_port }}"
+        zone: "{{ item }}"
+        validate_certs: false
+      loop: "{{ non_internal_zones }}"
+      loop_control:
+        label: "Deleting - {{ item }}"
+      when: non_internal_zones | length > 0

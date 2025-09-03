@@ -1,0 +1,318 @@
+---
+# CAA Record tests
+
+- name: "Define CAA test records"
+  ansible.builtin.set_fact:
+    add_caa_test_records:
+      - { idx: 1, name: basic-caa,   flags: "0",   tag: issue,  value: "letsencrypt.org",             ttl: 3600,  zone: "{{ primary_zone_name }}" }
+      - { idx: 2, name: longttl-caa, flags: "128", tag: issue,  value: "pki.goog",                    ttl: 86400, zone: "{{ primary_sec_zone_name }}" }
+      - { idx: 3, name: comment-caa, flags: "0",   tag: iodef,  value: "mailto:admin@example.com",    ttl: 7200, comments: "CAA record with comment", zone: "{{ primary_zone_name }}" }
+    # Overwrite test record (will overwrite basic-caa)
+    overwrite_caa_record:
+      idx: 1
+      name: basic-caa
+      flags: "128"
+      tag: issue
+      value: "sectigo.com"
+      ttl: 54321
+      zone: "{{ primary_zone_name }}"
+
+# Phase 1: Check mode
+- name: "Check mode - Add CAA records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: CAA
+    flags: "{{ rec.flags }}"
+    tag: "{{ rec.tag }}"
+    value: "{{ rec.value }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_caa_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: plan_caa_results
+
+- name: "Assert change"
+  ansible.builtin.assert:
+    that:
+      - (plan_caa_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 2: external verify absence via get_records
+- name: "Verify check_mode didn't add records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{rec.name}}.{{ rec.zone }}"
+  loop: "{{ add_caa_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: absent_get_caa_results
+  ignore_errors: true
+
+- name: Debug absent_get_caa_results
+  ansible.builtin.debug:
+    var: absent_get_caa_results
+  when: debug | default(false)
+
+- name: "Assert no records were found"
+  ansible.builtin.assert:
+    that:
+      - (absent_get_caa_results.results | map(attribute='failed') | list | unique) == [ true ]
+
+# Phase 3: real creation
+- name: "Create CAA records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: CAA
+    flags: "{{ rec.flags }}"
+    tag: "{{ rec.tag }}"
+    value: "{{ rec.value }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_caa_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Create: {{ rec.idx }}-{{ rec.name }}.{{ rec.zone }}"
+  register: create_caa_results
+
+- name: "Assert creations changed"
+  ansible.builtin.assert:
+    that:
+      - (create_caa_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 4: verify presence via get_records
+- name: "Get CAA records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+  loop: "{{ add_caa_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: present_get_caa_results
+
+- name: Debug present_get_caa_results
+  ansible.builtin.debug:
+    var: present_get_caa_results
+  when: debug | default(false)
+
+- name: "Assert records exist"
+  ansible.builtin.assert:
+    that: (present_get_caa_results.results | map(attribute='api_response.status') | list | unique) == ['ok']
+    quiet: true
+
+- name: "Assert CAA record parameters match request (flags, tag, value, ttl, comments)"
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','CAA')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.flags | string) == (item.rec.flags | string)
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','CAA')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.tag) == item.rec.tag
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','CAA')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.value) == item.rec.value
+      - >-
+        ('ttl' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','CAA')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).ttl | int) == (item.rec.ttl | int)
+        )
+      - >-
+        ('comments' not in item.rec) or (
+          ((item.records | default([])
+            | selectattr('type','equalto','CAA')
+            | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+            | list | first).comments | default(item.rec.comments)) == item.rec.comments
+        )
+    quiet: true
+  loop: "{{ present_get_caa_results.results }}"
+  loop_control:
+    label: "Params: {{ item.rec.name }}.{{ item.rec.zone }}"
+
+# Phase 5: re-plan (no change)
+- name: "Check mode: Re-add CAA records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: CAA
+    flags: "{{ rec.flags }}"
+    tag: "{{ rec.tag }}"
+    value: "{{ rec.value }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_caa_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: replan_caa_results
+
+- name: "Assert re-add had no changes"
+  ansible.builtin.assert:
+    that:
+      - (replan_caa_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 6: re-run real (no change)
+- name: "Idempotency: Re-run add CAA records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: CAA
+    flags: "{{ rec.flags }}"
+    tag: "{{ rec.tag }}"
+    value: "{{ rec.value }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_caa_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Recreate: {{ rec.name }}.{{ rec.zone }}"
+  register: recreate_caa_results
+
+- name: "Assert re-run no changes"
+  ansible.builtin.assert:
+    that:
+      - (recreate_caa_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 7: overwrite test for CAA record
+- name: "Overwrite CAA record (basic-caa) with new values"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_caa_record.name }}.{{ overwrite_caa_record.zone }}"
+    zone: "{{ overwrite_caa_record.zone }}"
+    type: CAA
+    flags: "{{ overwrite_caa_record.flags }}"
+    tag: "{{ overwrite_caa_record.tag }}"
+    value: "{{ overwrite_caa_record.value }}"
+    ttl: "{{ overwrite_caa_record.ttl }}"
+    overwrite: true
+  register: overwrite_caa_result
+
+- name: "Assert overwrite operation reports changed"
+  ansible.builtin.assert:
+    that:
+      - overwrite_caa_result.changed
+
+- name: "Get overwritten CAA record"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_caa_record.name }}.{{ overwrite_caa_record.zone }}"
+  register: overwritten_caa_get_result
+
+- name: "Assert overwritten CAA record has new values"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (overwritten_caa_get_result.records | default([])
+         | selectattr('type','equalto','CAA')
+         | selectattr('name','equalto', (overwrite_caa_record.name ~ '.' ~ overwrite_caa_record.zone))
+         | list | first).rData.flags | string == overwrite_caa_record.flags | string
+      - >-
+        (overwritten_caa_get_result.records | default([])
+         | selectattr('type','equalto','CAA')
+         | selectattr('name','equalto', (overwrite_caa_record.name ~ '.' ~ overwrite_caa_record.zone))
+         | list | first).rData.tag == overwrite_caa_record.tag
+      - >-
+        (overwritten_caa_get_result.records | default([])
+         | selectattr('type','equalto','CAA')
+         | selectattr('name','equalto', (overwrite_caa_record.name ~ '.' ~ overwrite_caa_record.zone))
+         | list | first).rData.value == overwrite_caa_record.value
+      - >-
+        (overwritten_caa_get_result.records | default([])
+         | selectattr('type','equalto','CAA')
+         | selectattr('name','equalto', (overwrite_caa_record.name ~ '.' ~ overwrite_caa_record.zone))
+         | list | first).ttl == overwrite_caa_record.ttl
+
+# Phase 8: negative tests (CAA specific)
+- name: "Negative CAA: missing flags"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "missing-flags-caa.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: CAA
+    tag: issue
+    value: "letsencrypt.org"
+  register: neg_caa_missing_flags
+  ignore_errors: true
+
+- name: Assert failure of CAA missing flags
+  ansible.builtin.assert:
+    that:
+      - neg_caa_missing_flags.failed
+      - "'flags' in (neg_caa_missing_flags.msg | default(''))"
+
+- name: "Negative CAA: unsupported param (ipAddress)"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-param-caa.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: CAA
+    flags: "0"
+    tag: issue
+    value: "letsencrypt.org"
+    ipAddress: 192.0.2.99
+  register: neg_caa_bad_param
+  ignore_errors: true
+
+- name: Assert failure of CAA unsupported param
+  ansible.builtin.assert:
+    that:
+      - neg_caa_bad_param.failed
+      - "'ipAddress' in (neg_caa_bad_param.msg | default(''))"
+
+- name: "Negative CAA: invalid API token"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: BADTOKEN
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-token-caa.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: CAA
+    flags: "0"
+    tag: issue
+    value: "letsencrypt.org"
+  register: neg_caa_bad_token
+  ignore_errors: true
+
+- name: Assert failure of CAA invalid API token
+  ansible.builtin.assert:
+    that:
+      - neg_caa_bad_token.failed
+      - "'Invalid token' in (neg_caa_bad_token.msg)"

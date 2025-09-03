@@ -1,0 +1,280 @@
+---
+# CNAME Record tests
+
+- name: "Define CNAME test records"
+  ansible.builtin.set_fact:
+    add_cname_test_records:
+      - { idx: 1, name: basic-cname,   cname: "target1.{{ primary_zone_name }}", zone: "{{ primary_zone_name }}" }
+      - { idx: 2, name: longttl-cname, cname: "target-longttl.{{ primary_sec_zone_name }}", zone: "{{ primary_sec_zone_name }}", ttl: 86400 }
+      - { idx: 3, name: comment-cname, cname: "target-comment.{{ primary_zone_name }}", zone: "{{ primary_zone_name }}", ttl: 7200, comments: "CNAME with comment" }
+    # Overwrite test record (will overwrite cname-basic)
+    overwrite_cname_record:
+      idx: 1
+      name: cname-basic
+      zone: "{{ primary_zone_name }}"
+      cname: overwrite-target.example.net
+      comments: "Overwrite test comment"
+
+# Phase 1: Check mode
+- name: "Check mode - Add CNAME records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: CNAME
+    cname: "{{ rec.cname }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_cname_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: plan_cname_results
+
+- name: "Assert change"
+  ansible.builtin.assert:
+    that:
+      - (plan_cname_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 2: external verify absence via get_records
+- name: "Verify check_mode didn't add records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{rec.name}}.{{ rec.zone }}"
+  loop: "{{ add_cname_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: absent_get_cname_results
+  ignore_errors: true
+
+- name: Debug absent_get_cname_results
+  ansible.builtin.debug:
+    var: absent_get_cname_results
+  when: debug | default(false)
+
+- name: "Assert no records were found"
+  ansible.builtin.assert:
+    that:
+      - (absent_get_cname_results.results | map(attribute='failed') | list | unique) == [ true ]
+
+# Phase 3: real creation
+- name: "Create CNAME records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: CNAME
+    cname: "{{ rec.cname }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_cname_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Create: {{ rec.idx }}-{{ rec.name }}.{{ rec.zone }}"
+  register: create_cname_results
+
+- name: "Assert creations changed"
+  ansible.builtin.assert:
+    that:
+      - (create_cname_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 4: verify presence via get_records
+- name: "Get CNAME records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+  loop: "{{ add_cname_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: present_get_cname_results
+
+- name: Debug present_get_cname_results
+  ansible.builtin.debug:
+    var: present_get_cname_results
+  when: debug | default(false)
+
+- name: "Assert records exist"
+  ansible.builtin.assert:
+    that: (present_get_cname_results.results | map(attribute='api_response.status') | list | unique) == ['ok']
+    quiet: true
+
+- name: "Assert CNAME record parameters match request (cname, ttl, comments)"
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','CNAME')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.cname) == item.rec.cname
+      - >-
+        ('ttl' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','CNAME')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).ttl | int) == (item.rec.ttl | int)
+        )
+      - >-
+        ('comments' not in item.rec) or (
+          ((item.records | default([])
+            | selectattr('type','equalto','CNAME')
+            | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+            | list | first).comments | default(item.rec.comments)) == item.rec.comments
+        )
+    quiet: true
+  loop: "{{ present_get_cname_results.results }}"
+  loop_control:
+    label: "Params: {{ item.rec.name }}.{{ item.rec.zone }}"
+
+# Phase 5: re-plan (no change)
+- name: "Check mode: Re-add CNAME records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: CNAME
+    cname: "{{ rec.cname }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_cname_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: replan_cname_results
+
+- name: "Assert re-add had no changes"
+  ansible.builtin.assert:
+    that:
+      - (replan_cname_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 6: re-run real (no change)
+- name: "Idempotency: Re-run add CNAME records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: CNAME
+    cname: "{{ rec.cname }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_cname_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Recreate: {{ rec.name }}.{{ rec.zone }}"
+  register: recreate_cname_results
+
+- name: "Assert re-run no changes"
+  ansible.builtin.assert:
+    that:
+      - (recreate_cname_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 6b: overwrite tests
+- name: "Overwrite CNAME record (cname-basic) with new values"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_cname_record.name }}.{{ overwrite_cname_record.zone }}"
+    zone: "{{ overwrite_cname_record.zone }}"
+    type: CNAME
+    cname: "{{ overwrite_cname_record.cname }}"
+    comments: "{{ overwrite_cname_record.comments }}"
+    overwrite: true
+  register: overwrite_cname_result
+
+- name: "Assert overwrite operation reports changed"
+  ansible.builtin.assert:
+    that:
+      - overwrite_cname_result.changed
+
+- name: "Get overwritten CNAME record"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_cname_record.name }}.{{ overwrite_cname_record.zone }}"
+  register: overwritten_cname_get_result
+
+- name: "Assert overwritten CNAME record has new values"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (overwritten_cname_get_result.records | default([])
+         | selectattr('type','equalto','CNAME')
+         | selectattr('name','equalto', (overwrite_cname_record.name ~ '.' ~ overwrite_cname_record.zone))
+         | list | first).rData.cname == overwrite_cname_record.cname
+      - >-
+        (overwritten_cname_get_result.records | default([])
+         | selectattr('type','equalto','CNAME')
+         | selectattr('name','equalto', (overwrite_cname_record.name ~ '.' ~ overwrite_cname_record.zone))
+         | list | first).comments == overwrite_cname_record.comments
+
+# Phase 7: negative tests (CNAME specific)
+- name: "Negative CNAME: missing cname"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "missing-cname.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: CNAME
+  register: neg_cname_missing
+  ignore_errors: true
+
+- name: Assert failure of CNAME missing cname
+  ansible.builtin.assert:
+    that:
+      - neg_cname_missing.failed
+      - "'cname' in (neg_cname_missing.msg | default(''))"
+
+- name: "Negative CNAME: unsupported param (ipAddress)"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-param-cname.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: CNAME
+    cname: target-bad.example.com.
+    ipAddress: 192.0.2.55
+  register: neg_cname_bad_param
+  ignore_errors: true
+
+- name: Assert failure of CNAME unsupported param
+  ansible.builtin.assert:
+    that:
+      - neg_cname_bad_param.failed
+      - "'ipAddress' in (neg_cname_bad_param.msg | default(''))"
+
+- name: "Negative CNAME: invalid API token"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: BADTOKEN
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-token-cname.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: CNAME
+    cname: target-badtoken.example.com.
+  register: neg_cname_bad_token
+  ignore_errors: true
+
+- name: Assert failure of CNAME invalid API token
+  ansible.builtin.assert:
+    that:
+      - neg_cname_bad_token.failed
+      - "'Invalid token' in (neg_cname_bad_token.msg)"

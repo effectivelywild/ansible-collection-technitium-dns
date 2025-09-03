@@ -1,0 +1,185 @@
+---
+# Integration test for technitium_dns_get_records module
+# Phases: create zones, create records, get/verify records, negatives
+
+- name: "Load zone configuration"
+  include_vars: ../vars/zones.yml
+
+- name: "Cleanup test zones if they exist before starting"
+  include_role:
+    name: test_utils
+  vars:
+    action: "delete_zones"
+    zones_to_delete: "{{ zones_to_create }}"
+
+- name: "Setup test zones (one signed, one unsigned)"
+  include_role:
+    name: test_utils
+  vars:
+    action: "setup_zones"
+
+# Phase 1 - Create Records
+- name: "Create 5 records in primary zone"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    domain: "rec{{ item }}.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: A
+    ipAddress: "192.0.2.1{{ item }}"
+  loop: "{{ range(1,6) | list }}"
+  loop_control:
+    label: "Created: rec{{ item }}.{{ primary_zone_name }}"
+  register: create_primary_records
+
+- name: "Create 5 records in security (signed) zone"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "rec{{ item }}.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: A
+    ipAddress: "192.0.3.1{{ item }}"
+  loop: "{{ range(1,6) | list }}"
+  loop_control:
+    label: "Created: rec{{ item }}.{{ primary_sec_zone_name }}"
+  register: create_sec_records
+
+# Phase 2: Get one record from each zone and assert
+- name: "Get one record from primary zone"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "rec1.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: get_one_primary
+
+- name: Debug get_one_primary
+  debug:
+    var: get_one_primary
+  when: debug | default(false)
+
+- name: "Assert primary zone record is present"
+  ansible.builtin.assert:
+    that:
+      - get_one_primary.records | selectattr('name','equalto','rec1.' ~ primary_zone_name) 
+
+- name: "Get one record from primary zone without zone defined"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "rec2.{{ primary_zone_name }}"
+  register: get_second_primary
+
+- name: Debug get_second_primary
+  debug:
+    var: get_second_primary
+  when: debug | default(false)
+
+- name: "Assert second primary zone record without zone is present"
+  ansible.builtin.assert:
+    that:
+      - get_second_primary.records | selectattr('name','equalto','rec2.' ~ primary_zone_name) 
+
+- name: "Get one record from security zone"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "rec1.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+  register: get_one_sec
+
+- name: Debug get_one_sec zone record
+  debug:
+    var: get_one_sec
+  when: debug | default(false)
+
+- name: "Assert security zone record is present"
+  ansible.builtin.assert:
+    that:
+      - get_one_sec.records | selectattr('name','equalto','rec1.' ~ primary_sec_zone_name)
+
+# Phase 3: Get all records from each zone and assert
+- name: "Get all records from primary zone without using zone"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ primary_zone_name }}"
+    listZone: true
+  register: get_all_primary
+
+- name: Debug get_all_primary
+  debug:
+    var: get_all_primary
+  when: debug | default(false)
+
+- name: "Assert all 5 records present in primary zone"
+  ansible.builtin.assert:
+    that:
+      - get_all_primary.records | selectattr('type','equalto','A') | selectattr('name','equalto','rec' ~ item ~ '.' ~ primary_zone_name) | list
+  loop: "{{ range(1,6) | list }}"
+
+- name: "Get all records from security zone using zone"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    listZone: true
+  register: get_all_sec
+
+- name: Debug get_all_sec
+  debug:
+    var: get_all_sec
+  when: debug | default(false)
+
+- name: "Assert all 5 records present in security zone"
+  ansible.builtin.assert:
+    that:
+      - get_all_sec.records | selectattr('type','equalto','A') | selectattr('name','equalto','rec' ~ item ~ '.' ~ primary_sec_zone_name) | list
+  loop: "{{ range(1,6) | list }}"
+  
+# Phase 4: Negative tests
+- name: "Get non-existent record"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "doesnotexist.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: get_nonexistent
+  ignore_errors: true
+
+- name: Debug non-existent record
+  debug:
+    var: get_nonexistent
+  when: debug | default(false)
+
+- name: "Assert non-existent record is not present"
+  ansible.builtin.assert:
+    that:
+      - get_nonexistent.failed
+      - "'No records found' in (get_nonexistent.msg)"
+
+- name: "Negative: bad API token"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: BADTOKEN
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: get_bad_token
+  ignore_errors: true
+
+- name: "Assert failure of bad API token"
+  ansible.builtin.assert:
+    that:
+      - get_bad_token.failed
+      - "'Invalid token' in (get_bad_token.msg)"

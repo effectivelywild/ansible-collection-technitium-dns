@@ -1,0 +1,4 @@
+# Test configuration for technitium_dns_get_dnssec_properties integration tests
+---
+# Test Environment Configuration
+test_suffix: "dnssecproperties.example.com"

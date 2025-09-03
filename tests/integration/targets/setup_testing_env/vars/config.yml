@@ -1,0 +1,10 @@
+---
+dns_servers_to_create:
+  - name: technitium01
+    http_port: 5381
+    https_port: 53441
+  - name: technitium02
+    http_port: 5382
+    https_port: 53442
+
+dns_server_admin_password: "topsecret"

@@ -1,0 +1,12 @@
+---
+# Wrapper playbook
+
+- name: Wrapper playbook for technitium_dns_get_record integration test
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - "{{ playbook_dir }}/../../../tests/integration/targets/technitium_dns_get_record/vars/zones.yml"
+    - "{{ playbook_dir }}/../../../tests/integration/integration_config.yml"
+  tasks:
+    - name: technitium_dns_get_record integration test
+      include_tasks: "{{ playbook_dir }}/../../../tests/integration/targets/technitium_dns_get_record/tasks/main.yml"

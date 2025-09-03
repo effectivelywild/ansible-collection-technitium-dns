@@ -1,0 +1,528 @@
+---
+# Test data for technitium_dns_update_record integration tests
+# This file contains extensive test coverage for all supported record types and parameters
+
+# Zones to create for update record testing
+zones_to_create:
+  - zone: "primary-update.{{ test_suffix }}"
+    type: "Primary"
+    test_scenario: "primary_for_updates"
+  - zone: "sec-update.{{ test_suffix }}"
+    type: "Primary" 
+    test_scenario: "secondary_for_updates"
+    dnssec: true  # For DNSSEC-related records
+  - zone: "forward.{{ test_suffix }}"
+    type: "Forwarder"
+    forwarder: "8.7.5.5"
+    test_scenario: "forwarder_for_updates"
+
+# Test records covering all supported record types (organized alphabetically by type)
+test_records:
+  # A Records - Basic and advanced scenarios
+  - domain: "a-basic.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "A"
+    ipAddress: "192.168.1.10"
+    newIpAddress: "192.168.1.11"
+    test_scenario: "a_record_basic_update"
+
+  - domain: "a-with-comments.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "A"
+    ipAddress: "192.168.1.20"
+    newIpAddress: "192.168.1.21"
+    test_scenario: "a_record_with_comments"
+
+  # TTL variations
+  - domain: "ttl-min.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "A"
+    ipAddress: "192.168.1.100"
+    newIpAddress: "192.168.1.101"
+    test_scenario: "ttl_min_to_max"
+
+  # Domain name edge cases
+  - domain: "very-long-subdomain-name-that-tests-length-limits.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "A"
+    ipAddress: "192.168.1.200"
+    ttl: 3600
+    newIpAddress: "192.168.1.201"
+    test_scenario: "long_domain_name"
+
+  # International domain names (if supported)
+  - domain: "xn--n3h.primary-update.{{ test_suffix }}"  # ☃ (snowman)
+    zone: "primary-update.{{ test_suffix }}"
+    type: "A"
+    ipAddress: "192.168.1.210"
+    ttl: 3600
+    newIpAddress: "192.168.1.211"
+    test_scenario: "internationalized_domain"
+
+  # A record with all parameters
+  - domain: "a-full-params.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "A"
+    ipAddress: "10.0.1.100"
+    newIpAddress: "10.0.1.101"
+    ptr: false
+    createPtrZone: false
+    updateSvcbHints: false
+    ttl: 1800
+    disable: false
+    comments: "A record with full parameter set"
+    test_scenario: "a_record_full_parameters"
+
+  # AAAA Records - IPv6 testing
+  - domain: "aaaa-basic.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "AAAA"
+    ipAddress: "2001:db8::10"
+    newIpAddress: "2001:db8::11"
+    test_scenario: "aaaa_record_basic_update"
+
+  - domain: "aaaa-full.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "AAAA"
+    ipAddress: "2001:0db8:85a3:0000:0000:8a2e:0370:7334"
+    newIpAddress: "2001:0db8:85a3:0000:0000:8a2e:0370:7335"
+    test_scenario: "aaaa_record_full_address"
+
+  # AAAA record with PTR creation
+  - domain: "aaaa-with-ptr.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "AAAA"
+    ipAddress: "2001:db8:a::100"
+    newIpAddress: "2001:db8:a::101"
+    ptr: true
+    createPtrZone: false
+    ttl: 3600
+    test_scenario: "aaaa_record_with_ptr"
+
+  # ANAME Records - Address Name
+  - domain: "aname-test.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "ANAME"
+    aname: "target1.example.com"
+    newAName: "target2.example.com"
+    test_scenario: "aname_record_redirect"
+
+  # APP Records - Application (no 'new' prefix needed)
+  - domain: "app.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "APP"
+    current_appName: "MyApp"
+    current_classPath: "com.example.MyApp"
+    current_recordData: "original=data"
+    appName: "MyAppUpdate"
+    classPath: "com.example.MyAppUpdate"
+    recordData: "update=test"
+    test_scenario: "app_record_upgrade"
+
+  # CAA Records - Certificate Authority Authorization
+  - domain: "primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "CAA"
+    flags: 0
+    tag: "issue"
+    value: "letsencrypt.org"
+    newFlags: 128
+    newTag: "issuewild"
+    newValue: ";"
+    test_scenario: "caa_record_issue"
+
+  # TODO - API Returning no flag set
+  # - domain: "restricted.primary-update.{{ test_suffix }}"
+  #   zone: "primary-update.{{ test_suffix }}"
+  #   type: "CAA"
+  #   flags: 0
+  #   tag: "iodef"
+  #   value: "mailto:security@primary-update.{{ test_suffix }}"
+  #   newFlags: 0
+  #   newTag: "issue"
+  #   newValue: "ca.example.com"
+  #   test_scenario: "caa_record_iodef"
+
+  # CAA record with expiry TTL
+  - domain: "caa-expiry.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "CAA"
+    flags: 0
+    tag: "issue"
+    value: "letsencrypt.org"
+    newFlags: 128
+    newTag: "issuewild"
+    newValue: "digicert.com"
+    expiryTtl: 604800
+    test_scenario: "caa_record_with_expiry"
+
+  # CNAME Records - Canonical name aliases (cname parameter updated directly, no 'new' prefix)
+  - domain: "alias.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "CNAME"
+    current_cname: "target1.primary-update.{{ test_suffix }}"
+    cname: "target2.primary-update.{{ test_suffix }}"
+    test_scenario: "cname_record_alias"
+
+  # DNAME Records - Delegation name (dname parameter updated directly, no 'new' prefix)
+  - domain: "old-brand.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "DNAME"
+    current_dname: "old-target.primary-update.{{ test_suffix }}"
+    dname: "new-brand.primary-update.{{ test_suffix }}"
+    test_scenario: "dname_record_rebrand"
+
+  # DS Records - Delegation Signer (DNSSEC)
+  - domain: "secure.sec-update.{{ test_suffix }}"
+    zone: "sec-update.{{ test_suffix }}"
+    type: "DS"
+    keyTag: 12345
+    algorithm: "RSASHA256"
+    digestType: "SHA256"
+    digest: "{{ ds_sha256_digest | default('placeholder_digest_sha256') }}"
+    newKeyTag: 54321
+    newAlgorithm: "ECDSAP256SHA256"
+    newDigestType: "SHA384"
+    newDigest: "{{ ds_sha384_digest | default('placeholder_digest_sha384') }}"
+    test_scenario: "ds_record_dnssec"
+
+  # FWD Records - Forwarder (only protocol and forwarder use 'new' prefix)
+  - domain: "fwd.forward.{{ test_suffix }}"
+    zone: "forward.{{ test_suffix }}"
+    type: "FWD"
+    protocol: "Udp"
+    forwarder: "8.8.8.8"
+    forwarderPriority: 1
+    newProtocol: "Tls"
+    newForwarder: "1.1.1.1"
+    ttl: 0
+    test_scenario: "fwd_record_dns_over_tls"
+
+  - domain: "fwd-proxy.forward.{{ test_suffix }}"
+    zone: "forward.{{ test_suffix }}"
+    type: "FWD"
+    protocol: "Https"
+    forwarder: "cloudflare-dns.com"
+    proxyType: "Http"
+    proxyAddress: "proxy.example.com"
+    proxyPort: 8080
+    newProtocol: "Quic"
+    newForwarder: "dns.google"
+    # Note: proxy settings updated directly, no 'new' prefix needed
+    updated_proxyType: "NoProxy"
+    ttl: 0
+    test_scenario: "fwd_record_with_proxy"
+
+  # FWD record with DNSSEC and proxy auth
+  - domain: "fwd-secure.forward.{{ test_suffix }}"
+    zone: "forward.{{ test_suffix }}"
+    type: "FWD"
+    protocol: "Https"
+    forwarder: "cloudflare-dns.com"
+    dnssecValidation: false
+    proxyType: "Http"
+    proxyAddress: "proxy.secure.{{ test_suffix }}"
+    proxyPort: 3128
+    proxyUsername: "proxyuser"
+    proxyPassword: "proxypass"
+    newProtocol: "Tls"
+    newForwarder: "dns.quad9.net"
+    ttl: 0
+    test_scenario: "fwd_record_secure_proxy"
+
+  # HTTPS Records - HTTPS Service Binding
+  - domain: "www.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "HTTPS"
+    svcPriority: 1
+    svcTargetName: "cdn1.primary-update.{{ test_suffix }}"
+    svcParams: "alpn|h2,h3"
+    newSvcPriority: 2
+    newSvcTargetName: "cdn2.primary-update.{{ test_suffix }}"
+    newSvcParams: "alpn|h3|port|8443"
+    test_scenario: "https_record_cdn"
+
+  # HTTPS record with hints
+  - domain: "https-hints.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "HTTPS"
+    svcPriority: 1
+    svcTargetName: "cdn1.primary-update.{{ test_suffix }}"
+    svcParams: "alpn|h2"
+    newSvcPriority: 2
+    newSvcTargetName: "cdn2.primary-update.{{ test_suffix }}"
+    newSvcParams: "alpn|h3|port|443"
+    autoIpv4Hint: false
+    autoIpv6Hint: true
+    test_scenario: "https_record_with_hints"
+
+  # MX Records - Mail exchange with priorities
+  - domain: "primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "MX"
+    preference: 10
+    exchange: "mail1.primary-update.{{ test_suffix }}"
+    newPreference: 20
+    newExchange: "mail2.primary-update.{{ test_suffix }}"
+    test_scenario: "mx_record_priority"
+
+  - domain: "primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "MX"
+    preference: 30
+    exchange: "mail3.primary-update.{{ test_suffix }}"
+    newPreference: 5
+    newExchange: "mail-primary.primary-update.{{ test_suffix }}"
+    test_scenario: "mx_record_secondary"
+
+  # NAPTR Records - Name Authority Pointer
+  - domain: "naptr-test.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "NAPTR"
+    naptrOrder: 100
+    naptrPreference: 10
+    naptrFlags: "u"
+    naptrServices: "E2U+sip"
+    naptrRegexp: "!^.*$!sip:info@primary-update.{{ test_suffix }}!"
+    naptrReplacement: "."
+    naptrNewOrder: 50
+    naptrNewPreference: 5
+    naptrNewFlags: "s"
+    naptrNewServices: "E2U+email"
+    naptrNewRegexp: "!^.*$!mailto:info@primary-update.{{ test_suffix }}!"
+    naptrNewReplacement: "_sip._tcp.primary-update.{{ test_suffix }}"
+    test_scenario: "naptr_record_enum"
+
+  # NS Records - Name server delegation
+  - domain: "sub-ns.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "NS"
+    nameServer: "ns1.example.com"
+    newNameServer: "ns2.example.com"
+    test_scenario: "ns_record_delegation"
+
+  # NS record with glue
+  - domain: "ns-with-glue.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "NS"
+    nameServer: "ns1.primary-update.{{ test_suffix }}"
+    newNameServer: "ns2.primary-update.{{ test_suffix }}"
+    glue: "192.168.1.53"
+    ttl: 86400
+    test_scenario: "ns_record_with_glue"
+
+  # PTR Records - Reverse DNS
+  - domain: "ptr-test.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "PTR"
+    ptrName: "host1.primary-update.{{ test_suffix }}"
+    newPtrName: "host2.primary-update.{{ test_suffix }}"
+    test_scenario: "ptr_record_reverse"
+
+  # SRV Records - Service location records
+  - domain: "_sip._tcp.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "SRV"
+    priority: 10
+    weight: 60
+    srv_port: 5060
+    target: "sipserver1.primary-update.{{ test_suffix }}"
+    newPriority: 5
+    newWeight: 100
+    newSrvPort: 5061
+    newTarget: "sipserver2.primary-update.{{ test_suffix }}"
+    test_scenario: "srv_record_sip"
+
+  - domain: "_xmpp-server._tcp.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "SRV"
+    priority: 20
+    weight: 0
+    srv_port: 5269
+    target: "xmpp1.primary-update.{{ test_suffix }}"
+    newPriority: 10
+    newWeight: 5
+    newSrvPort: 5269
+    newTarget: "xmpp2.primary-update.{{ test_suffix }}"
+    test_scenario: "srv_record_xmpp"
+
+  # SSHFP Records - SSH Key Fingerprint
+  - domain: "ssh-host.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "SSHFP"
+    sshfpAlgorithm: "RSA"
+    sshfpFingerprintType: "SHA256"
+    sshfpFingerprint: "a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0fedcba9876543210"
+    newSshfpAlgorithm: "Ed25519"
+    newSshfpFingerprintType: "SHA256"
+    newSshfpFingerprint: "b1c2d3e4f5061728394a5b6c7d8e9f00112233445566778899aabbccddeeff00"
+    test_scenario: "sshfp_record_rsa_to_ed25519"
+
+  # SVCB Records - Service Binding
+  - domain: "example.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "SVCB"
+    svcPriority: 1
+    svcTargetName: "svc1.primary-update.{{ test_suffix }}"
+    svcParams: "port|443|alpn|h2,h3"
+    newSvcPriority: 0
+    newSvcTargetName: "."
+    newSvcParams: "port|8443|alpn|h2"
+    test_scenario: "svcb_record_service"
+
+  # SVCB record with hints
+  - domain: "svcb-hints.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "SVCB"
+    svcPriority: 1
+    svcTargetName: "target1.primary-update.{{ test_suffix }}"
+    svcParams: "port|443"
+    newSvcPriority: 0
+    newSvcTargetName: "target2.primary-update.{{ test_suffix }}"
+    newSvcParams: "port|8443|alpn|h2"
+    autoIpv4Hint: true
+    autoIpv6Hint: false
+    test_scenario: "svcb_record_with_hints"
+
+  # TLSA Records - TLS Association
+  - domain: "_443._tcp.secure.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "TLSA"
+    tlsaCertificateUsage: "DANE-EE"
+    tlsaSelector: "SPKI"
+    tlsaMatchingType: "SHA2-256"
+    tlsaCertificateAssociationData: "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+    newTlsaCertificateUsage: "PKIX-EE"
+    newTlsaSelector: "Cert"
+    newTlsaMatchingType: "SHA2-512"
+    newTlsaCertificateAssociationData: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+    test_scenario: "tlsa_record_certificate"
+
+  # TXT Records - Various text record scenarios
+  - domain: "_dmarc.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "TXT"
+    text: "v=DMARC1; p=none; rua=mailto:dmarc@primary-update.{{ test_suffix }}"
+    newText: "v=DMARC1; p=quarantine; rua=mailto:dmarc@primary-update.{{ test_suffix }}; pct=25"
+    test_scenario: "txt_record_dmarc"
+
+  - domain: "_spf.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "TXT"
+    text: "v=spf1 include:_spf.google.com ~all"
+    newText: "v=spf1 include:_spf.google.com include:mailgun.org ~all"
+    test_scenario: "txt_record_spf"
+
+  # TXT record with split text
+  - domain: "txt-split.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "TXT"
+    text: "v=spf1 include:_spf.google.com ~all"
+    newText: "v=spf1 include:_spf.office365.com ~all"
+    splitText: true
+    newSplitText: false
+    test_scenario: "txt_record_split_text"
+
+  # URI Records - Uniform Resource Identifier
+  - domain: "_ftp._tcp.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "URI"
+    uriPriority: 10
+    uriWeight: 1
+    uri: "ftp://ftp1.primary-update.{{ test_suffix }}/"
+    newUriPriority: 5
+    newUriWeight: 10
+    newUri: "sftp://sftp.primary-update.{{ test_suffix }}/"
+    test_scenario: "uri_record_ftp_to_sftp"
+
+  # UNKNOWN Records - Unknown/Custom record types
+  - domain: "unknown-basic.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "UNKNOWN"
+    rdata: "01020304deadbeef"
+    newRData: "cafebabe01020304"
+    test_scenario: "unknown_record_basic_update"
+
+  - domain: "unknown-with-params.primary-update.{{ test_suffix }}"
+    zone: "primary-update.{{ test_suffix }}"
+    type: "UNKNOWN"
+    rdata: "01:02:03:04:de:ad:be:ef"
+    newRData: "ca:fe:ba:be:01:02:03:04"
+    ttl: 600
+    comments: "Unknown record with TTL and comments"
+    test_scenario: "unknown_record_with_parameters"
+
+  # Additional advanced record types can be added here when module deployment is updated
+
+# Extended parameter coverage tests
+# Negative test scenarios
+negative_tests:
+  # Missing required parameters for each record type
+  - domain: "missing-ip.primary-update.{{ test_suffix }}"
+    type: "A"
+    test_scenario: "missing_required_ip_address"
+    expected_error: "required"
+
+  - domain: "missing-target.primary-update.{{ test_suffix }}"
+    type: "SRV"
+    priority: 10
+    weight: 20
+    srv_port: 80
+    # Missing target
+    test_scenario: "missing_srv_target"
+    expected_error: "required"
+
+  - domain: "missing-caa-value.primary-update.{{ test_suffix }}"
+    type: "CAA"
+    flags: 0
+    tag: "issue"
+    # Missing value
+    test_scenario: "missing_caa_value"
+    expected_error: "required"
+
+  # Invalid parameter values
+  - domain: "invalid-ttl.primary-update.{{ test_suffix }}"
+    type: "A"
+    ipAddress: "192.168.1.100"
+    newIpAddress: "192.168.1.101"
+    ttl: -1  # Invalid negative TTL
+    test_scenario: "invalid_negative_ttl"
+    expected_error: "invalid"
+
+  - domain: "invalid-ip.primary-update.{{ test_suffix }}"
+    type: "A"
+    ipAddress: "192.168.1.100"
+    newIpAddress: "999.999.999.999"  # Invalid IP
+    test_scenario: "invalid_ip_address"
+    expected_error: "invalid"
+
+  - domain: "invalid-ipv6.primary-update.{{ test_suffix }}"
+    type: "AAAA"
+    ipAddress: "2001:db8::1"
+    newIpAddress: "gggg::"  # Invalid IPv6
+    test_scenario: "invalid_ipv6_address"
+    expected_error: "invalid"
+
+  # Unsupported parameters for record types
+  - domain: "unsupported-param.primary-update.{{ test_suffix }}"
+    type: "A"
+    ipAddress: "192.168.1.100"
+    newIpAddress: "192.168.1.101"
+    preference: 10  # MX parameter on A record
+    test_scenario: "unsupported_parameter"
+    expected_error: "not supported"
+
+  # Empty/blank values
+  - domain: ""  # Empty domain
+    type: "A"
+    ipAddress: "192.168.1.100"
+    newIpAddress: "192.168.1.101"
+    test_scenario: "empty_domain_name"
+    expected_error: "not found"
+
+  - domain: "empty-target.primary-update.{{ test_suffix }}"
+    type: "CNAME"
+    current_cname: "target1.primary-update.{{ test_suffix }}"
+    cname: ""  # Empty new target
+    test_scenario: "empty_cname_target"
+    expected_error: "not found"

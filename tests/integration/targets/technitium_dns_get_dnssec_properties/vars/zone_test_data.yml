@@ -1,0 +1,27 @@
+---
+# test data for technitium_dns_get_dnssec_properties integration tests
+# Test zones for DNSSEC properties testing
+dnssec_properties_test_zones:
+  - name: "nsec-signed-zone"
+    zone: "nsec-signed.{{ test_suffix }}"
+    sign_with: "NSEC"
+    
+  - name: "nsec3-signed-zone"
+    zone: "nsec3-signed.{{ test_suffix }}"
+    sign_with: "NSEC3"
+    
+  - name: "unsigned-zone"
+    zone: "unsigned.{{ test_suffix }}"
+    sign_with: null
+
+# Parameters for signing zones
+sign_parameters:
+  algorithm: "RSA"
+  hashAlgorithm: "SHA256"
+  kskKeySize: 2048
+  zskKeySize: 1024
+  dnsKeyTtl: 86400
+  zskRolloverDays: 30
+  # NSEC3-specific parameters
+  iterations: 5
+  saltLength: 8

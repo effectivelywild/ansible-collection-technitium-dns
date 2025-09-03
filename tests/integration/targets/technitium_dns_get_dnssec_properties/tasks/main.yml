@@ -1,0 +1,206 @@
+# technitium_dns_get_dnssec_properties integration tests
+---
+# Phase 1: Load configuration and setup test zones
+- name: "Load test configuration"
+  include_vars: ../vars/config.yml
+
+- name: "Load zone test data"  
+  include_vars: ../vars/zone_test_data.yml
+
+- name: "Delete DNS zones (cleanup)"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_deletion_result
+  loop: "{{ dnssec_properties_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+  ignore_errors: true
+
+# Phase 2: Create DNS zones for testing
+- name: "Create DNS zones for testing"
+  technitium_dns_create_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    type: Primary
+  register: zone_creation_results
+  loop: "{{ dnssec_properties_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+# Phase 3: Sign zones with NSEC
+- name: "Sign DNS zones with NSEC"
+  technitium_dns_sign_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    algorithm: "{{ sign_parameters.algorithm }}"
+    hashAlgorithm: "{{ sign_parameters.hashAlgorithm }}"
+    kskKeySize: "{{ sign_parameters.kskKeySize }}"
+    zskKeySize: "{{ sign_parameters.zskKeySize }}"
+    dnsKeyTtl: "{{ sign_parameters.dnsKeyTtl }}"
+    zskRolloverDays: "{{ sign_parameters.zskRolloverDays }}"
+    nxProof: "NSEC"
+  register: nsec_zone_signing_results
+  loop: "{{ dnssec_properties_test_zones | selectattr('sign_with', 'equalto', 'NSEC') }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+# Phase 4: Sign zones with NSEC3
+- name: "Sign DNS zones with NSEC3"
+  technitium_dns_sign_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    algorithm: "{{ sign_parameters.algorithm }}"
+    hashAlgorithm: "{{ sign_parameters.hashAlgorithm }}"
+    kskKeySize: "{{ sign_parameters.kskKeySize }}"
+    zskKeySize: "{{ sign_parameters.zskKeySize }}"
+    dnsKeyTtl: "{{ sign_parameters.dnsKeyTtl }}"
+    zskRolloverDays: "{{ sign_parameters.zskRolloverDays }}"
+    nxProof: "NSEC3"
+    iterations: "{{ sign_parameters.iterations }}"
+    saltLength: "{{ sign_parameters.saltLength }}"
+  register: nsec3_zone_signing_results
+  loop: "{{ dnssec_properties_test_zones | selectattr('sign_with', 'equalto', 'NSEC3') }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+# Phase 5: Test get DNSSEC properties for signed zones
+- name: "Get DNSSEC properties for NSEC signed zones"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: nsec_dnssec_properties_results
+  loop: "{{ dnssec_properties_test_zones | selectattr('sign_with', 'equalto', 'NSEC') }}"
+  loop_control:
+    loop_var: zone_item
+    label: "get_nsec: {{ zone_item.zone }}"
+
+- name: Debug nsec_dnssec_properties_results
+  ansible.builtin.debug:
+    var: nsec_dnssec_properties_results
+  when: debug | default(false) 
+
+- name: "Assert NSEC signed zones have DNSSEC properties"
+  ansible.builtin.assert:
+    that:
+      - item.dnssec_properties is defined
+      - item.dnssec_properties.dnssecStatus is defined
+      - item.dnssec_properties.dnssecStatus == 'SignedWithNSEC'
+    quiet: true
+    fail_msg: "NSEC zone {{ item.zone_item.zone }} should have DNSSEC properties with SignedWithNSEC status"
+  loop: "{{ nsec_dnssec_properties_results.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+- name: "Get DNSSEC properties for NSEC3 signed zones"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: nsec3_dnssec_properties_results
+  loop: "{{ dnssec_properties_test_zones | selectattr('sign_with', 'equalto', 'NSEC3') }}"
+  loop_control:
+    loop_var: zone_item
+    label: "get_nsec3: {{ zone_item.zone }}"
+
+- name: "Assert NSEC3 signed zones have DNSSEC properties"
+  ansible.builtin.assert:
+    that:
+      - item.dnssec_properties is defined
+      - item.dnssec_properties.dnssecStatus is defined
+      - "'SignedWithNSEC3' in item.dnssec_properties.dnssecStatus"
+    quiet: true
+    fail_msg: "NSEC3 zone {{ item.zone_item.zone }} should have DNSSEC properties with SignedWithNSEC3 status"
+  loop: "{{ nsec3_dnssec_properties_results.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+# Phase 6: Test get DNSSEC properties for unsigned zones
+- name: "Get DNSSEC properties for unsigned zones"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: unsigned_dnssec_properties_results
+  loop: "{{ dnssec_properties_test_zones | selectattr('sign_with', 'equalto', None) }}"
+  loop_control:
+    loop_var: zone_item
+    label: "get_unsigned: {{ zone_item.zone }}"
+
+- name: "Assert unsigned zones have appropriate DNSSEC properties"
+  ansible.builtin.assert:
+    that:
+      - item.dnssec_properties is defined
+      - item.dnssec_properties.dnssecStatus is defined
+      - "'Unsigned' in item.dnssec_properties.dnssecStatus or item.dnssec_properties.dnssecStatus == 'Unsigned'"
+    quiet: true
+    fail_msg: "Unsigned zone {{ item.zone_item.zone }} should have DNSSEC properties with Unsigned status"
+  loop: "{{ unsigned_dnssec_properties_results.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+# Phase 8: Negative tests
+- name: "Negative test - Get DNSSEC properties with invalid API token"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "BADTOKEN"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ dnssec_properties_test_zones[0].zone }}"
+  register: fail_bad_token
+  ignore_errors: true
+
+- name: "Debug negative test - invalid API token"
+  debug:
+    msg: "Bad token test: failed={{ fail_bad_token.failed }}, msg={{ fail_bad_token.msg | default('') }}"
+
+- name: "Assert failure of invalid API token"
+  ansible.builtin.assert:
+    that:
+      - fail_bad_token.failed
+      - "'Invalid token' in (fail_bad_token.msg)"
+    quiet: true
+
+- name: "Negative test - Get DNSSEC properties for non-existent zone"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "nonexistent999.{{ test_suffix }}"
+  ignore_errors: true
+  register: nonexistent_zone_result
+
+- name: "Debug negative test - non-existent zone"
+  debug:
+    msg: "Nonexistent zone test: failed={{ nonexistent_zone_result.failed }}, msg={{ nonexistent_zone_result.msg | default('') }}"
+
+- name: "Assert get DNSSEC properties fails for non-existent zone"
+  ansible.builtin.assert:
+    that:
+      - nonexistent_zone_result is failed
+      - "'No such zone was found' in (nonexistent_zone_result.msg)"
+    quiet: true

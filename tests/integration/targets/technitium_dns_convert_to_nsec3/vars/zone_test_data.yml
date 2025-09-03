@@ -1,0 +1,27 @@
+---
+# test data for technitium_dns_convert_to_nsec3 integration tests
+# Test zones for NSEC to NSEC3 conversion testing
+convert_to_nsec3_test_zones:
+  - name: "nsec-source-zone"
+    zone: "nsec-source.{{ test_suffix }}"
+    initial_proof: "NSEC"
+    
+  - name: "nsec-second-zone"
+    zone: "nsec-second.{{ test_suffix }}"
+    initial_proof: "NSEC"
+    
+  - name: "nsec-idempotent-zone"
+    zone: "nsec-idempotent.{{ test_suffix }}"
+    initial_proof: "NSEC"
+
+# Parameters for initially signing zones
+sign_parameters:
+  algorithm: "RSA"
+  hashAlgorithm: "SHA256"
+  kskKeySize: 2048
+  zskKeySize: 1024
+  dnsKeyTtl: 86400
+  zskRolloverDays: 30
+  # NSEC3-specific parameters
+  iterations: 5
+  saltLength: 8

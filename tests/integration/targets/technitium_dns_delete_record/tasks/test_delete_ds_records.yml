@@ -1,0 +1,283 @@
+---
+# Integration test for technitium_dns_delete_record (DS records)
+# Structure and variables match test_add_ds_records.yml
+
+- name: "Get DNSKEY records for digest derivation (sec zone)"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    zone: "{{ primary_sec_zone_name }}"
+    name: "{{ primary_sec_zone_name }}"
+  register: ds_dnskey_query
+
+- name: "Derive SHA256 & SHA384 digests from DNSKEY set"
+  ansible.builtin.set_fact:
+    ds_sha256_digest: >-
+      {{
+        ds_dnskey_query.api_response.response.records
+        | selectattr('type','equalto','DNSKEY')
+        | map(attribute='rData')
+        | map(attribute='computedDigests')
+        | select('defined')
+        | map('selectattr','digestType','equalto','SHA256')
+        | map('list')
+        | map('first')
+        | select('defined')
+        | map(attribute='digest')
+        | list | first
+      }}
+    ds_sha384_digest: >-
+      {{
+        ds_dnskey_query.api_response.response.records
+        | selectattr('type','equalto','DNSKEY')
+        | map(attribute='rData')
+        | map(attribute='computedDigests')
+        | select('defined')
+        | map('selectattr','digestType','equalto','SHA384')
+        | map('list')
+        | map('first')
+        | select('defined')
+        | map(attribute='digest')
+        | list | first
+      }}
+
+- name: "Assert required digests available"
+  ansible.builtin.assert:
+    that:
+      - ds_sha256_digest is defined and ds_sha256_digest | length > 0
+      - ds_sha384_digest is defined and ds_sha384_digest | length > 0
+
+- name: "Define DS algorithm + digestType test matrix"
+  ansible.builtin.set_fact:
+    delete_ds_test_records:
+      - { idx: 1,  name: ds-rsasha256-sha256,  algorithm: RSASHA256,       digestType: SHA256, digest: "{{ ds_sha256_digest }}" }
+      - { idx: 2,  name: ds-rsasha256-sha384,  algorithm: RSASHA256,       digestType: SHA384, digest: "{{ ds_sha384_digest }}" }
+      - { idx: 3,  name: ds-rsasha512-sha256,  algorithm: RSASHA512,       digestType: SHA256, digest: "{{ ds_sha256_digest }}" }
+      - { idx: 4,  name: ds-rsasha512-sha384,  algorithm: RSASHA512,       digestType: SHA384, digest: "{{ ds_sha384_digest }}" }
+      - { idx: 5,  name: ds-ecp256-sha256,     algorithm: ECDSAP256SHA256, digestType: SHA256, digest: "{{ ds_sha256_digest }}" }
+      - { idx: 6,  name: ds-ecp256-sha384,     algorithm: ECDSAP256SHA256, digestType: SHA384, digest: "{{ ds_sha384_digest }}" }
+      - { idx: 7,  name: ds-ecp384-sha256,     algorithm: ECDSAP384SHA384, digestType: SHA256, digest: "{{ ds_sha256_digest }}" }
+      - { idx: 8,  name: ds-ecp384-sha384,     algorithm: ECDSAP384SHA384, digestType: SHA384, digest: "{{ ds_sha384_digest }}" }
+      - { idx: 9,  name: ds-ed25519-sha256,    algorithm: ED25519,         digestType: SHA256, digest: "{{ ds_sha256_digest }}" }
+      - { idx: 10, name: ds-ed25519-sha384,    algorithm: ED25519,         digestType: SHA384, digest: "{{ ds_sha384_digest }}" }
+      - { idx: 11, name: ds-ed448-sha256,      algorithm: ED448,           digestType: SHA256, digest: "{{ ds_sha256_digest }}" }
+      - { idx: 12, name: ds-ed448-sha384,      algorithm: ED448,           digestType: SHA384, digest: "{{ ds_sha384_digest }}" }
+    ds_key_tag: 12345
+
+# Phase 1: Create the records (using add module)
+- name: "Create DS records to be deleted"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: DS
+    keyTag: "{{ ds_key_tag }}"
+    algorithm: "{{ rec.algorithm }}"
+    digestType: "{{ rec.digestType }}"
+    digest: "{{ rec.digest }}"
+  loop: "{{ delete_ds_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Create: {{ rec.idx }}-{{ rec.name }}"
+  register: create_ds_results
+
+- name: "Assert DS records created"
+  ansible.builtin.assert:
+    that:
+      - (create_ds_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 2: Check mode - plan deletion
+- name: "Plan delete DS records (check mode)"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: DS
+    keyTag: "{{ ds_key_tag }}"
+    algorithm: "{{ rec.algorithm }}"
+    digestType: "{{ rec.digestType }}"
+    digest: "{{ rec.digest }}"
+  check_mode: true
+  loop: "{{ delete_ds_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "PlanDelete: {{ rec.name }}"
+  register: plan_delete_ds_results
+
+- name: "Assert all delete plans report changed"
+  ansible.builtin.assert:
+    that:
+      - (plan_delete_ds_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 3: Delete the records
+- name: "Delete DS records"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: DS
+    keyTag: "{{ ds_key_tag }}"
+    algorithm: "{{ rec.algorithm }}"
+    digestType: "{{ rec.digestType }}"
+    digest: "{{ rec.digest }}"
+  loop: "{{ delete_ds_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Delete: {{ rec.idx }}-{{ rec.name }}"
+  register: delete_ds_results
+
+- name: "Assert DS records deleted"
+  ansible.builtin.assert:
+    that:
+      - (delete_ds_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 4: Check mode - plan deletion again (should be no changes)
+- name: "Plan delete DS records again (check mode, after deletion)"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: DS
+    keyTag: "{{ ds_key_tag }}"
+    algorithm: "{{ rec.algorithm }}"
+    digestType: "{{ rec.digestType }}"
+    digest: "{{ rec.digest }}"
+  check_mode: true
+  loop: "{{ delete_ds_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "PlanDeleteAgain: {{ rec.name }}"
+  register: plan_delete_ds_again_results
+
+- name: "Assert all delete plans after deletion report no changes"
+  ansible.builtin.assert:
+    that:
+      - (plan_delete_ds_again_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 5: Verify record doesn't exist with get_record
+- name: "Fetch records for absence (get_records)"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ primary_sec_zone_name }}"
+  loop: "{{ delete_ds_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get(absent): {{ rec.name }}.{{ primary_sec_zone_name }}"
+  register: absent_get_results
+
+- name: Debug absent_get_results
+  ansible.builtin.debug:
+    var: absent_get_results
+  when: debug | default(false)
+
+- name: "Assert absence (no pre-existing DS record by name)"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (item.records | default([])
+         | selectattr('type','equalto','DS')
+         | selectattr('name','equalto', (item.rec.name ~ '.' ~ primary_sec_zone_name))
+         | list | length) == 0
+    quiet: true
+  loop: "{{ absent_get_results.results }}"
+  loop_control:
+    label: "AbsentAssert: {{ item.rec.name }}.{{ primary_sec_zone_name }}"
+
+# Phase 6: Idempotency - rerun delete (should be no changes)
+- name: "Idempotency: Re-run delete DS records"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: DS
+    keyTag: "{{ ds_key_tag }}"
+    algorithm: "{{ rec.algorithm }}"
+    digestType: "{{ rec.digestType }}"
+    digest: "{{ rec.digest }}"
+  loop: "{{ delete_ds_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "IdempotentDelete: {{ rec.name }}"
+  register: idempotent_delete_ds_results
+
+- name: "Assert idempotent delete reports no changes"
+  ansible.builtin.assert:
+    that:
+      - (idempotent_delete_ds_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 7: Negative tests
+- name: "Negative: missing required keyTag param"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-missing-keytag.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: DS
+    algorithm: RSASHA256
+    digestType: SHA256
+    digest: "{{ ds_sha256_digest }}"
+  register: neg_delete_ds_missing_keytag
+  ignore_errors: true
+
+- name: "Assert failure of missing keyTag param"
+  ansible.builtin.assert:
+    that:
+      - neg_delete_ds_missing_keytag.failed
+      - "'keyTag' in (neg_delete_ds_missing_keytag.msg | default(''))"
+
+- name: "Negative: unsupported param for DS (cname)"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-param-ds.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: DS
+    keyTag: "{{ ds_key_tag }}"
+    algorithm: RSASHA256
+    digestType: SHA256
+    digest: "{{ ds_sha256_digest }}"
+    cname: bad.example.com
+  register: neg_delete_ds_bad_param
+  ignore_errors: true
+
+- name: "Assert failure of unsupported param"
+  ansible.builtin.assert:
+    that:
+      - neg_delete_ds_bad_param.failed
+      - "'cname' in (neg_delete_ds_bad_param.msg | default(''))"
+
+- name: "Negative: invalid API token"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: BADTOKEN
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-token-ds.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: DS
+    keyTag: "{{ ds_key_tag }}"
+    algorithm: RSASHA256
+    digestType: SHA256
+    digest: "{{ ds_sha256_digest }}"
+  register: neg_delete_ds_bad_token
+  ignore_errors: true
+
+- name: "Assert failure of invalid API token"
+  ansible.builtin.assert:
+    that:
+      - neg_delete_ds_bad_token.failed
+      - "'Invalid token' in (neg_delete_ds_bad_token.msg)"

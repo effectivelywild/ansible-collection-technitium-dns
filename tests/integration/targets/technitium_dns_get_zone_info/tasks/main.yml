@@ -1,0 +1,379 @@
+---
+# This test suite validates zone information retrieval functionality including DNSSEC
+
+# Phase 1: Setup - Load configuration and create zones for testing
+- name: "Load test configuration"
+  include_vars: ../vars/config.yml
+
+- name: "Load zone test data"  
+  include_vars: ../vars/zone_test_data.yml
+
+- name: "Delete DNS zones (cleanup)"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_deletion_result
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+# Phase 2: Create DNS zones for testing
+- name: "Create DNS zones for testing"
+  technitium_dns_create_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    type: "{{ zone_item.type }}"
+    # Optional parameters with defaults
+    catalog: "{{ zone_item.catalog | default(omit) }}"
+    useSoaSerialDateScheme: "{{ zone_item.useSoaSerialDateScheme | default(omit) }}"
+    # Secondary/Stub zone parameters
+    primaryNameServerAddresses: "{{ zone_item.primaryNameServerAddresses | default(omit) }}"
+    zoneTransferProtocol: "{{ zone_item.zoneTransferProtocol | default(omit) }}"
+    tsigKeyName: "{{ zone_item.tsigKeyName | default(omit) }}"
+    validateZone: "{{ zone_item.validateZone | default(omit) }}"
+    # Forwarder zone parameters
+    initializeForwarder: "{{ zone_item.initializeForwarder | default(omit) }}"
+    protocol: "{{ zone_item.protocol | default(omit) }}"
+    forwarder: "{{ zone_item.forwarder | default(omit) }}"
+    dnssecValidation: "{{ zone_item.dnssecValidation | default(omit) }}"
+    # Proxy parameters
+    proxyType: "{{ zone_item.proxyType | default(omit) }}"
+    proxyAddress: "{{ zone_item.proxyAddress | default(omit) }}"
+    proxyPort: "{{ zone_item.proxyPort | default(omit) }}"
+    proxyUsername: "{{ zone_item.proxyUsername | default(omit) }}"
+    proxyPassword: "{{ zone_item.proxyPassword | default(omit) }}"
+  register: zone_creation_results
+  loop: "{{ zones_to_create | default([]) }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"
+
+- name: Sign DNSSEC-enabled zones
+  technitium_dns_sign_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    algorithm: "{{ zone_item.dnssec_algorithm | default('RSA') }}"
+    # RSA-specific parameters
+    hashAlgorithm: "{{ zone_item.dnssec_hash_algorithm | default('SHA256') if (zone_item.dnssec_algorithm | default('RSA')) == 'RSA' else omit }}"
+    kskKeySize: "{{ zone_item.ksk_key_size | default(2048) if (zone_item.dnssec_algorithm | default('RSA')) == 'RSA' else omit }}"
+    zskKeySize: "{{ zone_item.zsk_key_size | default(1024) if (zone_item.dnssec_algorithm | default('RSA')) == 'RSA' else omit }}"
+    # ECDSA/EDDSA-specific parameters
+    curve: "{{ zone_item.dnssec_curve | default('P256') if (zone_item.dnssec_algorithm | default('RSA')) in ['ECDSA', 'EDDSA'] else omit }}"
+    # Common optional parameters
+    pemKskPrivateKey: "{{ zone_item.pem_ksk_private_key | default(omit) }}"
+    pemZskPrivateKey: "{{ zone_item.pem_zsk_private_key | default(omit) }}"
+    dnsKeyTtl: "{{ zone_item.dns_key_ttl | default(omit) }}"
+    zskRolloverDays: "{{ zone_item.zsk_rollover_days | default(omit) }}"
+    nxProof: "{{ zone_item.nx_proof | default('NSEC') }}"
+    iterations: "{{ zone_item.nsec3_iterations | default(omit) }}"
+    saltLength: "{{ zone_item.nsec3_salt_length | default(omit) }}"
+  register: zone_signing_result
+  loop: "{{ zones_to_create | default([]) }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} (DNSSEC signing)"
+  when:
+    - zone_item.dnssec is defined
+
+# Phase 3: Individual Zone Info Retrieval Testing
+- name: "Get zone information for each individual test zone"
+  technitium.dns.technitium_dns_get_zone_info:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port }}"
+    validate_certs: "{{ validate_certs }}"
+    zone: "{{ zone_item.zone }}"
+  register: individual_zone_results
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+- name: Debug individual zone results
+  debug:
+    var: individual_zone_results
+  when: debug | default(false)
+
+- name: "Assert zone info retrieval succeeded"
+  assert:
+    that:
+      - zone_result.zone is defined
+      - zone_result.zone.name == zone_result.zone_item.zone
+      - zone_result.zone.type == zone_result.zone_item.type
+    quiet: true
+  loop: "{{ individual_zone_results.results }}"
+  loop_control:
+    loop_var: zone_result
+    label: "{{ zone_result.zone.name }} ({{ zone_result.zone.type }})"
+
+- name: "Get all Primary zones using zone_type filter"
+  technitium.dns.technitium_dns_get_zone_info:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port }}"
+    validate_certs: "{{ validate_certs }}"
+    zone_type: "Primary"
+  register: primary_zones_result
+
+- name: Debug primary_zones_result
+  debug:
+    var: primary_zones_result
+  when: debug | default(false)
+
+- name: "Assert Primary zone filtering"
+  assert:
+    that:
+      - zone_result.type == 'Primary'
+    quiet: true
+  loop: "{{ primary_zones_result.zones }}"
+  loop_control:
+    loop_var: zone_result
+    label: "{{ zone_result.name }} ({{ zone_result.type }})"
+
+- name: "Get all Forwarder zones using zone_type filter"
+  technitium.dns.technitium_dns_get_zone_info:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port }}"
+    validate_certs: "{{ validate_certs }}"
+    zone_type: "Forwarder"
+  register: forwarder_zones_result
+
+- name: Debug forwarder_zones_result
+  debug:
+    var: forwarder_zones_result
+  when: debug | default(false)
+
+- name: "Assert Forwarder zone filtering"
+  assert:
+    that:
+      - zone_result.type == 'Forwarder'
+    quiet: true
+  loop: "{{ forwarder_zones_result.zones }}"
+  loop_control:
+    loop_var: zone_result
+    label: "{{ zone_result.name }} ({{ zone_result.type }})"
+
+- name: "Get all Secondary zones using zone_type filter"
+  technitium.dns.technitium_dns_get_zone_info:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port }}"
+    validate_certs: "{{ validate_certs }}"
+    zone_type: "Secondary"
+  register: secondary_zones_result
+
+- name: Debug secondary_zones_result
+  debug:
+    var: secondary_zones_result
+  when: debug | default(false)
+
+- name: "Assert Secondary zone filtering"
+  assert:
+    that:
+      - zone_result.type == 'Secondary'
+    quiet: true
+  loop: "{{ secondary_zones_result.zones }}"
+  loop_control:
+    loop_var: zone_result
+    label: "{{ zone_result.name }} ({{ zone_result.type }})"
+
+- name: "Get all Stub zones using zone_type filter"
+  technitium.dns.technitium_dns_get_zone_info:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port }}"
+    validate_certs: "{{ validate_certs }}"
+    zone_type: "Stub"
+  register: stub_zones_result
+
+- name: Debug stub_zones_result
+  debug:
+    var: stub_zones_result
+  when: debug | default(false)
+
+- name: "Assert Stub zone filtering"
+  assert:
+    that:
+      - zone_result.type == 'Stub'
+    quiet: true
+  loop: "{{ stub_zones_result.zones }}"
+  loop_control:
+    loop_var: zone_result
+    label: "{{ zone_result.name }} ({{ zone_result.type }})"
+
+- name: "Get all Catalog zones using zone_type filter"
+  technitium.dns.technitium_dns_get_zone_info:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port }}"
+    validate_certs: "{{ validate_certs }}"
+    zone_type: "Catalog"
+  register: catalog_zones_result
+
+- name: Debug catalog_zones_result
+  debug:
+    var: catalog_zones_result
+  when: debug | default(false)
+
+- name: "Assert Catalog zone filtering"
+  assert:
+    that:
+      - zone_result.type == 'Catalog'
+    quiet: true
+  loop: "{{ catalog_zones_result.zones }}"
+  loop_control:
+    loop_var: zone_result
+    label: "{{ zone_result.name }} ({{ zone_result.type }})"
+
+- name: "Get all SecondaryForwarder zones using zone_type filter"
+  technitium.dns.technitium_dns_get_zone_info:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port }}"
+    validate_certs: "{{ validate_certs }}"
+    zone_type: "SecondaryForwarder"
+  register: secondary_forwarder_zones_result
+
+- name: Debug secondary_forwarder_zones_result
+  debug:
+    var: secondary_forwarder_zones_result
+  when: debug | default(false)
+
+- name: "Assert SecondaryForwarder zone filtering"
+  assert:
+    that:
+      - zone_result.type == 'SecondaryForwarder'
+    quiet: true
+  loop: "{{ secondary_forwarder_zones_result.zones }}"
+  loop_control:
+    loop_var: zone_result
+    label: "{{ zone_result.name }} ({{ zone_result.type }})"
+
+- name: "Get all SecondaryCatalog zones using zone_type filter"
+  technitium.dns.technitium_dns_get_zone_info:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port }}"
+    validate_certs: "{{ validate_certs }}"
+    zone_type: "SecondaryCatalog"
+  register: secondary_catalog_zones_result
+
+- name: Debug secondary_catalog_zones_result
+  debug:
+    var: secondary_catalog_zones_result
+  when: debug | default(false)
+
+- name: "Assert SecondaryCatalog zone filtering"
+  assert:
+    that:
+      - zone_result.type == 'SecondaryCatalog'
+    quiet: true
+  loop: "{{ secondary_catalog_zones_result.zones }}"
+  loop_control:
+    loop_var: zone_result
+    label: "{{ zone_result.name }} ({{ zone_result.type }})"
+
+- name: "Test getting all zones (no filters)"
+  technitium.dns.technitium_dns_get_zone_info:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port }}"
+    validate_certs: "{{ validate_certs }}"
+  register: all_zones_result
+
+- name: "Verify all zones retrieval"
+  assert:
+    that:
+      - all_zones_result.zones is defined
+      - all_zones_result.zones | length > 0
+
+- name: Debug all_zones_result
+  debug:
+    var: all_zones_result
+  when: debug | default(false)
+
+- name: "Set fact for DNSSEC-enabled zones"
+  set_fact:
+    dnssec_zones: >-
+      {{
+        zones_to_create
+        | selectattr('dnssec', 'defined')
+        | selectattr('dnssec', 'equalto', true)
+      }}
+
+- name: Debug dnssec_zones fact
+  debug:
+    var: dnssec_zones
+  when: debug | default(false)
+
+- name: "Verify zone info retrieval for signed zones"
+  technitium.dns.technitium_dns_get_zone_info:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port }}"
+    validate_certs: "{{ validate_certs }}"
+    zone: "{{ dnssec_zone.zone }}"
+  register: dnssec_zone_results
+  loop: "{{ dnssec_zones }}"
+  loop_control:
+    loop_var: dnssec_zone
+    label: "{{ dnssec_zone.zone }}"
+
+- name: Debug dnssec_zone_results
+  debug:
+    var: dnssec_zone_results
+  when: debug | default(false)
+
+- name: "Verify DNSSEC zones show correct signing status"
+  assert:
+    that:
+      - dnssec_zone_result.zone.dnssecStatus == dnssec_zone_result.dnssec_zone.dnssecStatus
+      - dnssec_zone_result.zone.type == 'Primary'
+    quiet: true
+  loop: "{{ dnssec_zone_results.results }}"
+  loop_control:
+    loop_var: dnssec_zone_result
+    label: "{{ dnssec_zone_result.zone.name }}"
+
+# Phase 4: Failure Testing
+- name: "Test zone info retrieval for non-existent zones"
+  technitium.dns.technitium_dns_get_zone_info:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port }}"
+    validate_certs: "{{ validate_certs }}"
+    zone: thiszone.doesnotexist.{{ test_suffix }}
+  register: nonexistent_zone_results
+  ignore_errors: true
+
+- name: "Verify non-existent zones return null"
+  assert:
+    that:
+      - nonexistent_zone_results is failed
+
+- name: "Test invalid API token"
+  technitium.dns.technitium_dns_get_zone_info:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port }}"
+    validate_certs: "{{ validate_certs }}"
+    zone: "{{ zones_to_create[0].zone }}"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure of invalid API token"
+  ansible.builtin.assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg)"

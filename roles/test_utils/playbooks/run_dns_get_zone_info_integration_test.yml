@@ -1,0 +1,13 @@
+---
+# Wrapper playbook
+
+- name: Wrapper playbook for technitium_dns_get_zone_info integration test
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - "{{ playbook_dir }}/../../../tests/integration/targets/technitium_dns_get_zone_info/vars/zone_test_data.yml"
+    - "{{ playbook_dir }}/../../../tests/integration/targets/technitium_dns_get_zone_info/vars/config.yml"
+    - "{{ playbook_dir }}/../../../tests/integration/integration_config.yml"
+  tasks:
+    - name: technitium_dns_get_zone_info integration test
+      include_tasks: "{{ playbook_dir }}/../../../tests/integration/targets/technitium_dns_get_zone_info/tasks/main.yml"

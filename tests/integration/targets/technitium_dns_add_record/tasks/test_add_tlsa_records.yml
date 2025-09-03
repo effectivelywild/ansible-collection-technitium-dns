@@ -1,0 +1,375 @@
+---
+# TLSA Record Tests
+# All TLSA records created in DNSSEC-enabled zone (primary_sec_zone_name) to reflect common DANE usage.
+
+- name: "Define TLSA test records"
+  ansible.builtin.set_fact:
+    add_tlsa_test_records:
+      # PKIX-TA combinations (6)
+      - { idx: 1,  name: tlsa-1,  zone: "{{ primary_sec_zone_name }}", tlsaCertificateUsage: PKIX-TA, tlsaSelector: Cert, tlsaMatchingType: Full }
+      - { idx: 2,  name: tlsa-2,  zone: "{{ primary_sec_zone_name }}", tlsaCertificateUsage: PKIX-TA, tlsaSelector: Cert, tlsaMatchingType: SHA2-256 }
+      - { idx: 3,  name: tlsa-3,  zone: "{{ primary_sec_zone_name }}", tlsaCertificateUsage: PKIX-TA, tlsaSelector: Cert, tlsaMatchingType: SHA2-512 }
+      - { idx: 4,  name: tlsa-4,  zone: "{{ primary_sec_zone_name }}", tlsaCertificateUsage: PKIX-TA, tlsaSelector: SPKI, tlsaMatchingType: Full }
+      - { idx: 5,  name: tlsa-5,  zone: "{{ primary_sec_zone_name }}", tlsaCertificateUsage: PKIX-TA, tlsaSelector: SPKI, tlsaMatchingType: SHA2-256 }
+      - { idx: 6,  name: tlsa-6,  zone: "{{ primary_sec_zone_name }}", tlsaCertificateUsage: PKIX-TA, tlsaSelector: SPKI, tlsaMatchingType: SHA2-512 }
+      # PKIX-EE combinations (6)
+      - { idx: 7,  name: tlsa-7,  zone: "{{ primary_sec_zone_name }}", tlsaCertificateUsage: PKIX-EE, tlsaSelector: Cert, tlsaMatchingType: Full }
+      - { idx: 8,  name: tlsa-8,  zone: "{{ primary_sec_zone_name }}", tlsaCertificateUsage: PKIX-EE, tlsaSelector: Cert, tlsaMatchingType: SHA2-256 }
+      - { idx: 9,  name: tlsa-9,  zone: "{{ primary_sec_zone_name }}", tlsaCertificateUsage: PKIX-EE, tlsaSelector: Cert, tlsaMatchingType: SHA2-512 }
+      - { idx: 10, name: tlsa-10, zone: "{{ primary_sec_zone_name }}", tlsaCertificateUsage: PKIX-EE, tlsaSelector: SPKI, tlsaMatchingType: Full }
+      - { idx: 11, name: tlsa-11, zone: "{{ primary_sec_zone_name }}", tlsaCertificateUsage: PKIX-EE, tlsaSelector: SPKI, tlsaMatchingType: SHA2-256 }
+      - { idx: 12, name: tlsa-12, zone: "{{ primary_sec_zone_name }}", tlsaCertificateUsage: PKIX-EE, tlsaSelector: SPKI, tlsaMatchingType: SHA2-512 }
+      # DANE-TA combinations (6)
+      - { idx: 13, name: tlsa-13, zone: "{{ primary_sec_zone_name }}", tlsaCertificateUsage: DANE-TA, tlsaSelector: Cert, tlsaMatchingType: Full }
+      - { idx: 14, name: tlsa-14, zone: "{{ primary_sec_zone_name }}", tlsaCertificateUsage: DANE-TA, tlsaSelector: Cert, tlsaMatchingType: SHA2-256 }
+      - { idx: 15, name: tlsa-15, zone: "{{ primary_sec_zone_name }}", tlsaCertificateUsage: DANE-TA, tlsaSelector: Cert, tlsaMatchingType: SHA2-512 }
+      - { idx: 16, name: tlsa-16, zone: "{{ primary_sec_zone_name }}", tlsaCertificateUsage: DANE-TA, tlsaSelector: SPKI, tlsaMatchingType: Full }
+      - { idx: 17, name: tlsa-17, zone: "{{ primary_sec_zone_name }}", tlsaCertificateUsage: DANE-TA, tlsaSelector: SPKI, tlsaMatchingType: SHA2-256 }
+      - { idx: 18, name: tlsa-18, zone: "{{ primary_sec_zone_name }}", tlsaCertificateUsage: DANE-TA, tlsaSelector: SPKI, tlsaMatchingType: SHA2-512 }
+      # DANE-EE combinations (6)
+      - { idx: 19, name: tlsa-19, zone: "{{ primary_sec_zone_name }}", tlsaCertificateUsage: DANE-EE, tlsaSelector: Cert, tlsaMatchingType: Full }
+      - { idx: 20, name: tlsa-20, zone: "{{ primary_sec_zone_name }}", tlsaCertificateUsage: DANE-EE, tlsaSelector: Cert, tlsaMatchingType: SHA2-256 }
+      - { idx: 21, name: tlsa-21, zone: "{{ primary_sec_zone_name }}", tlsaCertificateUsage: DANE-EE, tlsaSelector: Cert, tlsaMatchingType: SHA2-512 }
+      - { idx: 22, name: tlsa-22, zone: "{{ primary_sec_zone_name }}", tlsaCertificateUsage: DANE-EE, tlsaSelector: SPKI, tlsaMatchingType: Full }
+      - { idx: 23, name: tlsa-23, zone: "{{ primary_sec_zone_name }}", tlsaCertificateUsage: DANE-EE, tlsaSelector: SPKI, tlsaMatchingType: SHA2-256 }
+      - { idx: 24, name: tlsa-24, zone: "{{ primary_sec_zone_name }}", tlsaCertificateUsage: DANE-EE, tlsaSelector: SPKI, tlsaMatchingType: SHA2-512 }
+    # Overwrite test record (will overwrite tlsa-1)
+    overwrite_tlsa_record:
+      idx: 1
+      name: tlsa-1
+      zone: "{{ primary_sec_zone_name }}"
+      tlsaCertificateUsage: PKIX-TA
+      tlsaSelector: Cert
+      tlsaMatchingType: SHA2-256
+      tlsaCertificateAssociationData: "777def1234567890abcdef1234567890abcdef1234567890abcdef1234567777"
+
+# Helper variable mapping matching type -> sample data length (Full uses placeholder, hashed types use fixed hex lengths)
+- name: "Set TLSA certificate association data samples"
+  ansible.builtin.set_fact:
+    tlsa_data_sha256: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+    tlsa_data_sha512: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+    tlsa_data_full: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+
+# Phase 1: Check mode
+- name: "Check mode - Add TLSA records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "_443._tcp.{{ rec.name }}.{{ rec.zone }}"  # typical TLSA owner name pattern
+    zone: "{{ rec.zone }}"
+    type: TLSA
+    tlsaCertificateUsage: "{{ rec.tlsaCertificateUsage }}"
+    tlsaSelector: "{{ rec.tlsaSelector }}"
+    tlsaMatchingType: "{{ rec.tlsaMatchingType }}"
+    tlsaCertificateAssociationData: >-
+      {{
+        ( rec.tlsaMatchingType == 'SHA2-256' ) | ternary(tlsa_data_sha256,
+          ( rec.tlsaMatchingType == 'SHA2-512' ) | ternary(tlsa_data_sha512, tlsa_data_full) )
+      }}
+  check_mode: true
+  loop: "{{ add_tlsa_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: _443._tcp.{{ rec.name }}.{{ rec.zone }}"
+  register: plan_tlsa_results
+
+- name: "Assert change"
+  ansible.builtin.assert:
+    that:
+      - (plan_tlsa_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 2: external verify absence via get_records
+- name: "Verify check_mode didn't add records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "_443._tcp.{{ rec.name }}.{{ rec.zone }}"
+  loop: "{{ add_tlsa_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: _443._tcp.{{ rec.name }}.{{ rec.zone }}"
+  register: absent_get_tlsa_results
+  ignore_errors: true
+
+- name: Debug absent_get_tlsa_results
+  ansible.builtin.debug:
+    var: absent_get_tlsa_results
+  when: debug | default(false)
+
+- name: "Assert no records were found"
+  ansible.builtin.assert:
+    that:
+      - (absent_get_tlsa_results.results | map(attribute='failed') | list | unique) == [ true ]
+
+# Phase 3: real creation
+- name: "Create TLSA records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "_443._tcp.{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: TLSA
+    tlsaCertificateUsage: "{{ rec.tlsaCertificateUsage }}"
+    tlsaSelector: "{{ rec.tlsaSelector }}"
+    tlsaMatchingType: "{{ rec.tlsaMatchingType }}"
+    tlsaCertificateAssociationData: >-
+      {{
+        ( rec.tlsaMatchingType == 'SHA2-256' ) | ternary(tlsa_data_sha256,
+          ( rec.tlsaMatchingType == 'SHA2-512' ) | ternary(tlsa_data_sha512, tlsa_data_full) )
+      }}
+  loop: "{{ add_tlsa_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Create: {{ rec.idx }}-_443._tcp.{{ rec.name }}.{{ rec.zone }}"
+  register: create_tlsa_results
+
+- name: "Assert creations changed"
+  ansible.builtin.assert:
+    that:
+      - (create_tlsa_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 4: verify presence via get_records
+- name: "Get TLSA records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "_443._tcp.{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+  loop: "{{ add_tlsa_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: _443._tcp.{{ rec.name }}.{{ rec.zone }}"
+  register: present_get_tlsa_results
+
+- name: Debug present_get_tlsa_results
+  ansible.builtin.debug:
+    var: present_get_tlsa_results
+  when: debug | default(false)
+
+- name: "Assert records exist"
+  ansible.builtin.assert:
+    that: (present_get_tlsa_results.results | map(attribute='api_response.status') | list | unique) == ['ok']
+    quiet: true
+
+- name: "Assert TLSA record parameters match request"
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','TLSA')
+           | selectattr('name','equalto', ('_443._tcp.' ~ item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.certificateUsage) == item.rec.tlsaCertificateUsage
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','TLSA')
+           | selectattr('name','equalto', ('_443._tcp.' ~ item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.selector) == item.rec.tlsaSelector
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','TLSA')
+           | selectattr('name','equalto', ('_443._tcp.' ~ item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.matchingType) == item.rec.tlsaMatchingType
+      # API normalizes hashed certificateAssociationData to uppercase hex; compare using case-insensitive match only
+      - >-
+        (((item.records | default([])
+            | selectattr('type','equalto','TLSA')
+            | selectattr('name','equalto', ('_443._tcp.' ~ item.rec.name ~ '.' ~ item.rec.zone))
+            | list | first).rData.certificateAssociationData | string | lower)
+         == (
+           (( item.rec.tlsaMatchingType == 'SHA2-256' ) | ternary(tlsa_data_sha256,
+             ( item.rec.tlsaMatchingType == 'SHA2-512' ) | ternary(tlsa_data_sha512, tlsa_data_full) )) | lower
+         ))
+    quiet: true
+  loop: "{{ present_get_tlsa_results.results }}"
+  loop_control:
+    label: "Params: _443._tcp.{{ item.rec.name }}.{{ item.rec.zone }}"
+
+# Phase 5: re-plan (no change)
+- name: "Check mode: Re-add TLSA records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "_443._tcp.{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: TLSA
+    tlsaCertificateUsage: "{{ rec.tlsaCertificateUsage }}"
+    tlsaSelector: "{{ rec.tlsaSelector }}"
+    tlsaMatchingType: "{{ rec.tlsaMatchingType }}"
+    tlsaCertificateAssociationData: >-
+      {{
+        ( rec.tlsaMatchingType == 'SHA2-256' ) | ternary(tlsa_data_sha256,
+          ( rec.tlsaMatchingType == 'SHA2-512' ) | ternary(tlsa_data_sha512, tlsa_data_full) )
+      }}
+  check_mode: true
+  loop: "{{ add_tlsa_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: _443._tcp.{{ rec.name }}.{{ rec.zone }}"
+  register: replan_tlsa_results
+
+- name: "Assert re-add had no changes"
+  ansible.builtin.assert:
+    that:
+      - (replan_tlsa_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 6: re-run real (no change)
+- name: "Idempotency: Re-run add TLSA records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "_443._tcp.{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: TLSA
+    tlsaCertificateUsage: "{{ rec.tlsaCertificateUsage }}"
+    tlsaSelector: "{{ rec.tlsaSelector }}"
+    tlsaMatchingType: "{{ rec.tlsaMatchingType }}"
+    tlsaCertificateAssociationData: >-
+      {{
+        ( rec.tlsaMatchingType == 'SHA2-256' ) | ternary(tlsa_data_sha256,
+          ( rec.tlsaMatchingType == 'SHA2-512' ) | ternary(tlsa_data_sha512, tlsa_data_full) )
+      }}
+  loop: "{{ add_tlsa_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Recreate: _443._tcp.{{ rec.name }}.{{ rec.zone }}"
+  register: rerun_tlsa_results
+
+- name: "Assert re-run no changes"
+  ansible.builtin.assert:
+    that:
+      - (rerun_tlsa_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 7: overwrite tests
+- name: "Overwrite TLSA record (tlsa-1) with new values"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "_443._tcp.{{ overwrite_tlsa_record.name }}.{{ overwrite_tlsa_record.zone }}"
+    zone: "{{ overwrite_tlsa_record.zone }}"
+    type: TLSA
+    tlsaCertificateUsage: "{{ overwrite_tlsa_record.tlsaCertificateUsage }}"
+    tlsaSelector: "{{ overwrite_tlsa_record.tlsaSelector }}"
+    tlsaMatchingType: "{{ overwrite_tlsa_record.tlsaMatchingType }}"
+    tlsaCertificateAssociationData: "{{ overwrite_tlsa_record.tlsaCertificateAssociationData }}"
+    overwrite: true
+  register: overwrite_tlsa_result
+
+- name: "Assert overwrite operation reports changed"
+  ansible.builtin.assert:
+    that:
+      - overwrite_tlsa_result.changed
+
+- name: "Fetch overwritten TLSA record for presence (get_records)"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "_443._tcp.{{ overwrite_tlsa_record.name }}.{{ overwrite_tlsa_record.zone }}"
+    zone: "{{ overwrite_tlsa_record.zone }}"
+  register: overwritten_tlsa_get_result
+
+
+- name: Debug overwritten_tlsa_get_result
+  ansible.builtin.debug:
+    var: overwritten_tlsa_get_result
+  when: debug | default(false)
+ 
+- name: "Assert overwritten TLSA record has new values"
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((overwritten_tlsa_get_result.records | default([])
+           | selectattr('type','equalto','TLSA')
+           | selectattr('name','equalto', ('_443._tcp.' ~ overwrite_tlsa_record.name ~ '.' ~ overwrite_tlsa_record.zone))
+           | list | first).rData.certificateUsage) == overwrite_tlsa_record.tlsaCertificateUsage
+      - >-
+        ((overwritten_tlsa_get_result.records | default([])
+           | selectattr('type','equalto','TLSA')
+           | selectattr('name','equalto', ('_443._tcp.' ~ overwrite_tlsa_record.name ~ '.' ~ overwrite_tlsa_record.zone))
+           | list | first).rData.selector) == overwrite_tlsa_record.tlsaSelector
+      - >-
+        ((overwritten_tlsa_get_result.records | default([])
+           | selectattr('type','equalto','TLSA')
+           | selectattr('name','equalto', ('_443._tcp.' ~ overwrite_tlsa_record.name ~ '.' ~ overwrite_tlsa_record.zone))
+           | list | first).rData.matchingType) == overwrite_tlsa_record.tlsaMatchingType
+      - >-
+        ((overwritten_tlsa_get_result.records | default([])
+           | selectattr('type','equalto','TLSA')
+           | selectattr('name','equalto', ('_443._tcp.' ~ overwrite_tlsa_record.name ~ '.' ~ overwrite_tlsa_record.zone))
+           | list | first).rData.certificateAssociationData | string | lower) == (overwrite_tlsa_record.tlsaCertificateAssociationData | lower)
+
+# Phase 8: negative tests
+- name: "Negative: missing required param (tlsaCertificateAssociationData)"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "_443._tcp.neg-missing-tlsa.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: TLSA
+    tlsaCertificateUsage: PKIX-TA
+    tlsaSelector: Cert
+    tlsaMatchingType: Full
+  register: neg_tlsa_missing_data
+  ignore_errors: true
+
+- name: Debug neg_tlsa_missing_data
+  ansible.builtin.debug:
+    var: neg_tlsa_missing_data
+  when: debug | default(false)
+
+- name: Assert failure of missing data
+  ansible.builtin.assert:
+    that:
+      - neg_tlsa_missing_data.failed
+      - "'tlsaCertificateAssociationData' in (neg_tlsa_missing_data.msg | default(''))"
+
+- name: "Negative: unsupported param for TLSA (ipAddress)"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "_443._tcp.neg-badparam-tlsa.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: TLSA
+    tlsaCertificateUsage: PKIX-TA
+    tlsaSelector: Cert
+    tlsaMatchingType: SHA2-256
+    tlsaCertificateAssociationData: "{{ tlsa_data_sha256 }}"
+    ipAddress: 192.0.2.55
+  register: neg_tlsa_bad_param
+  ignore_errors: true
+  
+- name: Assert failure of unsupported param
+  ansible.builtin.assert:
+    that:
+      - neg_tlsa_bad_param.failed
+      - "'ipAddress' in (neg_tlsa_bad_param.msg | default(''))"
+
+- name: "Negative: invalid API token"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: BADTOKEN
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "_443._tcp.neg-badtoken-tlsa.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: TLSA
+    tlsaCertificateUsage: DANE-EE
+    tlsaSelector: SPKI
+    tlsaMatchingType: SHA2-512
+    tlsaCertificateAssociationData: "{{ tlsa_data_sha512 }}"
+  register: neg_tlsa_bad_token
+  ignore_errors: true
+
+- name: Assert failure of invalid API token
+  ansible.builtin.assert:
+    that:
+      - neg_tlsa_bad_token.failed
+      - "'Invalid token' in (neg_tlsa_bad_token.msg)"

@@ -1,0 +1,335 @@
+---
+# MX Record Tests
+
+- name: "Define MX test records"
+  ansible.builtin.set_fact:
+    add_mx_test_records:
+      - { idx: 1, name: basic-mx,    exchange: "mail1.{{ primary_zone_name }}", preference: 10, zone: "{{ primary_zone_name }}" }
+      - { idx: 2, name: ttl-mx,      exchange: "mail2.{{ primary_sec_zone_name }}", preference: 20, ttl: 7200, zone: "{{ primary_sec_zone_name }}" }
+      - { idx: 3, name: comment-mx,  exchange: "mail3.{{ primary_zone_name }}", preference: 5, comments: "MX with comment", zone: "{{ primary_zone_name }}" }
+      - { idx: 4, name: meta-mx,     exchange: "mail4.{{ primary_zone_name }}", preference: 15, ttl: 3600, comments: "MX with ttl & comment", zone: "{{ primary_zone_name }}" }
+    # Overwrite test record (will overwrite basic-mx)
+    overwrite_mx_record:
+      idx: 1
+      name: basic-mx
+      exchange: "mail99.{{ primary_zone_name }}"
+      preference: 99
+      zone: "{{ primary_zone_name }}"
+      ttl: 12345
+
+# Phase 1: Check mode
+- name: "Check mode - Add MX records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: MX
+    exchange: "{{ rec.exchange }}"
+    preference: "{{ rec.preference }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_mx_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: plan_mx_results
+
+- name: "Assert change"
+  ansible.builtin.assert:
+    that:
+      - (plan_mx_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 2: external verify absence via get_records
+- name: "Verify check_mode didn't add records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+  loop: "{{ add_mx_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: absent_get_mx_results
+  ignore_errors: true
+
+- name: Debug absent_get_mx_results
+  ansible.builtin.debug:
+    var: absent_get_mx_results
+  when: debug | default(false)
+
+- name: "Assert no records were found"
+  ansible.builtin.assert:
+    that:
+      - (absent_get_mx_results.results | map(attribute='failed') | list | unique) == [ true ]
+
+# Phase 3: real creation
+- name: "Create MX records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: MX
+    exchange: "{{ rec.exchange }}"
+    preference: "{{ rec.preference }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_mx_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Create: {{ rec.idx }}-{{ rec.name }}.{{ rec.zone }}"
+  register: create_mx_results
+
+- name: "Assert creations changed"
+  ansible.builtin.assert:
+    that:
+      - (create_mx_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 4: verify presence via get_records
+- name: "Get MX records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+  loop: "{{ add_mx_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: present_get_mx_results
+
+- name: Debug present_get_mx_results
+  ansible.builtin.debug:
+    var: present_get_mx_results
+  when: debug | default(false)
+
+- name: "Assert records exist"
+  ansible.builtin.assert:
+    that: (present_get_mx_results.results | map(attribute='api_response.status') | list | unique) == ['ok']
+    quiet: true
+
+- name: "Assert MX record parameters match request"
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','MX')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.exchange) == item.rec.exchange
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','MX')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.preference | int) == (item.rec.preference | int)
+      - >-
+        ('ttl' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','MX')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).ttl | int) == (item.rec.ttl | int)
+        )
+      - >-
+        ('comments' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','MX')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).comments | default(item.rec.comments)) == item.rec.comments
+        )
+    quiet: true
+  loop: "{{ present_get_mx_results.results }}"
+  loop_control:
+    label: "Params: {{ item.rec.name }}.{{ item.rec.zone }}"
+
+# Phase 5: re-plan (no change)
+- name: "Check mode: Re-add MX records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: MX
+    exchange: "{{ rec.exchange }}"
+    preference: "{{ rec.preference }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_mx_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: replan_mx_results
+
+- name: "Assert re-add had no changes"
+  ansible.builtin.assert:
+    that:
+      - (replan_mx_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 6: re-run real (no change)
+- name: "Idempotency: Re-run add MX records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: MX
+    exchange: "{{ rec.exchange }}"
+    preference: "{{ rec.preference }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_mx_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Recreate: {{ rec.name }}.{{ rec.zone }}"
+  register: rerun_mx_results
+
+- name: "Assert re-run no changes"
+  ansible.builtin.assert:
+    that:
+      - (rerun_mx_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 7: overwrite tests
+- name: "Overwrite MX record (basic-mx) with new values"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_mx_record.name }}.{{ overwrite_mx_record.zone }}"
+    zone: "{{ overwrite_mx_record.zone }}"
+    type: MX
+    exchange: "{{ overwrite_mx_record.exchange }}"
+    preference: "{{ overwrite_mx_record.preference }}"
+    ttl: "{{ overwrite_mx_record.ttl }}"
+    overwrite: true
+  register: overwrite_mx_result
+
+- name: "Assert overwrite operation reports changed"
+  ansible.builtin.assert:
+    that:
+      - overwrite_mx_result.changed
+
+- name: "Fetch overwritten MX record for presence (get_records)"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_mx_record.name }}.{{ overwrite_mx_record.zone }}"
+    zone: "{{ overwrite_mx_record.zone }}"
+  register: overwritten_mx_get_result
+
+- name: Debug overwritten_mx_get_result
+  ansible.builtin.debug:
+    var: overwritten_mx_get_result
+  when: debug | default(false)
+
+- name: "Assert overwritten MX record has new values"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (overwritten_mx_get_result.records | default([])
+         | selectattr('type','equalto','MX')
+         | selectattr('name','equalto', (overwrite_mx_record.name ~ '.' ~ overwrite_mx_record.zone))
+         | list | first).rData.exchange == overwrite_mx_record.exchange
+      - >-
+        (overwritten_mx_get_result.records | default([])
+         | selectattr('type','equalto','MX')
+         | selectattr('name','equalto', (overwrite_mx_record.name ~ '.' ~ overwrite_mx_record.zone))
+         | list | first).rData.preference == overwrite_mx_record.preference
+      - >-
+        (overwritten_mx_get_result.records | default([])
+         | selectattr('type','equalto','MX')
+         | selectattr('name','equalto', (overwrite_mx_record.name ~ '.' ~ overwrite_mx_record.zone))
+         | list | first).ttl == overwrite_mx_record.ttl
+
+# Phase 8: negative tests
+- name: "Negative: missing exchange"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-missing-exchange-mx.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: MX
+    preference: 10
+  register: neg_mx_missing_exchange
+  ignore_errors: true
+
+- name: Debug neg_mx_missing_exchange
+  ansible.builtin.debug:
+    var: neg_mx_missing_exchange
+  when: debug | default(false)
+
+- name: Assert failure of missing exchange
+  ansible.builtin.assert:
+    that:
+      - neg_mx_missing_exchange.failed
+      - "'exchange' in (neg_mx_missing_exchange.msg | default(''))"
+
+- name: "Negative: missing preference"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-missing-preference-mx.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: MX
+    exchange: missingpref.example.
+  register: neg_mx_missing_preference
+  ignore_errors: true
+
+- name: Debug neg_mx_missing_preference
+  ansible.builtin.debug:
+    var: neg_mx_missing_preference
+  when: debug | default(false)
+
+- name: Assert failure of missing preference
+  ansible.builtin.assert:
+    that:
+      - neg_mx_missing_preference.failed
+      - "'preference' in (neg_mx_missing_preference.msg | default(''))"
+
+- name: "Negative: unsupported param for MX (cname)"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-badparam-mx.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: MX
+    exchange: badparam.example.
+    preference: 30
+    cname: other.example.
+  register: neg_mx_bad_param
+  ignore_errors: true
+  
+- name: Assert failure of unsupported param
+  ansible.builtin.assert:
+    that:
+      - neg_mx_bad_param.failed
+      - "'cname' in (neg_mx_bad_param.msg | default(''))"
+
+- name: "Negative: invalid API token"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: BADTOKEN
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-badtoken-mx.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: MX
+    exchange: badtoken.example.
+    preference: 40
+  register: neg_mx_bad_token
+  ignore_errors: true
+
+- name: Assert failure of invalid API token
+  ansible.builtin.assert:
+    that:
+      - neg_mx_bad_token.failed
+      - "'Invalid token' in (neg_mx_bad_token.msg)"

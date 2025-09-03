@@ -1,0 +1,19 @@
+---
+# Main entry point for test_utils role
+# This role provides shared utilities for DNS module testing
+
+- name: Include zone creation task
+  ansible.builtin.include_tasks: zone_creation.yml
+  when: action == "setup_zones"
+
+- name: Include zone deletion task
+  ansible.builtin.include_tasks: zone_deletion.yml
+  when: action == "delete_zones"
+
+- name: Include record creation task
+  ansible.builtin.include_tasks: record_creation.yml
+  when: action == "create_record"
+
+- name: Include record deletion task
+  ansible.builtin.include_tasks: record_deletion.yml
+  when: action == "delete_records"

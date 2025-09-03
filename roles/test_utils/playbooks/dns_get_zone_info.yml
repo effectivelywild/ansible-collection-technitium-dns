@@ -1,0 +1,18 @@
+- name: Wrapper playbook for technitium_dns_add_record integration test
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - "{{ playbook_dir }}/../../../tests/integration/integration_config.yml"
+  tasks:
+    - name: "Get all Primary zones using zone_type filter"
+      technitium.dns.technitium_dns_get_zone_info:
+        api_url: "{{ technitium_api_url }}"
+        api_token: "{{ technitium_api_token }}"
+        api_port: "{{ technitium_api_port }}"
+        validate_certs: "{{ validate_certs }}"
+        zone: primary-basic.createzonetest.example.com
+      register: primary_zones_result
+
+    - name: debug primary zones result
+      debug:
+        var: primary_zones_result

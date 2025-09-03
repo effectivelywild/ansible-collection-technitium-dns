@@ -1,0 +1,77 @@
+---
+# Comprehensive wrapper playbook to run all Technitium DNS integration tests
+# This playbook executes all individual integration tests in a logical order
+# All tests use the consistent pattern of separate plays with direct task inclusion
+
+# Initial setup and cleanup
+- name: Include technitium_dns_add_record
+  ansible.builtin.import_playbook: run_dns_add_record_integration_test.yml
+
+- name: Cleanup
+  ansible.builtin.import_playbook: delete_all_zones.yml
+
+- name: Include technitium_dns_delete_record
+  ansible.builtin.import_playbook: run_dns_delete_record_integration_test.yml
+
+- name: Cleanup
+  ansible.builtin.import_playbook: delete_all_zones.yml
+
+- name: Include technitium_dns_get_record
+  ansible.builtin.import_playbook: run_dns_get_record_integration_test.yml
+
+- name: Cleanup
+  ansible.builtin.import_playbook: delete_all_zones.yml
+
+- name: Include technitium_dns_create_zone
+  ansible.builtin.import_playbook: run_dns_create_zone_integration_test.yml
+
+- name: Cleanup
+  ansible.builtin.import_playbook: delete_all_zones.yml
+
+- name: Include technitium_dns_delete_zone
+  ansible.builtin.import_playbook: run_dns_delete_zone_integration_test.yml
+
+- name: Cleanup
+  ansible.builtin.import_playbook: delete_all_zones.yml
+
+- name: Include technitium_dns_get_zone_info
+  ansible.builtin.import_playbook: run_dns_get_zone_info_integration_test.yml
+
+- name: Cleanup
+  ansible.builtin.import_playbook: delete_all_zones.yml
+
+- name: Include technitium_dns_get_zone_options
+  ansible.builtin.import_playbook: run_dns_get_zone_options_integration_test.yml
+
+- name: Cleanup
+  ansible.builtin.import_playbook: delete_all_zones.yml
+
+- name: Include technitium_dns_sign_zone
+  ansible.builtin.import_playbook: run_dns_sign_zone_integration_test.yml
+
+- name: Cleanup
+  ansible.builtin.import_playbook: delete_all_zones.yml
+
+- name: Include technitium_dns_unsign_zone
+  ansible.builtin.import_playbook: run_dns_unsign_zone_integration_test.yml
+
+- name: Cleanup
+  ansible.builtin.import_playbook: delete_all_zones.yml
+
+- name: Include technitium_dns_convert_nsec
+  ansible.builtin.import_playbook: run_dns_convert_nsec_integration_test.yml
+
+- name: Include technitium_dns_enable_zone
+  ansible.builtin.import_playbook: run_dns_enable_zone_integration_test.yml
+
+- name: Cleanup
+  ansible.builtin.import_playbook: delete_all_zones.yml
+
+- name: Include technitium_dns_disable_zone
+  ansible.builtin.import_playbook: run_dns_disable_zone_integration_test.yml
+
+- name: Cleanup
+  ansible.builtin.import_playbook: delete_all_zones.yml
+
+- name: Run technitium_dns_update_record integration tests
+  ansible.builtin.import_playbook:: run_dns_update_record_integration_test.yml

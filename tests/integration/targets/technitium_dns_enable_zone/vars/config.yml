@@ -1,0 +1,5 @@
+---
+# Test configuration for technitium_dns_enable_zone module
+
+# Test environment settings  
+test_suffix: "enablezonetest.example.com"

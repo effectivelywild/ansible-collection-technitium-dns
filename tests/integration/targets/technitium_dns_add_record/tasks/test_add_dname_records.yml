@@ -1,0 +1,294 @@
+---
+# DNAME Record Tests
+
+- name: "Define DNAME test records"
+  ansible.builtin.set_fact:
+    add_dname_test_records:
+      - { idx: 1, name: basic-dname,    dname: "target-basic.{{ primary_zone_name }}", zone: "{{ primary_zone_name }}" }
+      - { idx: 2, name: longttl-dname,  dname: "target-longttl.{{ primary_zone_name }}", zone: "{{ primary_sec_zone_name }}", ttl: 86400 }
+      - { idx: 3, name: comment-dname,  dname: "target-comment.{{ primary_sec_zone_name }}", zone: "{{ primary_zone_name }}", ttl: 7200, comments: "DNAME with comment" }
+      - { idx: 4, name: forward-dname,  dname: "target-forward.{{ primary_zone_name }}", zone: "{{ forwarder_zone_name }}" }
+    # Overwrite test record (will overwrite basic-dname)
+    overwrite_dname_record:
+      idx: 1
+      name: basic-dname
+      dname: "target-overwrite.{{ primary_zone_name }}"
+      zone: "{{ primary_zone_name }}"
+      ttl: 54321
+
+# Phase 1: Check mode
+- name: "Check mode - Add DNAME records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: DNAME
+    dname: "{{ rec.dname }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_dname_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: plan_dname_results
+
+- name: "Assert change"
+  ansible.builtin.assert:
+    that:
+      - (plan_dname_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 2: external verify absence via get_records
+- name: "Verify check_mode didn't add records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+  loop: "{{ add_dname_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: absent_get_dname_results
+  ignore_errors: true
+
+- name: Debug absent_get_dname_results
+  ansible.builtin.debug:
+    var: absent_get_dname_results
+  when: debug | default(false)
+
+- name: "Assert no records were found"
+  ansible.builtin.assert:
+    that:
+      - (absent_get_dname_results.results | map(attribute='failed') | list | unique) == [ true ]
+
+# Phase 3: real creation
+- name: "Create DNAME records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: DNAME
+    dname: "{{ rec.dname }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_dname_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Create: {{ rec.idx }}-{{ rec.name }}.{{ rec.zone }}"
+  register: create_dname_results
+
+- name: "Assert creations changed"
+  ansible.builtin.assert:
+    that:
+      - (create_dname_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 4: verify presence via get_records
+- name: "Get DNAME records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+  loop: "{{ add_dname_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: present_get_dname_results
+
+- name: Debug present_get_dname_results
+  ansible.builtin.debug:
+    var: present_get_dname_results
+  when: debug | default(false)
+
+- name: "Assert records exist"
+  ansible.builtin.assert:
+    that: (present_get_dname_results.results | map(attribute='api_response.status') | list | unique) == ['ok']
+    quiet: true
+
+- name: "Assert DNAME record parameters match request"
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','DNAME')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.dname | regex_replace('\\.$',''))
+          == (item.rec.dname | regex_replace('\\.$',''))
+      - >-
+        ('ttl' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','DNAME')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).ttl | int) == (item.rec.ttl | int)
+        )
+      - >-
+        ('comments' not in item.rec) or (
+          ((item.records | default([])
+            | selectattr('type','equalto','DNAME')
+            | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+            | list | first).comments | default(item.rec.comments)) == item.rec.comments
+        )
+    quiet: true
+  loop: "{{ present_get_dname_results.results }}"
+  loop_control:
+    label: "Params: {{ item.rec.name }}.{{ item.rec.zone }}"
+
+# Phase 5: re-plan (no change)
+- name: "Check mode: Re-add DNAME records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: DNAME
+    dname: "{{ rec.dname }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_dname_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: replan_dname_results
+
+- name: "Assert re-add had no changes"
+  ansible.builtin.assert:
+    that:
+      - (replan_dname_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 6: re-run real (no change)
+- name: "Idempotency: Re-run add DNAME records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: DNAME
+    dname: "{{ rec.dname }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_dname_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Recreate: {{ rec.name }}.{{ rec.zone }}"
+  register: recreate_dname_results
+
+- name: "Assert re-run no changes"
+  ansible.builtin.assert:
+    that:
+      - (recreate_dname_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 7: overwrite test for DNAME record
+- name: "Overwrite DNAME record (basic-dname) with new values"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_dname_record.name }}.{{ overwrite_dname_record.zone }}"
+    zone: "{{ overwrite_dname_record.zone }}"
+    type: DNAME
+    dname: "{{ overwrite_dname_record.dname }}"
+    ttl: "{{ overwrite_dname_record.ttl }}"
+    overwrite: true
+  register: overwrite_dname_result
+
+- name: "Assert overwrite operation reports changed"
+  ansible.builtin.assert:
+    that:
+      - overwrite_dname_result.changed
+
+- name: "Fetch overwritten DNAME record for presence (get_records)"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_dname_record.name }}.{{ overwrite_dname_record.zone }}"
+    zone: "{{ overwrite_dname_record.zone }}"
+  register: overwritten_dname_get_result
+
+- name: Debug overwritten_dname_get_result
+  ansible.builtin.debug:
+    var: overwritten_dname_get_result
+  when: debug | default(false)
+
+- name: "Assert overwritten DNAME record has new values"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (overwritten_dname_get_result.records | default([])
+         | selectattr('type','equalto','DNAME')
+         | selectattr('name','equalto', (overwrite_dname_record.name ~ '.' ~ overwrite_dname_record.zone))
+         | list | first).rData.dname | regex_replace('\\.$','') == overwrite_dname_record.dname | regex_replace('\\.$','')
+      - >-
+        (overwritten_dname_get_result.records | default([])
+         | selectattr('type','equalto','DNAME')
+         | selectattr('name','equalto', (overwrite_dname_record.name ~ '.' ~ overwrite_dname_record.zone))
+         | list | first).ttl == overwrite_dname_record.ttl
+
+# Phase 8: negative tests
+- name: "Negative: missing dname"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "missing-dname.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: DNAME
+  register: neg_dname_missing
+  ignore_errors: true
+
+- name: Debug neg_dname_missing
+  ansible.builtin.debug:
+    var: neg_dname_missing
+  when: debug | default(false)
+
+- name: Assert failure of missing dname
+  ansible.builtin.assert:
+    that:
+      - neg_dname_missing.failed
+      - "'dname' in (neg_dname_missing.msg | default(''))"
+
+- name: "Negative: unsupported param for DNAME (ipAddress)"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-param-dname.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: DNAME
+    dname: badparam-target.example.com
+    ipAddress: 192.0.2.200
+  register: neg_dname_bad_param
+  ignore_errors: true
+  
+- name: Assert failure of unsupported param
+  ansible.builtin.assert:
+    that:
+      - neg_dname_bad_param.failed
+      - "'ipAddress' in (neg_dname_bad_param.msg | default(''))"
+
+- name: "Negative: invalid API token"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: BADTOKEN
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-token-dname.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: DNAME
+    dname: badtoken-target.example.com
+  register: neg_dname_bad_token
+  ignore_errors: true
+
+- name: Assert failure of invalid API token
+  ansible.builtin.assert:
+    that:
+      - neg_dname_bad_token.failed
+      - "'Invalid token' in (neg_dname_bad_token.msg)"

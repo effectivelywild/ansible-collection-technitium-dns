@@ -1,0 +1,273 @@
+---
+# ANAME Record tests
+
+- name: "Define ANAME test records"
+  ansible.builtin.set_fact:
+    add_aname_test_records:
+      - { idx: 1, name: "{{ primary_zone_name }}", aname: "target.{{ primary_zone_name }}", zone: "{{ primary_zone_name }}", comments: "Sec zone ANAME with comment" }
+      - { idx: 2, name: alias-aname, aname: "destination.{{ primary_zone_name }}", zone: "{{ primary_zone_name }}", ttl: 7200 }
+      - { idx: 3, name: ext-aname, aname: "www.example.net", zone: "{{ primary_zone_name }}" }
+
+# Phase 1: Check mode
+- name: "Check mode - Add ANAME records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: ANAME
+    aname: "{{ rec.aname }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_aname_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: plan_aname_results
+
+- name: "Assert change"
+  ansible.builtin.assert:
+    that:
+      - (plan_aname_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 2: external verify absence via get_records
+- name: "Verify check_mode didn't add records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{rec.name}}.{{ rec.zone }}"
+  loop: "{{ add_aname_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: absent_get_aname_results
+  ignore_errors: true
+
+- name: Debug absent_get_aname_results
+  ansible.builtin.debug:
+    var: absent_get_aname_results
+  when: debug | default(false)
+
+- name: "Assert no records were found"
+  ansible.builtin.assert:
+    that:
+      - (absent_get_aname_results.results | map(attribute='failed') | list | unique) == [ true ]
+
+# Phase 3: real creation
+- name: "Create ANAME records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: ANAME
+    aname: "{{ rec.aname }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_aname_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Create: {{ rec.idx }}-{{ rec.name }}.{{ rec.zone }}"
+  register: create_aname_results
+
+- name: "Assert creations changed"
+  ansible.builtin.assert:
+    that:
+      - (create_aname_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 4: verify presence via get_records
+- name: "Get ANAME records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+  loop: "{{ add_aname_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: present_get_aname_results
+
+- name: Debug present_get_aname_results
+  ansible.builtin.debug:
+    var: present_get_aname_results
+  when: debug | default(false)
+
+- name: "Assert records exist"
+  ansible.builtin.assert:
+    that: (present_get_aname_results.results | map(attribute='api_response.status') | list | unique) == ['ok']
+    quiet: true
+
+- name: "Assert ANAME record parameters match request (aname target, ttl, comments)"
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((item.records | default([])
+          | selectattr('type','equalto','ANAME')
+          | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+          | list | first).rData.aname) == item.rec.aname
+      - >-
+        ('ttl' not in item.rec) or (
+          ((item.records | default([])
+            | selectattr('type','equalto','ANAME')
+            | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+            | list | first).ttl | int) == (item.rec.ttl | int)
+        )
+      - >-
+        ('comments' not in item.rec) or (
+          ((item.records | default([])
+            | selectattr('type','equalto','ANAME')
+            | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+            | list | first).comments | default(item.rec.comments)) == item.rec.comments
+        )
+    quiet: true
+  loop: "{{ present_get_aname_results.results }}"
+  loop_control:
+    label: "Params: {{ item.rec.name }}.{{ item.rec.zone }}"
+
+# Phase 5: re-plan (no change)
+- name: "Check mode: Re-add ANAME records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: ANAME
+    aname: "{{ rec.aname }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_aname_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: replan_aname_results
+
+- name: "Assert re-add had no changes"
+  ansible.builtin.assert:
+    that:
+      - (replan_aname_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 6: re-run real (no change)
+- name: "Idempotency: Re-run add ANAME records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: ANAME
+    aname: "{{ rec.aname }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_aname_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Recreate: {{ rec.name }}.{{ rec.zone }}"
+  register: recreate_aname_results
+
+- name: "Assert re-run no changes"
+  ansible.builtin.assert:
+    that:
+      - (recreate_aname_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 6b: overwrite (update first ANAME record)
+- name: "Overwrite ANAME record (idx 1) with new aname and comment"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ add_aname_test_records[0].name }}.{{ add_aname_test_records[0].zone }}"
+    zone: "{{ add_aname_test_records[0].zone }}"
+    type: ANAME
+    aname: "overwrite.target.example.net"
+    comments: "Overwrite test comment"
+    overwrite: true
+  register: overwrite_aname_result
+
+- name: "Assert ANAME overwrite reports changed"
+  ansible.builtin.assert:
+    that:
+      - overwrite_aname_result.changed
+
+- name: "Get ANAME record after overwrite"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ add_aname_test_records[0].name }}.{{ add_aname_test_records[0].zone }}"
+  register: get_aname_overwrite
+
+- name: "Assert ANAME record is overwritten with new values"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (get_aname_overwrite.records | default([])
+         | selectattr('type','equalto','ANAME')
+         | selectattr('name','equalto', (add_aname_test_records[0].name ~ '.' ~ add_aname_test_records[0].zone))
+         | list | first).rData.aname == 'overwrite.target.example.net'
+      - >-
+        (get_aname_overwrite.records | default([])
+         | selectattr('type','equalto','ANAME')
+         | selectattr('name','equalto', (add_aname_test_records[0].name ~ '.' ~ add_aname_test_records[0].zone))
+         | list | first).comments == 'Overwrite test comment'
+
+# Phase 7: negative tests
+- name: "Negative ANAME: missing aname param"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "missing-aname.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: ANAME
+  register: neg_aname_missing
+  ignore_errors: true
+
+- name: Assert failure of ANAME missing aname
+  ansible.builtin.assert:
+    that:
+      - neg_aname_missing.failed
+      - "'aname' in (neg_aname_missing.msg | default(''))"
+
+- name: "Negative ANAME: unsupported param (ipAddress)"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-param-aname.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: ANAME
+    aname: "target2.{{ primary_zone_name }}"
+    ipAddress: 192.0.2.25
+  register: neg_aname_bad_param
+  ignore_errors: true
+
+- name: Assert failure of ANAME unsupported param
+  ansible.builtin.assert:
+    that:
+      - neg_aname_bad_param.failed
+      - "'ipAddress' in (neg_aname_bad_param.msg | default(''))"
+
+- name: "Negative ANAME: invalid API token"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: BADTOKEN
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-token-aname.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: ANAME
+    aname: "target3.{{ primary_zone_name }}"
+  register: neg_aname_bad_token
+  ignore_errors: true
+
+- name: Assert failure of ANAME invalid API token
+  ansible.builtin.assert:
+    that:
+      - neg_aname_bad_token.failed
+      - "'Invalid token' in (neg_aname_bad_token.msg)"

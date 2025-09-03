@@ -1,0 +1,359 @@
+---
+# HTTPS Record Tests
+
+- name: "Define HTTPS test records"
+  ansible.builtin.set_fact:
+    add_https_test_records:
+      - { idx: 1, name: basic-https, zone: "{{ primary_zone_name }}", svcPriority: 1, svcTargetName: "target1.{{ primary_zone_name }}", svcParams: "alpn|h2" }
+      - { idx: 2, name: hints-https, zone: "{{ primary_sec_zone_name }}", svcPriority: 5, svcTargetName: "target2.{{ primary_sec_zone_name }}", svcParams: "alpn|h3|port|443", autoIpv4Hint: true, autoIpv6Hint: true }
+      - { idx: 3, name: meta-https, zone: "{{ primary_zone_name }}", svcPriority: 10, svcTargetName: "target3.{{ primary_zone_name }}", svcParams: "alpn|h2,h3|port|53443", ttl: 7200, comments: "HTTPS record with TTL & comment" }
+    # Overwrite test record (will overwrite basic-https)
+    overwrite_https_record:
+      idx: 1
+      name: basic-https
+      zone: "{{ primary_zone_name }}"
+      svcPriority: 99
+      svcTargetName: "target99.{{ primary_zone_name }}"
+      svcParams: "alpn|h3"
+      ttl: 54321
+
+# Phase 1: Check mode
+- name: "Check mode - Add HTTPS records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: HTTPS
+    svcPriority: "{{ rec.svcPriority }}"
+    svcTargetName: "{{ rec.svcTargetName }}"
+    svcParams: "{{ rec.svcParams }}"
+    autoIpv4Hint: "{{ rec.autoIpv4Hint | default(omit) }}"
+    autoIpv6Hint: "{{ rec.autoIpv6Hint | default(omit) }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_https_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: plan_https_results
+
+- name: "Assert change"
+  ansible.builtin.assert:
+    that:
+      - (plan_https_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 2: external verify absence via get_records
+- name: "Verify check_mode didn't add records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+  loop: "{{ add_https_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: absent_get_https_results
+  ignore_errors: true
+
+- name: Debug absent_get_https_results
+  ansible.builtin.debug:
+    var: absent_get_https_results
+  when: debug | default(false)
+
+- name: "Assert no records were found"
+  ansible.builtin.assert:
+    that:
+      - (absent_get_https_results.results | map(attribute='failed') | list | unique) == [ true ]
+
+# Phase 3: real creation
+- name: "Create HTTPS records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: HTTPS
+    svcPriority: "{{ rec.svcPriority }}"
+    svcTargetName: "{{ rec.svcTargetName }}"
+    svcParams: "{{ rec.svcParams }}"
+    autoIpv4Hint: "{{ rec.autoIpv4Hint | default(omit) }}"
+    autoIpv6Hint: "{{ rec.autoIpv6Hint | default(omit) }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_https_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Create: {{ rec.idx }}-{{ rec.name }}.{{ rec.zone }}"
+  register: create_https_results
+
+- name: "Assert creations changed"
+  ansible.builtin.assert:
+    that:
+      - (create_https_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 4: verify presence via get_records
+- name: "Get HTTPS records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+  loop: "{{ add_https_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: present_get_https_results
+
+- name: Debug present_get_https_results
+  ansible.builtin.debug:
+    var: present_get_https_results
+  when: debug | default(false)
+
+- name: "Assert records exist"
+  ansible.builtin.assert:
+    that: (present_get_https_results.results | map(attribute='api_response.status') | list | unique) == ['ok']
+    quiet: true
+
+- name: "Assert HTTPS record parameters match request"
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','HTTPS')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.svcPriority | int) == (item.rec.svcPriority | int)
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','HTTPS')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.svcTargetName) == item.rec.svcTargetName
+    # Expect svcParams returned as structured mapping
+      - >-
+        (
+        (item.records | default([])
+          | selectattr('type','equalto','HTTPS')
+          | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+          | list | first).rData.svcParams
+          | default((item.records | default([])
+          | selectattr('type','equalto','HTTPS')
+          | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+          | list | first).rData.params)
+        ) == dict((item.rec.svcParams.split('|')[::2]) | zip(item.rec.svcParams.split('|')[1::2]))
+      - >-
+        ('autoIpv4Hint' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','HTTPS')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).rData.autoIpv4Hint | string) == (item.rec.autoIpv4Hint | string)
+        )
+      - >-
+        ('autoIpv6Hint' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','HTTPS')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).rData.autoIpv6Hint | string) == (item.rec.autoIpv6Hint | string)
+        )
+      - >-
+        ('ttl' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','HTTPS')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).ttl | int) == (item.rec.ttl | int)
+        )
+      - >-
+        ('comments' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','HTTPS')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).comments | default(item.rec.comments)) == item.rec.comments
+        )
+    quiet: true
+  loop: "{{ present_get_https_results.results }}"
+  loop_control:
+    label: "Params: {{ item.rec.name }}.{{ item.rec.zone }}"
+
+# Phase 5: re-plan (no change)
+- name: "Check mode: Re-add HTTPS records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: HTTPS
+    svcPriority: "{{ rec.svcPriority }}"
+    svcTargetName: "{{ rec.svcTargetName }}"
+    svcParams: "{{ rec.svcParams }}"
+    autoIpv4Hint: "{{ rec.autoIpv4Hint | default(omit) }}"
+    autoIpv6Hint: "{{ rec.autoIpv6Hint | default(omit) }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_https_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: replan_https_results
+
+- name: "Assert re-add had no changes"
+  ansible.builtin.assert:
+    that:
+      - (replan_https_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 6: re-run real (no change)
+- name: "Idempotency: Re-run add HTTPS records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: HTTPS
+    svcPriority: "{{ rec.svcPriority }}"
+    svcTargetName: "{{ rec.svcTargetName }}"
+    svcParams: "{{ rec.svcParams }}"
+    autoIpv4Hint: "{{ rec.autoIpv4Hint | default(omit) }}"
+    autoIpv6Hint: "{{ rec.autoIpv6Hint | default(omit) }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_https_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Recreate: {{ rec.name }}.{{ rec.zone }}"
+  register: rerun_https_results
+
+- name: "Assert re-run no changes"
+  ansible.builtin.assert:
+    that:
+      - (rerun_https_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 7: overwrite tests
+- name: "Overwrite HTTPS record (basic-https) with new values"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_https_record.name }}.{{ overwrite_https_record.zone }}"
+    zone: "{{ overwrite_https_record.zone }}"
+    type: HTTPS
+    svcPriority: "{{ overwrite_https_record.svcPriority }}"
+    svcTargetName: "{{ overwrite_https_record.svcTargetName }}"
+    svcParams: "{{ overwrite_https_record.svcParams }}"
+    ttl: "{{ overwrite_https_record.ttl }}"
+    overwrite: true
+  register: overwrite_https_result
+
+- name: "Assert overwrite operation reports changed"
+  ansible.builtin.assert:
+    that:
+      - overwrite_https_result.changed
+
+- name: "Fetch overwritten HTTPS record for presence (get_records)"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_https_record.name }}.{{ overwrite_https_record.zone }}"
+    zone: "{{ overwrite_https_record.zone }}"
+  register: overwritten_https_get_result
+
+- name: Debug overwritten_https_get_result
+  ansible.builtin.debug:
+    var: overwritten_https_get_result
+  when: debug | default(false)
+
+- name: "Assert overwritten HTTPS record has new values"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (overwritten_https_get_result.records | default([])
+         | selectattr('type','equalto','HTTPS')
+         | selectattr('name','equalto', (overwrite_https_record.name ~ '.' ~ overwrite_https_record.zone))
+         | list | first).rData.svcPriority | int == (overwrite_https_record.svcPriority | int)
+      - >-
+        (overwritten_https_get_result.records | default([])
+         | selectattr('type','equalto','HTTPS')
+         | selectattr('name','equalto', (overwrite_https_record.name ~ '.' ~ overwrite_https_record.zone))
+         | list | first).rData.svcTargetName == overwrite_https_record.svcTargetName
+      - >-
+        (overwritten_https_get_result.records | default([])
+         | selectattr('type','equalto','HTTPS')
+         | selectattr('name','equalto', (overwrite_https_record.name ~ '.' ~ overwrite_https_record.zone))
+         | list | first).rData.svcParams == dict((overwrite_https_record.svcParams.split('|')[::2]) | zip(overwrite_https_record.svcParams.split('|')[1::2]))
+      - >-
+        (overwritten_https_get_result.records | default([])
+         | selectattr('type','equalto','HTTPS')
+         | selectattr('name','equalto', (overwrite_https_record.name ~ '.' ~ overwrite_https_record.zone))
+         | list | first).ttl == overwrite_https_record.ttl
+
+# Phase 8: negative tests
+- name: "Negative: missing required svcParams"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-missing-svcparams.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: HTTPS
+    svcPriority: 1
+    svcTargetName: target-missing.example.
+  register: neg_https_missing_params
+  ignore_errors: true
+
+- name: Debug neg_https_missing_params
+  ansible.builtin.debug:
+    var: neg_https_missing_params
+  when: debug | default(false)
+
+- name: Assert failure of missing svcParams
+  ansible.builtin.assert:
+    that:
+      - neg_https_missing_params.failed
+      - "'svcParams' in (neg_https_missing_params.msg | default(''))"
+
+- name: "Negative: unsupported param for HTTPS (ipAddress)"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-badparam-https.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: HTTPS
+    svcPriority: 1
+    svcTargetName: target-badparam.example.
+    svcParams: "alpn|h2"
+    ipAddress: 192.0.2.200
+  register: neg_https_bad_param
+  ignore_errors: true
+  
+- name: Assert failure of unsupported param
+  ansible.builtin.assert:
+    that:
+      - neg_https_bad_param.failed
+      - "'ipAddress' in (neg_https_bad_param.msg | default(''))"
+
+- name: "Negative: invalid API token"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: BADTOKEN
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-badtoken-https.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: HTTPS
+    svcPriority: 1
+    svcTargetName: target-badtoken.example.
+    svcParams: "alpn|h2"
+  register: neg_https_bad_token
+  ignore_errors: true
+
+- name: Assert failure of invalid API token
+  ansible.builtin.assert:
+    that:
+      - neg_https_bad_token.failed
+      - "'Invalid token' in (neg_https_bad_token.msg)"

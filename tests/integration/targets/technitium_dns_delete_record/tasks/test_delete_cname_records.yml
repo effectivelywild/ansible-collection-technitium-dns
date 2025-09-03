@@ -1,0 +1,205 @@
+---
+# Integration test for technitium_dns_delete_record (CNAME records)
+# Structure and variables match test_add_cname_records.yml
+
+- name: "Define CNAME test records to delete"
+  ansible.builtin.set_fact:
+    delete_cname_test_records:
+      - { idx: 1, name: basic-cname,   cname: "target1.{{ primary_zone_name }}", zone: "{{ primary_zone_name }}" }
+      - { idx: 2, name: longttl-cname, cname: "target-longttl.{{ primary_sec_zone_name }}", zone: "{{ primary_sec_zone_name }}", ttl: 86400 }
+      - { idx: 3, name: comment-cname, cname: "target-comment.{{ primary_zone_name }}", zone: "{{ primary_zone_name }}", ttl: 7200, comments: "CNAME with comment" }
+
+# Phase 1: Create the records (using add module)
+- name: "Create CNAME records to be deleted"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: CNAME
+    cname: "{{ rec.cname }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ delete_cname_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Create: {{ rec.idx }}-{{ rec.name }}.{{ rec.zone }}"
+  register: create_cname_results
+
+- name: "Assert CNAME records created"
+  ansible.builtin.assert:
+    that:
+      - (create_cname_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 2: Check mode - plan deletion
+- name: "Plan delete CNAME records (check mode)"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: CNAME
+    cname: "{{ rec.cname }}"
+  check_mode: true
+  loop: "{{ delete_cname_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "PlanDelete: {{ rec.name }}.{{ rec.zone }}"
+  register: plan_delete_cname_results
+
+- name: "Assert all delete plans report changed"
+  ansible.builtin.assert:
+    that:
+      - (plan_delete_cname_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 3: Delete the records
+- name: "Delete CNAME records"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: CNAME
+    cname: "{{ rec.cname }}"
+  loop: "{{ delete_cname_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Delete: {{ rec.idx }}-{{ rec.name }}.{{ rec.zone }}"
+  register: delete_cname_results
+
+- name: "Assert CNAME records deleted"
+  ansible.builtin.assert:
+    that:
+      - (delete_cname_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 4: Check mode - plan deletion again (should be no changes)
+- name: "Plan delete CNAME records again (check mode, after deletion)"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: CNAME
+    cname: "{{ rec.cname }}"
+  check_mode: true
+  loop: "{{ delete_cname_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "PlanDeleteAgain: {{ rec.name }}.{{ rec.zone }}"
+  register: plan_delete_cname_again_results
+
+- name: "Assert all delete plans after deletion report no changes"
+  ansible.builtin.assert:
+    that:
+      - (plan_delete_cname_again_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 5: Verify record doesn't exist with get_record
+- name: "Fetch records for absence (get_records)"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.zone }}"
+  loop: "{{ delete_cname_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get(absent): {{ rec.name }}.{{ rec.zone }}"
+  register: absent_get_results
+
+- name: Debug absent_get_results
+  ansible.builtin.debug:
+    var: absent_get_results
+  when: debug | default(false)
+
+- name: "Assert absence (no pre-existing CNAME record by name)"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (item.records | default([])
+         | selectattr('type','equalto','CNAME')
+         | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+         | list | length) == 0
+    quiet: true
+  loop: "{{ absent_get_results.results }}"
+  loop_control:
+    label: "AbsentAssert: {{ item.rec.name }}.{{ item.rec.zone }}"
+
+# Phase 6: Idempotency - rerun delete (should be no changes)
+- name: "Idempotency: Re-run delete CNAME records"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: CNAME
+    cname: "{{ rec.cname }}"
+  loop: "{{ delete_cname_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "IdempotentDelete: {{ rec.name }}.{{ rec.zone }}"
+  register: idempotent_delete_cname_results
+
+- name: "Assert idempotent delete reports no changes"
+  ansible.builtin.assert:
+    that:
+      - (idempotent_delete_cname_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 7: Negative tests
+- name: "Negative: missing required cname param"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-missing-cname.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: CNAME
+  register: neg_delete_cname_missing
+  ignore_errors: true
+
+- name: "Assert failure of missing cname param"
+  ansible.builtin.assert:
+    that:
+      - neg_delete_cname_missing.failed
+      - "'cname' in (neg_delete_cname_missing.msg | default(''))"
+
+- name: "Negative: unsupported param for CNAME (ipAddress)"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-param-cname.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: CNAME
+    cname: target-bad.example.com.
+    ipAddress: 192.0.2.55
+  register: neg_delete_cname_bad_param
+  ignore_errors: true
+
+- name: "Assert failure of unsupported param"
+  ansible.builtin.assert:
+    that:
+      - neg_delete_cname_bad_param.failed
+      - "'ipAddress' in (neg_delete_cname_bad_param.msg | default(''))"
+
+- name: "Negative: invalid API token"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: BADTOKEN
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-token-cname.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: CNAME
+    cname: target-badtoken.example.com.
+  register: neg_delete_cname_bad_token
+  ignore_errors: true
+
+- name: "Assert failure of invalid API token"
+  ansible.builtin.assert:
+    that:
+      - neg_delete_cname_bad_token.failed
+      - "'Invalid token' in (neg_delete_cname_bad_token.msg)"

@@ -1,0 +1,4 @@
+# Test configuration for technitium_dns_convert_to_nsec integration tests
+---
+# Test Environment Configuration
+test_suffix: "convertnsectest.example.com"

@@ -1,0 +1,31 @@
+---
+# Zone definitions for technitium_dns_add_record testing
+# Uses Technitium API terminology and parameters
+
+zones_to_create:
+  - zone: "test-primary.example.com"
+    type: "Primary"
+    description: "Primary zone for basic record testing"
+
+  - zone: "testsec-primary.example.com"
+    type: "Primary"
+    description: "Primary DNSSEC enabled zone for DNSSEC related record testing, needs to be signed before use."
+    dnssec: true
+
+  - zone: "test-secondary.example.com" 
+    type: "Secondary"
+    primaryNameServerAddresses:
+      - "{{ notify_name_server }}"
+    zoneTransferProtocol: "Tcp"
+    validateZone: false
+    description: "Secondary zone for record testing"
+    
+  - zone: "test-forwarder.example.com"
+    type: "Forwarder" 
+    forwarder: "6.7.8.9"
+    description: "Forwarder zone for record testing"
+
+# Zone name shortcuts for use in test scenarios
+primary_zone_name: "test-primary.example.com"
+primary_sec_zone_name: "testsec-primary.example.com"
+forwarder_zone_name: "test-forwarder.example.com"

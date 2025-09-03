@@ -1,0 +1,426 @@
+# Phase 1: Load configuration and create zones for testing
+- name: "Load test configuration"
+  include_vars: ../vars/config.yml
+
+- name: "Load zone test data"  
+  include_vars: ../vars/zone_test_data.yml
+
+- name: "Delete DNS zones (cleanup)"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_deletion_result
+  loop: "{{ dnssec_test_matrix }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+# Phase 2: Create DNS zones for testing
+- name: "Create DNS zones for testing"
+  technitium_dns_create_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    type: Primary
+  register: zone_creation_results
+  loop: "{{ dnssec_test_matrix }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+# Phase 3: Sign zones
+- name: "Check mode - Sign DNS zones (matrix tests)"
+  technitium_dns_sign_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ test_case.zone }}"
+    algorithm: "{{ test_case.algorithm }}"
+    # RSA-specific parameters
+    hashAlgorithm: "{{ test_case.hashAlgorithm | default(omit) }}"
+    kskKeySize: "{{ test_case.kskKeySize | default(omit) }}"
+    zskKeySize: "{{ test_case.zskKeySize | default(omit) }}"
+    # ECDSA/EDDSA-specific parameters
+    curve: "{{ test_case.curve | default(omit) }}"
+    # Common optional parameters
+    dnsKeyTtl: "{{ test_case.dnsKeyTtl | default(86400) }}"
+    zskRolloverDays: "{{ test_case.zskRolloverDays | default(30) }}"
+    nxProof: "{{ test_case.nxProof | default('NSEC') }}"
+    # NSEC3-specific parameters
+    iterations: "{{ test_case.iterations | default(omit) }}"
+    saltLength: "{{ test_case.saltLength | default(omit) }}"
+  check_mode: true
+  register: zone_signing_check_results
+  loop: "{{ dnssec_test_matrix }}"
+  loop_control:
+    loop_var: test_case
+    label: "{{ test_case.name }}"
+
+- name: "Assert DNS zones would be signed (matrix tests)"
+  ansible.builtin.assert:
+    that:
+      - item is changed
+    fail_msg: "Zone {{ item.test_case.zone }} ({{ item.test_case.name }}) should be marked as changed in check mode"
+  loop: "{{ zone_signing_check_results.results }}"
+  loop_control:
+    label: "{{ item.test_case.name }}"
+
+- name: "Sign DNS zones (matrix tests)"
+  technitium_dns_sign_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ test_case.zone }}"
+    algorithm: "{{ test_case.algorithm }}"
+    # RSA-specific parameters
+    hashAlgorithm: "{{ test_case.hashAlgorithm | default(omit) }}"
+    kskKeySize: "{{ test_case.kskKeySize | default(omit) }}"
+    zskKeySize: "{{ test_case.zskKeySize | default(omit) }}"
+    # ECDSA/EDDSA-specific parameters
+    curve: "{{ test_case.curve | default(omit) }}"
+    # Common optional parameters
+    dnsKeyTtl: "{{ test_case.dnsKeyTtl | default(86400) }}"
+    zskRolloverDays: "{{ test_case.zskRolloverDays | default(30) }}"
+    nxProof: "{{ test_case.nxProof | default('NSEC') }}"
+    # NSEC3-specific parameters
+    iterations: "{{ test_case.iterations | default(omit) }}"
+    saltLength: "{{ test_case.saltLength | default(omit) }}"
+  register: zone_signing_results
+  loop: "{{ dnssec_test_matrix }}"
+  loop_control:
+    loop_var: test_case
+    label: "{{ test_case.name }}"
+    # Prevent API timeout when signing too many zones
+    pause: 3
+
+- name: "Assert DNS zones are signed (matrix tests)"
+  ansible.builtin.assert:
+    that:
+      - item is changed
+  loop: "{{ zone_signing_results.results }}"
+  loop_control:
+    label: "{{ item.test_case.name }}"
+
+# Phase 4: Verify DNSSEC configuration
+- name: "Get zone properties to verify DNSSEC settings"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ test_case.zone }}"
+  register: zone_dnssec_properties_results
+  loop: "{{ dnssec_test_matrix }}"
+  loop_control:
+    loop_var: test_case
+    label: "{{ test_case.name }}"
+
+- name: Debug zone_dnssec_properties_results
+  debug:
+    var: zone_dnssec_properties_results
+  when: debug | default(false)
+
+- name: "Verify DNSSEC properties match expected configuration"
+  ansible.builtin.assert:
+    that:
+      # Basic DNSSEC status verification
+      - item.dnssec_properties.dnssecStatus in ['SignedWithNSEC', 'SignedWithNSEC3']
+      - item.dnssec_properties.disabled == false
+      - item.dnssec_properties.type == 'Primary'
+      
+      # DNS Key TTL verification
+      - item.dnssec_properties.dnsKeyTtl == (item.test_case.dnsKeyTtl | default(86400))
+      
+      # NSEC/NSEC3 proof type verification
+      - >-
+        (item.test_case.nxProof | default('NSEC') == 'NSEC' and item.dnssec_properties.dnssecStatus == 'SignedWithNSEC') or
+        (item.test_case.nxProof | default('NSEC') == 'NSEC3' and item.dnssec_properties.dnssecStatus == 'SignedWithNSEC3')
+      
+      # NSEC3 specific parameters (only when nxProof is NSEC3)
+      - >-
+        item.test_case.nxProof | default('NSEC') != 'NSEC3' or (
+          item.dnssec_properties.nsec3Iterations == (item.test_case.iterations | default(0)) and
+          item.dnssec_properties.nsec3SaltLength == (item.test_case.saltLength | default(0))
+        )
+      
+      # Verify we have both KSK and ZSK keys
+      - item.dnssec_properties.dnssecPrivateKeys | length >= 2
+      - item.dnssec_properties.dnssecPrivateKeys | selectattr('keyType', 'equalto', 'KeySigningKey') | list | length == 1
+      - item.dnssec_properties.dnssecPrivateKeys | selectattr('keyType', 'equalto', 'ZoneSigningKey') | list | length == 1
+      
+    fail_msg: "DNSSEC properties for {{ item.test_case.zone }} ({{ item.test_case.name }}) do not match expected configuration"
+    success_msg: "DNSSEC properties for {{ item.test_case.zone }} ({{ item.test_case.name }}) match expected configuration"
+    quiet: true
+  loop: "{{ zone_dnssec_properties_results.results }}"
+  loop_control:
+    label: "{{ item.test_case.name }}"
+
+- name: "Verify RSA-SHA256 algorithm-specific DNSSEC key properties"
+  ansible.builtin.assert:
+    that:
+      # KSK key verification for RSA-SHA256 (algorithm number 8)
+      - ksk_key.algorithmNumber == 8
+      - ksk_key.algorithm is match('RSASHA256 \\([0-9]+ bits\\)')
+      - ksk_key.algorithm is match('RSASHA256 \\(' + (item.test_case.kskKeySize | string) + ' bits\\)')
+      
+      # ZSK key verification for RSA-SHA256 (algorithm number 8)
+      - zsk_key.algorithmNumber == 8
+      - zsk_key.algorithm is match('RSASHA256 \\([0-9]+ bits\\)')
+      - zsk_key.algorithm is match('RSASHA256 \\(' + (item.test_case.zskKeySize | string) + ' bits\\)')
+      
+      # ZSK rollover days verification
+      - zsk_key.rolloverDays == (item.test_case.zskRolloverDays | default(30))
+      
+    fail_msg: "RSA-SHA256 DNSSEC key properties for {{ item.test_case.zone }} ({{ item.test_case.name }}) do not match expected configuration"
+    success_msg: "RSA-SHA256 DNSSEC key properties for {{ item.test_case.zone }} ({{ item.test_case.name }}) match expected configuration"
+    quiet: true
+  vars:
+    ksk_key: "{{ item.dnssec_properties.dnssecPrivateKeys | selectattr('keyType', 'equalto', 'KeySigningKey') | first }}"
+    zsk_key: "{{ item.dnssec_properties.dnssecPrivateKeys | selectattr('keyType', 'equalto', 'ZoneSigningKey') | first }}"
+  loop: "{{ zone_dnssec_properties_results.results | selectattr('test_case.algorithm', 'equalto', 'RSA') | selectattr('test_case.hashAlgorithm', 'equalto', 'SHA256') }}"
+  loop_control:
+    label: "{{ item.test_case.name }}"
+
+- name: "Verify RSA-SHA512 algorithm-specific DNSSEC key properties"
+  ansible.builtin.assert:
+    that:
+      # KSK key verification for RSA-SHA512 (algorithm number 10)
+      - ksk_key.algorithmNumber == 10
+      - ksk_key.algorithm is match('RSASHA512 \\([0-9]+ bits\\)')
+      - ksk_key.algorithm is match('RSASHA512 \\(' + (item.test_case.kskKeySize | string) + ' bits\\)')
+      
+      # ZSK key verification for RSA-SHA512 (algorithm number 10)
+      - zsk_key.algorithmNumber == 10
+      - zsk_key.algorithm is match('RSASHA512 \\([0-9]+ bits\\)')
+      - zsk_key.algorithm is match('RSASHA512 \\(' + (item.test_case.zskKeySize | string) + ' bits\\)')
+      
+      # ZSK rollover days verification
+      - zsk_key.rolloverDays == (item.test_case.zskRolloverDays | default(30))
+      
+    fail_msg: "RSA-SHA512 DNSSEC key properties for {{ item.test_case.zone }} ({{ item.test_case.name }}) do not match expected configuration"
+    success_msg: "RSA-SHA512 DNSSEC key properties for {{ item.test_case.zone }} ({{ item.test_case.name }}) match expected configuration"
+    quiet: true
+  vars:
+    ksk_key: "{{ item.dnssec_properties.dnssecPrivateKeys | selectattr('keyType', 'equalto', 'KeySigningKey') | first }}"
+    zsk_key: "{{ item.dnssec_properties.dnssecPrivateKeys | selectattr('keyType', 'equalto', 'ZoneSigningKey') | first }}"
+  loop: "{{ zone_dnssec_properties_results.results | selectattr('test_case.algorithm', 'equalto', 'RSA') | selectattr('test_case.hashAlgorithm', 'equalto', 'SHA512') }}"
+  loop_control:
+    label: "{{ item.test_case.name }}"
+
+- name: "Verify ECDSA-P256 algorithm-specific DNSSEC key properties"
+  ansible.builtin.assert:
+    that:
+      # KSK key verification for ECDSA-P256 (algorithm number 13)
+      - ksk_key.algorithmNumber == 13
+      - "'ECDSAP256SHA256' in ksk_key.algorithm"
+      
+      # ZSK key verification for ECDSA-P256 (algorithm number 13)
+      - zsk_key.algorithmNumber == 13
+      - "'ECDSAP256SHA256' in zsk_key.algorithm"
+      
+      # ZSK rollover days verification
+      - zsk_key.rolloverDays == (item.test_case.zskRolloverDays | default(30))
+      
+    fail_msg: "ECDSA-P256 DNSSEC key properties for {{ item.test_case.zone }} ({{ item.test_case.name }}) do not match expected configuration"
+    success_msg: "ECDSA-P256 DNSSEC key properties for {{ item.test_case.zone }} ({{ item.test_case.name }}) match expected configuration"
+    quiet: true
+  vars:
+    ksk_key: "{{ item.dnssec_properties.dnssecPrivateKeys | selectattr('keyType', 'equalto', 'KeySigningKey') | first }}"
+    zsk_key: "{{ item.dnssec_properties.dnssecPrivateKeys | selectattr('keyType', 'equalto', 'ZoneSigningKey') | first }}"
+  loop: "{{ zone_dnssec_properties_results.results | selectattr('test_case.algorithm', 'equalto', 'ECDSA') | selectattr('test_case.curve', 'equalto', 'P256') }}"
+  loop_control:
+    label: "{{ item.test_case.name }}"
+
+- name: "Verify ECDSA-P384 algorithm-specific DNSSEC key properties"
+  ansible.builtin.assert:
+    that:
+      # KSK key verification for ECDSA-P384 (algorithm number 14)
+      - ksk_key.algorithmNumber == 14
+      - "'ECDSAP384SHA384' in ksk_key.algorithm"
+      
+      # ZSK key verification for ECDSA-P384 (algorithm number 14)
+      - zsk_key.algorithmNumber == 14
+      - "'ECDSAP384SHA384' in zsk_key.algorithm"
+      
+      # ZSK rollover days verification
+      - zsk_key.rolloverDays == (item.test_case.zskRolloverDays | default(30))
+      
+    fail_msg: "ECDSA-P384 DNSSEC key properties for {{ item.test_case.zone }} ({{ item.test_case.name }}) do not match expected configuration"
+    success_msg: "ECDSA-P384 DNSSEC key properties for {{ item.test_case.zone }} ({{ item.test_case.name }}) match expected configuration"
+    quiet: true
+  vars:
+    ksk_key: "{{ item.dnssec_properties.dnssecPrivateKeys | selectattr('keyType', 'equalto', 'KeySigningKey') | first }}"
+    zsk_key: "{{ item.dnssec_properties.dnssecPrivateKeys | selectattr('keyType', 'equalto', 'ZoneSigningKey') | first }}"
+  loop: "{{ zone_dnssec_properties_results.results | selectattr('test_case.algorithm', 'equalto', 'ECDSA') | selectattr('test_case.curve', 'equalto', 'P384') }}"
+  loop_control:
+    label: "{{ item.test_case.name }}"
+
+- name: "Verify EDDSA-ED25519 algorithm-specific DNSSEC key properties"
+  ansible.builtin.assert:
+    that:
+      # KSK key verification for EDDSA-ED25519 (algorithm number 15)
+      - ksk_key.algorithmNumber == 15
+      - "'ED25519' in ksk_key.algorithm"
+      
+      # ZSK key verification for EDDSA-ED25519 (algorithm number 15)
+      - zsk_key.algorithmNumber == 15
+      - "'ED25519' in zsk_key.algorithm"
+      
+      # ZSK rollover days verification
+      - zsk_key.rolloverDays == (item.test_case.zskRolloverDays | default(30))
+      
+    fail_msg: "EDDSA-ED25519 DNSSEC key properties for {{ item.test_case.zone }} ({{ item.test_case.name }}) do not match expected configuration"
+    success_msg: "EDDSA-ED25519 DNSSEC key properties for {{ item.test_case.zone }} ({{ item.test_case.name }}) match expected configuration"
+    quiet: true
+  vars:
+    ksk_key: "{{ item.dnssec_properties.dnssecPrivateKeys | selectattr('keyType', 'equalto', 'KeySigningKey') | first }}"
+    zsk_key: "{{ item.dnssec_properties.dnssecPrivateKeys | selectattr('keyType', 'equalto', 'ZoneSigningKey') | first }}"
+  loop: "{{ zone_dnssec_properties_results.results | selectattr('test_case.algorithm', 'equalto', 'EDDSA') | selectattr('test_case.curve', 'equalto', 'ED25519') }}"
+  loop_control:
+    label: "{{ item.test_case.name }}"
+
+- name: "Verify EDDSA-ED448 algorithm-specific DNSSEC key properties"
+  ansible.builtin.assert:
+    that:
+      # KSK key verification for EDDSA-ED448 (algorithm number 16)
+      - ksk_key.algorithmNumber == 16
+      - "'ED448' in ksk_key.algorithm"
+      
+      # ZSK key verification for EDDSA-ED448 (algorithm number 16)
+      - zsk_key.algorithmNumber == 16
+      - "'ED448' in zsk_key.algorithm"
+      
+      # ZSK rollover days verification
+      - zsk_key.rolloverDays == (item.test_case.zskRolloverDays | default(30))
+      
+    fail_msg: "EDDSA-ED448 DNSSEC key properties for {{ item.test_case.zone }} ({{ item.test_case.name }}) do not match expected configuration"
+    success_msg: "EDDSA-ED448 DNSSEC key properties for {{ item.test_case.zone }} ({{ item.test_case.name }}) match expected configuration"
+    quiet: true
+  vars:
+    ksk_key: "{{ item.dnssec_properties.dnssecPrivateKeys | selectattr('keyType', 'equalto', 'KeySigningKey') | first }}"
+    zsk_key: "{{ item.dnssec_properties.dnssecPrivateKeys | selectattr('keyType', 'equalto', 'ZoneSigningKey') | first }}"
+  loop: "{{ zone_dnssec_properties_results.results | selectattr('test_case.algorithm', 'equalto', 'EDDSA') | selectattr('test_case.curve', 'equalto', 'ED448') }}"
+  loop_control:
+    label: "{{ item.test_case.name }}"
+
+# Phase 5: Idempotency tests
+- name: "Idempotency - Check mode - Sign DNS zones (matrix tests)"
+  technitium_dns_sign_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ test_case.zone }}"
+    algorithm: "{{ test_case.algorithm }}"
+    # RSA-specific parameters
+    hashAlgorithm: "{{ test_case.hashAlgorithm | default(omit) }}"
+    kskKeySize: "{{ test_case.kskKeySize | default(omit) }}"
+    zskKeySize: "{{ test_case.zskKeySize | default(omit) }}"
+    # ECDSA/EDDSA-specific parameters
+    curve: "{{ test_case.curve | default(omit) }}"
+    # Common optional parameters
+    dnsKeyTtl: "{{ test_case.dnsKeyTtl | default(86400) }}"
+    zskRolloverDays: "{{ test_case.zskRolloverDays | default(30) }}"
+    nxProof: "{{ test_case.nxProof | default('NSEC') }}"
+    # NSEC3-specific parameters
+    iterations: "{{ test_case.iterations | default(omit) }}"
+    saltLength: "{{ test_case.saltLength | default(omit) }}"
+  check_mode: true
+  register: zone_signing_idempotency_check_results
+  loop: "{{ dnssec_test_matrix }}"
+  loop_control:
+    loop_var: test_case
+    label: "{{ test_case.name }}"
+
+- name: "Assert DNS zones are idempotent in check mode (matrix tests)"
+  ansible.builtin.assert:
+    that:
+      - not (item is changed)
+    quiet: true
+  loop: "{{ zone_signing_idempotency_check_results.results }}"
+  loop_control:
+    label: "{{ item.test_case.name }}"
+
+- name: "Idempotency - Sign DNS zones (matrix tests)"
+  technitium_dns_sign_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ test_case.zone }}"
+    algorithm: "{{ test_case.algorithm }}"
+    # RSA-specific parameters
+    hashAlgorithm: "{{ test_case.hashAlgorithm | default(omit) }}"
+    kskKeySize: "{{ test_case.kskKeySize | default(omit) }}"
+    zskKeySize: "{{ test_case.zskKeySize | default(omit) }}"
+    # ECDSA/EDDSA-specific parameters
+    curve: "{{ test_case.curve | default(omit) }}"
+    # Common optional parameters
+    dnsKeyTtl: "{{ test_case.dnsKeyTtl | default(86400) }}"
+    zskRolloverDays: "{{ test_case.zskRolloverDays | default(30) }}"
+    nxProof: "{{ test_case.nxProof | default('NSEC') }}"
+    # NSEC3-specific parameters
+    iterations: "{{ test_case.iterations | default(omit) }}"
+    saltLength: "{{ test_case.saltLength | default(omit) }}"
+  register: zone_signing_idempotency_results
+  loop: "{{ dnssec_test_matrix }}"
+  loop_control:
+    loop_var: test_case
+    label: "{{ test_case.name }}"
+
+- name: "Assert DNS zones are idempotent (matrix tests)"
+  ansible.builtin.assert:
+    that:
+      - not (item is changed)
+    quiet: true
+  loop: "{{ zone_signing_idempotency_results.results }}"
+  loop_control:
+    label: "{{ item.test_case.name }}"
+
+# Phase 6: Failure tests
+- name: "Failure Tests - Sign DNS zone with invalid API Token"
+  technitium_dns_sign_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "BADTOKEN"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "dnssec01.{{ test_suffix }}"
+    algorithm: "RSA"
+    hashAlgorithm: "SHA256"
+  register: fail_bad_token
+  ignore_errors: true
+
+- name: "Assert failure of invalid API token"
+  ansible.builtin.assert:
+    that:
+      - fail_bad_token.failed
+      - "'Invalid token' in (fail_bad_token.msg)"
+
+- name: "Failure Test - Sign notexistent zone"
+  technitium_dns_sign_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: dnssec999.{{ test_suffix }}
+    algorithm: RSA
+    hashAlgorithm: SHA256
+    kskKeySize: 2048
+    zskKeySize: 1024
+    dnsKeyTtl: 43200
+    zskRolloverDays: 14
+    nxProof: NSEC
+  ignore_errors: true
+  register: dnssec999_zone_signing_result
+
+- name: Assert DNS zone signing
+  ansible.builtin.assert:
+    that:
+      - dnssec999_zone_signing_result is failed

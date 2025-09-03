@@ -1,0 +1,5 @@
+---
+# Test configuration for technitium_dns_update_record module
+
+# Test environment settings  
+test_suffix: "updaterecordtest.example.com"

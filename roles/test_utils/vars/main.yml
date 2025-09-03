@@ -1,0 +1,10 @@
+---
+# Default variables for test_utils role
+# These provide fallback values but should be overridden by test targets
+
+# Default API connection settings
+# technitium_api_url: "http://localhost"
+# technitium_api_port: 5380
+
+# # Default behavior settings
+# debug: false

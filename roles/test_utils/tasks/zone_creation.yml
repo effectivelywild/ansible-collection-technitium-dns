@@ -1,0 +1,85 @@
+---
+# Zone creation tasks using Technitium API terminology
+# Creates zones based on the zones_to_create variable
+
+- name: Create DNS zones for testing
+  technitium_dns_create_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    type: "{{ zone_item.type }}"
+    # Optional parameters with defaults
+    catalog: "{{ zone_item.catalog | default(omit) }}"
+    useSoaSerialDateScheme: "{{ zone_item.useSoaSerialDateScheme | default(omit) }}"
+    # Secondary/Stub zone parameters
+    primaryNameServerAddresses: "{{ zone_item.primaryNameServerAddresses | default(omit) }}"
+    zoneTransferProtocol: "{{ zone_item.zoneTransferProtocol | default(omit) }}"
+    tsigKeyName: "{{ zone_item.tsigKeyName | default(omit) }}"
+    validateZone: "{{ zone_item.validateZone | default(omit) }}"
+    # Forwarder zone parameters
+    initializeForwarder: "{{ zone_item.initializeForwarder | default(omit) }}"
+    protocol: "{{ zone_item.protocol | default(omit) }}"
+    forwarder: "{{ zone_item.forwarder | default(omit) }}"
+    dnssecValidation: "{{ zone_item.dnssecValidation | default(omit) }}"
+    # Proxy parameters
+    proxyType: "{{ zone_item.proxyType | default(omit) }}"
+    proxyAddress: "{{ zone_item.proxyAddress | default(omit) }}"
+    proxyPort: "{{ zone_item.proxyPort | default(omit) }}"
+    proxyUsername: "{{ zone_item.proxyUsername | default(omit) }}"
+    proxyPassword: "{{ zone_item.proxyPassword | default(omit) }}"
+  register: zone_creation_result
+  loop: "{{ zones_to_create | default([]) }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"
+  ignore_errors: "{{ zone_item.ignore_errors | default(false) }}"
+
+- name: Debug zone creation results
+  ansible.builtin.debug:
+    var: zone_creation_result.results
+  when: debug | default(false)
+
+- name: Sign DNSSEC-enabled zones
+  technitium_dns_sign_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    algorithm: "{{ zone_item.dnssec_algorithm | default('RSA') }}"
+    # RSA-specific parameters
+    hashAlgorithm: "{{ zone_item.dnssec_hash_algorithm | default('SHA256') if (zone_item.dnssec_algorithm | default('RSA')) == 'RSA' else omit }}"
+    kskKeySize: "{{ zone_item.ksk_key_size | default(2048) if (zone_item.dnssec_algorithm | default('RSA')) == 'RSA' else omit }}"
+    zskKeySize: "{{ zone_item.zsk_key_size | default(1024) if (zone_item.dnssec_algorithm | default('RSA')) == 'RSA' else omit }}"
+    # ECDSA/EDDSA-specific parameters
+    curve: "{{ zone_item.dnssec_curve | default('P256') if (zone_item.dnssec_algorithm | default('RSA')) in ['ECDSA', 'EDDSA'] else omit }}"
+    # Common optional parameters
+    pemKskPrivateKey: "{{ zone_item.pem_ksk_private_key | default(omit) }}"
+    pemZskPrivateKey: "{{ zone_item.pem_zsk_private_key | default(omit) }}"
+    dnsKeyTtl: "{{ zone_item.dns_key_ttl | default(omit) }}"
+    zskRolloverDays: "{{ zone_item.zsk_rollover_days | default(omit) }}"
+    nxProof: "{{ zone_item.nx_proof | default('NSEC') }}"
+    iterations: "{{ zone_item.nsec3_iterations | default(omit) }}"
+    saltLength: "{{ zone_item.nsec3_salt_length | default(omit) }}"
+  register: zone_signing_result
+  loop: "{{ zones_to_create | default([]) }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} (DNSSEC signing)"
+  when:
+    - zone_item.dnssec is defined
+  ignore_errors: "{{ zone_item.ignore_errors | default(false) }}"
+
+- name: Debug DNSSEC signing results
+  ansible.builtin.debug:
+    var: zone_signing_result.results
+  when:
+    - debug | default(false)
+    - zone_signing_result is defined
+
+- name: Store created zone information
+  ansible.builtin.set_fact:
+    created_zones: "{{ zone_creation_result.results | map(attribute='zone_item') | list }}"
+    zone_creation_results: "{{ zone_creation_result.results }}"

@@ -1,2 +1,3 @@
-# ansible-collection-technitium-dns
-Ansible collection for Technitium DNS Server based on the API.
+# Ansible Collection - technetium.dns
+
+Documentation for the collection.

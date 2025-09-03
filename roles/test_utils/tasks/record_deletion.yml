@@ -1,0 +1,106 @@
+---
+# Record deletion tasks using Technitium API terminology
+# Deletes records based on the records_to_delete variable or created_records fact
+
+- name: Delete DNS records
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    domain: "{{ record_item.domain }}"
+    zone: "{{ record_item.zone | default(omit) }}"
+    type: "{{ record_item.type }}"
+    # A/AAAA record parameters
+    ipAddress: "{{ record_item.ipAddress | default(omit) }}"
+    updateSvcbHints: "{{ record_item.updateSvcbHints | default(omit) }}"
+    # NS record parameters
+    nameServer: "{{ record_item.nameServer | default(omit) }}"
+    # PTR record parameters
+    ptrName: "{{ record_item.ptrName | default(omit) }}"
+    # MX record parameters
+    preference: "{{ record_item.preference | default(omit) }}"
+    exchange: "{{ record_item.exchange | default(omit) }}"
+    # TXT record parameters
+    text: "{{ record_item.text | default(omit) }}"
+    splitText: "{{ record_item.splitText | default(omit) }}"
+    mailbox: "{{ record_item.mailbox | default(omit) }}"
+    txtDomain: "{{ record_item.txtDomain | default(omit) }}"
+    # SRV record parameters
+    priority: "{{ record_item.priority | default(omit) }}"
+    weight: "{{ record_item.weight | default(omit) }}"
+    srv_port: "{{ record_item.srv_port | default(omit) }}"
+    target: "{{ record_item.target | default(omit) }}"
+    # NAPTR record parameters
+    naptrOrder: "{{ record_item.naptrOrder | default(omit) }}"
+    naptrPreference: "{{ record_item.naptrPreference | default(omit) }}"
+    naptrFlags: "{{ record_item.naptrFlags | default(omit) }}"
+    naptrServices: "{{ record_item.naptrServices | default(omit) }}"
+    naptrRegexp: "{{ record_item.naptrRegexp | default(omit) }}"
+    naptrReplacement: "{{ record_item.naptrReplacement | default(omit) }}"
+    # DNAME record parameters
+    dname: "{{ record_item.dname | default(omit) }}"
+    # DS record parameters
+    keyTag: "{{ record_item.keyTag | default(omit) }}"
+    algorithm: "{{ record_item.algorithm | default(omit) }}"
+    digestType: "{{ record_item.digestType | default(omit) }}"
+    digest: "{{ record_item.digest | default(omit) }}"
+    # SSHFP record parameters
+    sshfpAlgorithm: "{{ record_item.sshfpAlgorithm | default(omit) }}"
+    sshfpFingerprintType: "{{ record_item.sshfpFingerprintType | default(omit) }}"
+    sshfpFingerprint: "{{ record_item.sshfpFingerprint | default(omit) }}"
+    # TLSA record parameters
+    tlsaCertificateUsage: "{{ record_item.tlsaCertificateUsage | default(omit) }}"
+    tlsaSelector: "{{ record_item.tlsaSelector | default(omit) }}"
+    tlsaMatchingType: "{{ record_item.tlsaMatchingType | default(omit) }}"
+    tlsaCertificateAssociationData: "{{ record_item.tlsaCertificateAssociationData | default(omit) }}"
+    # SVCB/HTTPS record parameters
+    svcPriority: "{{ record_item.svcPriority | default(omit) }}"
+    svcTargetName: "{{ record_item.svcTargetName | default(omit) }}"
+    svcParams: "{{ record_item.svcParams | default(omit) }}"
+    # URI record parameters
+    uriPriority: "{{ record_item.uriPriority | default(omit) }}"
+    uriWeight: "{{ record_item.uriWeight | default(omit) }}"
+    uri: "{{ record_item.uri | default(omit) }}"
+    # CAA record parameters
+    flags: "{{ record_item.flags | default(omit) }}"
+    tag: "{{ record_item.tag | default(omit) }}"
+    value: "{{ record_item.value | default(omit) }}"
+    # ANAME record parameters
+    aname: "{{ record_item.aname | default(omit) }}"
+    # FWD record parameters
+    protocol: "{{ record_item.protocol | default(omit) }}"
+    forwarder: "{{ record_item.forwarder | default(omit) }}"
+    forwarderPriority: "{{ record_item.forwarderPriority | default(omit) }}"
+    dnssecValidation: "{{ record_item.dnssecValidation | default(omit) }}"
+    proxyType: "{{ record_item.proxyType | default(omit) }}"
+    proxyAddress: "{{ record_item.proxyAddress | default(omit) }}"
+    proxyPort: "{{ record_item.proxyPort | default(omit) }}"
+    proxyUsername: "{{ record_item.proxyUsername | default(omit) }}"
+    proxyPassword: "{{ record_item.proxyPassword | default(omit) }}"
+    # APP record parameters
+    appName: "{{ record_item.appName | default(omit) }}"
+    classPath: "{{ record_item.classPath | default(omit) }}"
+    recordData: "{{ record_item.recordData | default(omit) }}"
+    # Unknown record parameters
+    rdata: "{{ record_item.rdata | default(omit) }}"
+  register: record_deletion_result
+  loop: "{{ records_to_delete | default(created_records | default([])) }}"
+  loop_control:
+    loop_var: record_item
+    label: "{{ record_item.domain }} ({{ record_item.type }})"
+  ignore_errors: "{{ record_item.ignore_errors | default(true) }}"
+
+- name: Debug record deletion results
+  ansible.builtin.debug:
+    var: record_deletion_result.results
+  when: debug | default(false)
+
+- name: Store deleted record information
+  ansible.builtin.set_fact:
+    record_deletion_results: "{{ record_deletion_result.results }}"
+
+- name: Clear deleted record information
+  ansible.builtin.set_fact:
+    created_records: []
+  when: records_to_delete is not defined

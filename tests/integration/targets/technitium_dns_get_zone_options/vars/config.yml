@@ -1,0 +1,5 @@
+# Test configuration for technitium_dns_get_zone_info integration tests
+---
+
+# Test Environment Configuration
+test_suffix: "deletezonetest.example.com"

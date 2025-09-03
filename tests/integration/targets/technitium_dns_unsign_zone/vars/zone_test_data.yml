@@ -1,0 +1,20 @@
+---
+# test data for technitium_dns_unsign_zone integration tests
+# Test zones for unsigning DNSSEC
+unsign_test_zones:
+  - name: "test-zone-01"
+    zone: "unsign01.{{ test_suffix }}"
+    
+  - name: "test-zone-02"
+    zone: "unsign02.{{ test_suffix }}"
+    
+  - name: "test-zone-03"
+    zone: "unsign03.{{ test_suffix }}"
+
+# Parameters for initially signing zones
+sign_parameters:
+  algorithm: "RSA"
+  hashAlgorithm: "SHA256"
+  kskKeySize: 2048
+  zskKeySize: 1024
+  nxProof: "NSEC"

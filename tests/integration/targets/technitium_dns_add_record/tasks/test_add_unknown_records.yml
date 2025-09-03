@@ -1,0 +1,308 @@
+---
+# UNKNOWN Record Tests
+
+- name: "Define UNKNOWN test records"
+  ansible.builtin.set_fact:
+    add_unknown_test_records:
+      - { idx: 1, name: basic-unk,   zone: "{{ primary_zone_name }}",      rdata: "01020304deadbeef" }
+      - { idx: 2, name: meta-unk,    zone: "{{ primary_sec_zone_name }}",  rdata: "01:02:03:04:de:ad:be:ef", ttl: 600, comments: "Unknown with ttl+comment" }
+      - { idx: 3, name: upper-unk,   zone: "{{ primary_zone_name }}",      rdata: "DEADBEEF01020304", ttl: 1200 }
+    # Overwrite test record (will overwrite basic-unk)
+    overwrite_unknown_record:
+      idx: 1
+      name: basic-unk
+      zone: "{{ primary_zone_name }}"
+      rdata: cafebabe
+      comments: "Overwrite test comment"
+
+# Helper: functionally normalize hex for comparison (remove colons, uppercase)
+- name: "Set UNKNOWN record normalization helper vars"
+  ansible.builtin.set_fact:
+    unk_normalize_regex: ":"  # used to strip colons
+
+# Phase 1: Check mode - Add UNKNOWN records
+- name: "Check mode - Add UNKNOWN records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: UNKNOWN
+    rdata: "{{ rec.rdata }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_unknown_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: plan_unknown_results
+
+- name: "Assert all UNKNOWN plan operations report changed"
+  ansible.builtin.assert:
+    that:
+      - (plan_unknown_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 2: external verify absence via get_records
+- name: "Verify check_mode didn't add records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+  loop: "{{ add_unknown_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "absent: {{ rec.name }}.{{ rec.zone }}"
+  ignore_errors: true
+  register: absent_get_unknown_results
+
+- name: "Assert no records were found"
+  ansible.builtin.assert:
+    that:
+      - (absent_get_unknown_results.results | map(attribute='failed') | list | unique) == [ true ]
+    quiet: true
+
+# Phase 3: real creation
+- name: "Add UNKNOWN records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: UNKNOWN
+    rdata: "{{ rec.rdata }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_unknown_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "add: {{ rec.name }}.{{ rec.zone }}"
+  register: create_unknown_results
+
+- name: "Assert UNKNOWN creations changed"
+  ansible.builtin.assert:
+    that:
+      - (create_unknown_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 4: external verify presence via get_records
+- name: "Verify records were created"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+  loop: "{{ add_unknown_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "get: {{ rec.name }}.{{ rec.zone }}"
+  register: present_get_unknown_results
+
+- name: "Debug verification results"
+  debug:
+    msg: "Record {{ item.rec.name }}.{{ item.rec.zone }}: status={{ item.api_response.status }}, changed={{ item.changed }}"
+  loop: "{{ present_get_unknown_results.results }}"
+  loop_control:
+    label: "debug: {{ item.rec.name }}.{{ item.rec.zone }}"
+
+- name: "Assert records were found successfully"
+  ansible.builtin.assert:
+    that:
+      - (present_get_unknown_results.results | map(attribute='api_response') | map(attribute='status') | list | unique) == [ "ok" ]
+    quiet: true
+
+- name: "Assert UNKNOWN record parameters match request (rdata normalized, ttl, comments)"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (((item.records | default([])
+            | selectattr('type','equalto','Unknown')
+            | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+            | list | first).rData.value | regex_replace(':','') | upper)
+         == (item.rec.rdata | regex_replace(':','') | upper))
+      - >-
+        ('ttl' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','Unknown')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).ttl | int) == (item.rec.ttl | int)
+        )
+      - >-
+        ('comments' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','Unknown')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).comments | default(item.rec.comments)) == item.rec.comments
+        )
+    quiet: true
+  loop: "{{ present_get_unknown_results.results }}"
+  loop_control:
+    label: "Params: {{ item.rec.name }}.{{ item.rec.zone }}"
+
+# Phase 5: Check mode - re-plan (no change)
+- name: "Check mode - Re-add UNKNOWN records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: UNKNOWN
+    rdata: "{{ rec.rdata }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_unknown_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: replan_unknown_results
+
+- name: "Assert UNKNOWN re-plan no changes"
+  ansible.builtin.assert:
+    that:
+      - (replan_unknown_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 6: idempotency check (no change)
+- name: "Idempotency - Re-add UNKNOWN records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: UNKNOWN
+    rdata: "{{ rec.rdata }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_unknown_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "idempotency: {{ rec.name }}.{{ rec.zone }}"
+  register: recreate_unknown_results
+
+- name: "Assert UNKNOWN re-create no changes"
+  ansible.builtin.assert:
+    that:
+      - (recreate_unknown_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 7: overwrite tests
+- name: "Overwrite UNKNOWN record (basic-unk) with new values"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_unknown_record.name }}.{{ overwrite_unknown_record.zone }}"
+    zone: "{{ overwrite_unknown_record.zone }}"
+    type: UNKNOWN
+    rdata: "{{ overwrite_unknown_record.rdata }}"
+    comments: "{{ overwrite_unknown_record.comments }}"
+    overwrite: true
+  register: overwrite_unknown_result
+
+- name: "Debug overwrite result"
+  debug:
+    msg: "Overwrite {{ overwrite_unknown_record.name }}.{{ overwrite_unknown_record.zone }}: changed={{ overwrite_unknown_result.changed }}"
+
+- name: "Assert overwrite operation reports changed"
+  ansible.builtin.assert:
+    that:
+      - overwrite_unknown_result.changed
+
+- name: "Fetch overwritten UNKNOWN record for presence (get_records)"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_unknown_record.name }}.{{ overwrite_unknown_record.zone }}"
+    zone: "{{ overwrite_unknown_record.zone }}"
+  register: overwritten_unknown_get_result
+
+- name: "Debug overwritten record"
+  debug:
+    msg: "Get overwritten {{ overwrite_unknown_record.name }}.{{ overwrite_unknown_record.zone }}: status={{ overwritten_unknown_get_result.api_response.status }}"
+
+- name: "Assert overwritten UNKNOWN record has new values"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (overwritten_unknown_get_result.records | default([])
+         | selectattr('type','equalto','Unknown')
+         | selectattr('name','equalto', (overwrite_unknown_record.name ~ '.' ~ overwrite_unknown_record.zone))
+         | list | first).rData.value | regex_replace(':','') | upper == overwrite_unknown_record.rdata | upper
+      - >-
+        (overwritten_unknown_get_result.records | default([])
+         | selectattr('type','equalto','Unknown')
+         | selectattr('name','equalto', (overwrite_unknown_record.name ~ '.' ~ overwrite_unknown_record.zone))
+         | list | first).comments == overwrite_unknown_record.comments
+
+# Phase 8: negative tests (UNKNOWN specific)
+- name: "Negative test - UNKNOWN missing rdata"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "missing-unk.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: UNKNOWN
+  register: neg_unknown_missing_rdata
+  ignore_errors: true
+
+- name: "Debug negative test - missing rdata"
+  debug:
+    msg: "Missing rdata test: failed={{ neg_unknown_missing_rdata.failed }}, msg={{ neg_unknown_missing_rdata.msg | default('') }}"
+
+- name: Assert failure of UNKNOWN missing rdata
+  ansible.builtin.assert:
+    that:
+      - neg_unknown_missing_rdata.failed
+      - "'rdata' in (neg_unknown_missing_rdata.msg | default(''))"
+
+- name: "Negative test - UNKNOWN unsupported param (ipAddress)"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-param-unk.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: UNKNOWN
+    rdata: "00aa"
+    ipAddress: 192.0.2.30
+  register: neg_unknown_bad_param
+  ignore_errors: true
+
+- name: "Debug negative test - unsupported param"
+  debug:
+    msg: "Bad param test: failed={{ neg_unknown_bad_param.failed }}, msg={{ neg_unknown_bad_param.msg | default('') }}"
+
+- name: Assert failure of UNKNOWN unsupported param
+  ansible.builtin.assert:
+    that:
+      - neg_unknown_bad_param.failed
+      - "'ipAddress' in (neg_unknown_bad_param.msg | default(''))"
+
+- name: "Negative test - UNKNOWN invalid API token"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: BADTOKEN
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-token-unk.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: UNKNOWN
+    rdata: "00bb"
+  register: neg_unknown_bad_token
+  ignore_errors: true
+
+- name: "Debug negative test - invalid token"
+  debug:
+    msg: "Bad token test: failed={{ neg_unknown_bad_token.failed }}, msg={{ neg_unknown_bad_token.msg | default('') }}"
+
+- name: Assert failure of UNKNOWN invalid API token
+  ansible.builtin.assert:
+    that:
+      - neg_unknown_bad_token.failed
+      - "'Invalid token' in (neg_unknown_bad_token.msg)"

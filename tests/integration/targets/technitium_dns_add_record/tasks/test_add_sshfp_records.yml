@@ -1,0 +1,324 @@
+---
+# SSHFP Record Tests
+# Cover all supported algorithms (excluding SHA1 fingerprint type) using SHA256 only.
+
+- name: "Define SSHFP test records"
+  ansible.builtin.set_fact:
+    add_sshfp_test_records:
+      # Provide distinct SHA256 fingerprints (64 hex chars each)
+      - { idx: 1, name: sshfp-rsa,      zone: "{{ primary_sec_zone_name }}", sshfpAlgorithm: RSA,      sshfpFingerprintType: SHA256, sshfpFingerprint: a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0fedcba9876543210, ttl: 3600 }
+      - { idx: 2, name: sshfp-dsa,      zone: "{{ primary_sec_zone_name }}", sshfpAlgorithm: DSA,      sshfpFingerprintType: SHA256, sshfpFingerprint: b1c2d3e4f5061728394a5b6c7d8e9f00112233445566778899aabbccddeeff00 }
+      - { idx: 3, name: sshfp-ecdsa,    zone: "{{ primary_sec_zone_name }}", sshfpAlgorithm: ECDSA,    sshfpFingerprintType: SHA256, sshfpFingerprint: c1d2e3f40516273849a5b6c7d8e9f00112233445566778899aabbccddeeff112, comments: "ECDSA fingerprint" }
+      - { idx: 4, name: sshfp-ed25519,  zone: "{{ primary_sec_zone_name }}", sshfpAlgorithm: Ed25519,  sshfpFingerprintType: SHA256, sshfpFingerprint: d1e2f30415263748a9b5c6d7e8f00112233445566778899aabbccddeeff11223, ttl: 600, comments: "Ed25519 short ttl" }
+      - { idx: 5, name: sshfp-ed448,    zone: "{{ primary_sec_zone_name }}", sshfpAlgorithm: Ed448,    sshfpFingerprintType: SHA256, sshfpFingerprint: e1f2031425364748a9b5c6d7e8f00112233445566778899aabbccddeeff11223 }
+    # Overwrite test record (will overwrite sshfp-rsa)
+    overwrite_sshfp_record:
+      idx: 1
+      name: sshfp-rsa
+      zone: "{{ primary_sec_zone_name }}"
+      sshfpAlgorithm: RSA
+      sshfpFingerprintType: SHA256
+      sshfpFingerprint: ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+      ttl: 54321
+
+# Phase 1: Check mode
+- name: "Check mode - Add SSHFP records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: SSHFP
+    sshfpAlgorithm: "{{ rec.sshfpAlgorithm }}"
+    sshfpFingerprintType: "{{ rec.sshfpFingerprintType }}"
+    sshfpFingerprint: "{{ rec.sshfpFingerprint }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_sshfp_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: plan_sshfp_results
+
+- name: "Assert change"
+  ansible.builtin.assert:
+    that:
+      - (plan_sshfp_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 2: external verify absence via get_records
+- name: "Verify check_mode didn't add records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+  loop: "{{ add_sshfp_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: absent_get_sshfp_results
+  ignore_errors: true
+
+- name: Debug absent_get_sshfp_results
+  ansible.builtin.debug:
+    var: absent_get_sshfp_results
+  when: debug | default(false)
+
+- name: "Assert no records were found"
+  ansible.builtin.assert:
+    that:
+      - (absent_get_sshfp_results.results | map(attribute='failed') | list | unique) == [ true ]
+
+# Phase 3: real creation
+- name: "Create SSHFP records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: SSHFP
+    sshfpAlgorithm: "{{ rec.sshfpAlgorithm }}"
+    sshfpFingerprintType: "{{ rec.sshfpFingerprintType }}"
+    sshfpFingerprint: "{{ rec.sshfpFingerprint }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_sshfp_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Create: {{ rec.idx }}-{{ rec.name }}.{{ rec.zone }}"
+  register: create_sshfp_results
+
+- name: "Assert creations changed"
+  ansible.builtin.assert:
+    that:
+      - (create_sshfp_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 4: verify presence via get_records
+- name: "Get SSHFP records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+  loop: "{{ add_sshfp_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: present_get_sshfp_results
+
+- name: Debug present_get_sshfp_results
+  ansible.builtin.debug:
+    var: present_get_sshfp_results
+  when: debug | default(false)
+
+- name: "Assert records exist"
+  ansible.builtin.assert:
+    that: (present_get_sshfp_results.results | map(attribute='api_response.status') | list | unique) == ['ok']
+    quiet: true
+
+- name: "Assert SSHFP record parameters match request"
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','SSHFP')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.algorithm) == item.rec.sshfpAlgorithm
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','SSHFP')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.fingerprintType) == item.rec.sshfpFingerprintType
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','SSHFP')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.fingerprint | lower) == (item.rec.sshfpFingerprint | lower)
+      - >-
+        ('ttl' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','SSHFP')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).ttl | int) == (item.rec.ttl | int)
+        )
+      - >-
+        ('comments' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','SSHFP')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).comments | default(item.rec.comments)) == item.rec.comments
+        )
+    quiet: true
+  loop: "{{ present_get_sshfp_results.results }}"
+  loop_control:
+    label: "Params: {{ item.rec.name }}.{{ item.rec.zone }}"
+
+# Phase 5: re-plan (no change)
+- name: "Check mode: Re-add SSHFP records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: SSHFP
+    sshfpAlgorithm: "{{ rec.sshfpAlgorithm }}"
+    sshfpFingerprintType: "{{ rec.sshfpFingerprintType }}"
+    sshfpFingerprint: "{{ rec.sshfpFingerprint }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_sshfp_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: replan_sshfp_results
+
+- name: "Assert re-add had no changes"
+  ansible.builtin.assert:
+    that:
+      - (replan_sshfp_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 6: re-run real (no change)
+- name: "Idempotency: Re-run add SSHFP records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: SSHFP
+    sshfpAlgorithm: "{{ rec.sshfpAlgorithm }}"
+    sshfpFingerprintType: "{{ rec.sshfpFingerprintType }}"
+    sshfpFingerprint: "{{ rec.sshfpFingerprint }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_sshfp_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Recreate: {{ rec.name }}.{{ rec.zone }}"
+  register: rerun_sshfp_results
+
+- name: "Assert re-run no changes"
+  ansible.builtin.assert:
+    that:
+      - (rerun_sshfp_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 7: overwrite tests
+- name: "Overwrite SSHFP record (sshfp-rsa) with new values"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_sshfp_record.name }}.{{ overwrite_sshfp_record.zone }}"
+    zone: "{{ overwrite_sshfp_record.zone }}"
+    type: SSHFP
+    sshfpAlgorithm: "{{ overwrite_sshfp_record.sshfpAlgorithm }}"
+    sshfpFingerprintType: "{{ overwrite_sshfp_record.sshfpFingerprintType }}"
+    sshfpFingerprint: "{{ overwrite_sshfp_record.sshfpFingerprint }}"
+    ttl: "{{ overwrite_sshfp_record.ttl }}"
+    overwrite: true
+  register: overwrite_sshfp_result
+
+- name: "Assert overwrite operation reports changed"
+  ansible.builtin.assert:
+    that:
+      - overwrite_sshfp_result.changed
+
+- name: "Fetch overwritten SSHFP record for presence (get_records)"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_sshfp_record.name }}.{{ overwrite_sshfp_record.zone }}"
+    zone: "{{ overwrite_sshfp_record.zone }}"
+  register: overwritten_sshfp_get_result
+
+- name: Debug overwritten_sshfp_get_result
+  ansible.builtin.debug:
+    var: overwritten_sshfp_get_result
+  when: debug | default(false)
+
+- name: "Assert overwritten SSHFP record has new values"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (overwritten_sshfp_get_result.records | default([])
+         | selectattr('type','equalto','SSHFP')
+         | selectattr('name','equalto', (overwrite_sshfp_record.name ~ '.' ~ overwrite_sshfp_record.zone))
+         | list | first).rData.fingerprint | lower == overwrite_sshfp_record.sshfpFingerprint | lower
+      - >-
+        (overwritten_sshfp_get_result.records | default([])
+         | selectattr('type','equalto','SSHFP')
+         | selectattr('name','equalto', (overwrite_sshfp_record.name ~ '.' ~ overwrite_sshfp_record.zone))
+         | list | first).ttl == overwrite_sshfp_record.ttl
+
+# Phase 8: negative tests
+- name: "Negative: missing sshfpAlgorithm"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-missing-algo-sshfp.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: SSHFP
+    sshfpFingerprintType: SHA256
+    sshfpFingerprint: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+  register: neg_sshfp_missing_algo
+  ignore_errors: true
+
+- name: Debug neg_sshfp_missing_algo
+  ansible.builtin.debug:
+    var: neg_sshfp_missing_algo
+  when: debug | default(false)
+
+- name: Assert failure of missing sshfpAlgorithm
+  ansible.builtin.assert:
+    that:
+      - neg_sshfp_missing_algo.failed
+      - "'sshfpAlgorithm' in (neg_sshfp_missing_algo.msg | default(''))"
+
+- name: "Negative: unsupported param for SSHFP (ipAddress)"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-badparam-sshfp.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: SSHFP
+    sshfpAlgorithm: RSA
+    sshfpFingerprintType: SHA256
+    sshfpFingerprint: f123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdea
+    ipAddress: 192.0.2.250
+  register: neg_sshfp_bad_param
+  ignore_errors: true
+  
+- name: Assert failure of unsupported param
+  ansible.builtin.assert:
+    that:
+      - neg_sshfp_bad_param.failed
+      - "'ipAddress' in (neg_sshfp_bad_param.msg | default(''))"
+
+- name: "Negative: invalid API token"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: BADTOKEN
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-badtoken-sshfp.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: SSHFP
+    sshfpAlgorithm: RSA
+    sshfpFingerprintType: SHA256
+    sshfpFingerprint: 0f23456789abcdef0123456789abcdef0123456789abcdef0123456789abcded
+  register: neg_sshfp_bad_token
+  ignore_errors: true
+
+- name: Assert failure of invalid API token
+  ansible.builtin.assert:
+    that:
+      - neg_sshfp_bad_token.failed
+      - "'Invalid token' in (neg_sshfp_bad_token.msg)"

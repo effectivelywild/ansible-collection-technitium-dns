@@ -1,0 +1,373 @@
+---
+# DS Record tests
+#  * Records only created in DNSSEC signed primary_sec zone
+#  * Need digest values derived from existing DNSKEY records (SHA256 & SHA384)
+#  * We test combination matrix of secure algorithms x digest types
+
+- name: "Get DNSKEY records for digest derivation (sec zone)"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    zone: "{{ primary_sec_zone_name }}"
+    name: "{{ primary_sec_zone_name }}"
+  register: ds_dnskey_query
+
+- name: "Derive SHA256 & SHA384 digests from DNSKEY set"
+  ansible.builtin.set_fact:
+    ds_sha256_digest: >-
+      {{
+        ds_dnskey_query.api_response.response.records
+        | selectattr('type','equalto','DNSKEY')
+        | map(attribute='rData')
+        | map(attribute='computedDigests')
+        | select('defined')
+        | map('selectattr','digestType','equalto','SHA256')
+        | map('list')
+        | map('first')
+        | select('defined')
+        | map(attribute='digest')
+        | list | first
+      }}
+    ds_sha384_digest: >-
+      {{
+        ds_dnskey_query.api_response.response.records
+        | selectattr('type','equalto','DNSKEY')
+        | map(attribute='rData')
+        | map(attribute='computedDigests')
+        | select('defined')
+        | map('selectattr','digestType','equalto','SHA384')
+        | map('list')
+        | map('first')
+        | select('defined')
+        | map(attribute='digest')
+        | list | first
+      }}
+
+- name: "Assert required digests available"
+  ansible.builtin.assert:
+    that:
+      - ds_sha256_digest is defined and ds_sha256_digest | length > 0
+      - ds_sha384_digest is defined and ds_sha384_digest | length > 0
+
+- name: "Define DS algorithm + digestType test matrix"
+  ansible.builtin.set_fact:
+    add_ds_test_records:
+      - { idx: 1,  name: ds-rsasha256-sha256,  algorithm: RSASHA256,       digestType: SHA256, digest: "{{ ds_sha256_digest }}" }
+      - { idx: 2,  name: ds-rsasha256-sha384,  algorithm: RSASHA256,       digestType: SHA384, digest: "{{ ds_sha384_digest }}" }
+      - { idx: 3,  name: ds-rsasha512-sha256,  algorithm: RSASHA512,       digestType: SHA256, digest: "{{ ds_sha256_digest }}" }
+      - { idx: 4,  name: ds-rsasha512-sha384,  algorithm: RSASHA512,       digestType: SHA384, digest: "{{ ds_sha384_digest }}" }
+      - { idx: 5,  name: ds-ecp256-sha256,     algorithm: ECDSAP256SHA256, digestType: SHA256, digest: "{{ ds_sha256_digest }}" }
+      - { idx: 6,  name: ds-ecp256-sha384,     algorithm: ECDSAP256SHA256, digestType: SHA384, digest: "{{ ds_sha384_digest }}" }
+      - { idx: 7,  name: ds-ecp384-sha256,     algorithm: ECDSAP384SHA384, digestType: SHA256, digest: "{{ ds_sha256_digest }}" }
+      - { idx: 8,  name: ds-ecp384-sha384,     algorithm: ECDSAP384SHA384, digestType: SHA384, digest: "{{ ds_sha384_digest }}" }
+      - { idx: 9,  name: ds-ed25519-sha256,    algorithm: ED25519,         digestType: SHA256, digest: "{{ ds_sha256_digest }}" }
+      - { idx: 10, name: ds-ed25519-sha384,    algorithm: ED25519,         digestType: SHA384, digest: "{{ ds_sha384_digest }}" }
+      - { idx: 11, name: ds-ed448-sha256,      algorithm: ED448,           digestType: SHA256, digest: "{{ ds_sha256_digest }}" }
+      - { idx: 12, name: ds-ed448-sha384,      algorithm: ED448,           digestType: SHA384, digest: "{{ ds_sha384_digest }}" }
+    # Overwrite test record (will overwrite ds-rsasha256-sha256)
+    overwrite_ds_record:
+      idx: 1
+      name: ds-rsasha256-sha256
+      algorithm: ECDSAP384SHA384
+      digestType: SHA384
+      digest: "{{ ds_sha384_digest }}"
+      keyTag: 54321
+      zone: "{{ primary_sec_zone_name }}"
+
+# Choose an arbitrary but stable keyTag for all (could differ IRL per key). Using 12345 consistent with previous DS test.
+- name: "Set DS record common keyTag"
+  ansible.builtin.set_fact:
+    ds_key_tag: 12345
+
+# Phase 1: Check mode
+- name: "Check mode - Add DS records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: DS
+    keyTag: "{{ ds_key_tag }}"
+    algorithm: "{{ rec.algorithm }}"
+    digestType: "{{ rec.digestType }}"
+    digest: "{{ rec.digest }}"
+  check_mode: true
+  loop: "{{ add_ds_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ primary_sec_zone_name }}"
+  register: plan_ds_results
+
+- name: "Assert change"
+  ansible.builtin.assert:
+    that:
+      - (plan_ds_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 2: external verify absence via get_records
+- name: "Verify check_mode didn't add records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ primary_sec_zone_name }}"
+  loop: "{{ add_ds_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ primary_sec_zone_name }}"
+  register: absent_get_ds_results
+  ignore_errors: true
+
+- name: Debug absent_get_ds_results
+  ansible.builtin.debug:
+    var: absent_get_ds_results
+  when: debug | default(false)
+
+- name: "Assert no records were found"
+  ansible.builtin.assert:
+    that:
+      - (absent_get_ds_results.results | map(attribute='failed') | list | unique) == [ true ]
+
+# Phase 3: real creation
+- name: "Create DS records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: DS
+    keyTag: "{{ ds_key_tag }}"
+    algorithm: "{{ rec.algorithm }}"
+    digestType: "{{ rec.digestType }}"
+    digest: "{{ rec.digest }}"
+  loop: "{{ add_ds_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Create: {{ rec.idx }}-{{ rec.name }}.{{ primary_sec_zone_name }}"
+  register: create_ds_results
+
+- name: "Assert creations changed"
+  ansible.builtin.assert:
+    that:
+      - (create_ds_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 4: verify presence via get_records
+- name: "Get DS records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+  loop: "{{ add_ds_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ primary_sec_zone_name }}"
+  register: present_get_ds_results
+
+- name: Debug present_get_ds_results
+  ansible.builtin.debug:
+    var: present_get_ds_results
+  when: debug | default(false)
+
+- name: "Assert records exist"
+  ansible.builtin.assert:
+    that: (present_get_ds_results.results | map(attribute='api_response.status') | list | unique) == ['ok']
+    quiet: true
+
+- name: "Assert DS record params (keyTag, algorithm, digestType, digest)"
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','DS')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ primary_sec_zone_name))
+           | list | first).rData.keyTag | int) == (ds_key_tag | int)
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','DS')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ primary_sec_zone_name))
+           | list | first).rData.algorithm) == item.rec.algorithm
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','DS')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ primary_sec_zone_name))
+           | list | first).rData.digestType) == item.rec.digestType
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','DS')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ primary_sec_zone_name))
+           | list | first).rData.digest) == item.rec.digest
+    quiet: true
+  loop: "{{ present_get_ds_results.results }}"
+  loop_control:
+    label: "Params: {{ item.rec.name }}.{{ primary_sec_zone_name }}"
+
+# Phase 5: re-plan (no change)
+- name: "Check mode: Re-add DS records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: DS
+    keyTag: "{{ ds_key_tag }}"
+    algorithm: "{{ rec.algorithm }}"
+    digestType: "{{ rec.digestType }}"
+    digest: "{{ rec.digest }}"
+  check_mode: true
+  loop: "{{ add_ds_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ primary_sec_zone_name }}"
+  register: replan_ds_results
+
+- name: "Assert re-add had no changes"
+  ansible.builtin.assert:
+    that:
+      - (replan_ds_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 6: re-run real (no change)
+- name: "Idempotency: Re-run add DS records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: DS
+    keyTag: "{{ ds_key_tag }}"
+    algorithm: "{{ rec.algorithm }}"
+    digestType: "{{ rec.digestType }}"
+    digest: "{{ rec.digest }}"
+  loop: "{{ add_ds_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Recreate: {{ rec.name }}.{{ primary_sec_zone_name }}"
+  register: rerun_ds_results
+
+- name: "Assert re-run no changes"
+  ansible.builtin.assert:
+    that:
+      - (rerun_ds_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 7: overwrite test for DS record
+- name: "Overwrite DS record (ds-rsasha256-sha256) with new values"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_ds_record.name }}.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: DS
+    keyTag: "{{ overwrite_ds_record.keyTag }}"
+    algorithm: "{{ overwrite_ds_record.algorithm }}"
+    digestType: "{{ overwrite_ds_record.digestType }}"
+    digest: "{{ overwrite_ds_record.digest }}"
+    overwrite: true
+  register: overwrite_ds_result
+
+- name: "Assert overwrite operation reports changed"
+  ansible.builtin.assert:
+    that:
+      - overwrite_ds_result.changed
+
+- name: "Fetch overwritten DS record for presence (get_records)"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_ds_record.name }}.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+  register: overwritten_ds_get_result
+
+- name: Debug overwritten_ds_get_result
+  ansible.builtin.debug:
+    var: overwritten_ds_get_result
+  when: debug | default(false)
+
+- name: "Assert overwritten DS record has new values"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (overwritten_ds_get_result.records | default([])
+         | selectattr('type','equalto','DS')
+         | selectattr('name','equalto', (overwrite_ds_record.name ~ '.' ~ primary_sec_zone_name))
+         | list | first).rData.keyTag | int == (overwrite_ds_record.keyTag | int)
+      - >-
+        (overwritten_ds_get_result.records | default([])
+         | selectattr('type','equalto','DS')
+         | selectattr('name','equalto', (overwrite_ds_record.name ~ '.' ~ primary_sec_zone_name))
+         | list | first).rData.digest == overwrite_ds_record.digest
+
+# Phase 8: negative tests
+- name: "Negative: missing keyTag"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-missing-keytag.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: DS
+    algorithm: RSASHA256
+    digestType: SHA256
+    digest: "{{ ds_sha256_digest }}"
+  register: neg_ds_missing_keytag
+  ignore_errors: true
+
+- name: Debug neg_ds_missing_keytag
+  ansible.builtin.debug:
+    var: neg_ds_missing_keytag
+  when: debug | default(false)
+
+- name: Assert failure of missing keyTag
+  ansible.builtin.assert:
+    that:
+      - neg_ds_missing_keytag.failed
+      - "'keyTag' in (neg_ds_missing_keytag.msg | default(''))"
+
+- name: "Negative: unsupported param for DS (cname)"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-badparam-ds.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: DS
+    keyTag: "{{ ds_key_tag }}"
+    algorithm: RSASHA256
+    digestType: SHA256
+    digest: "{{ ds_sha256_digest }}"
+    cname: bad.example.com
+  register: neg_ds_bad_param
+  ignore_errors: true
+  
+- name: Assert failure of unsupported param
+  ansible.builtin.assert:
+    that:
+      - neg_ds_bad_param.failed
+      - "'cname' in (neg_ds_bad_param.msg | default(''))"
+
+- name: "Negative: invalid API token"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: BADTOKEN
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-badtoken-ds.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: DS
+    keyTag: "{{ ds_key_tag }}"
+    algorithm: RSASHA256
+    digestType: SHA256
+    digest: "{{ ds_sha256_digest }}"
+  register: neg_ds_bad_token
+  ignore_errors: true
+
+- name: Assert failure of invalid API token
+  ansible.builtin.assert:
+    that:
+      - neg_ds_bad_token.failed
+      - "'Invalid token' in (neg_ds_bad_token.msg)"

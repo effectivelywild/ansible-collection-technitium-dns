@@ -1,0 +1,390 @@
+---
+# NAPTR Record Tests
+
+- name: "Define NAPTR test records"
+  ansible.builtin.set_fact:
+    add_naptr_test_records:
+      # 1. Basic NAPTR (no ttl/comments)
+      - { idx: 1, name: naptr-basic, zone: "{{ primary_zone_name }}", naptrOrder: 100, naptrPreference: 10, naptrFlags: "u", naptrServices: "E2U+sip", naptrRegexp: "!^.*$!sip:info@example.com!", naptrReplacement: "." }
+      # 2. NAPTR with ttl
+      - { idx: 2, name: naptr-ttl, zone: "{{ primary_zone_name }}", naptrOrder: 200, naptrPreference: 20, naptrFlags: "s", naptrServices: "E2U+email", naptrRegexp: "!^.*$!mailto:info@example.com!", naptrReplacement: "_sip._tcp.example.com", ttl: 7200 }
+      # 3. NAPTR with ttl + comments in signed zone
+      - { idx: 3, name: naptr-comment-sec, zone: "{{ primary_sec_zone_name }}", naptrOrder: 50, naptrPreference: 5, naptrFlags: "a", naptrServices: "E2U+web:http", naptrRegexp: "!^.*$!http://www.example.com!", naptrReplacement: ".", ttl: 3600, comments: "Secure zone NAPTR with comment" }
+    # Overwrite test record (will overwrite naptr-basic)
+    overwrite_naptr_record:
+      idx: 1
+      name: naptr-basic
+      zone: "{{ primary_zone_name }}"
+      naptrOrder: 999
+      naptrPreference: 99
+      naptrFlags: "s"
+      naptrServices: "E2U+overwrite"
+      naptrRegexp: "!^.*$!overwrite:test!"
+      naptrReplacement: "overwrite.example.net"
+      comments: "Overwrite test comment"
+
+# Phase 1: Check mode
+- name: "Check mode - Add NAPTR records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: NAPTR
+    naptrOrder: "{{ rec.naptrOrder }}"
+    naptrPreference: "{{ rec.naptrPreference }}"
+    naptrFlags: "{{ rec.naptrFlags }}"
+    naptrServices: "{{ rec.naptrServices }}"
+    naptrRegexp: "{{ rec.naptrRegexp }}"
+    naptrReplacement: "{{ rec.naptrReplacement }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_naptr_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: plan_naptr_results
+
+- name: "Assert change"
+  ansible.builtin.assert:
+    that:
+      - (plan_naptr_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 2: external verify absence via get_records
+- name: "Verify check_mode didn't add records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+  loop: "{{ add_naptr_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: absent_get_naptr_results
+  ignore_errors: true
+
+- name: Debug absent_get_naptr_results
+  ansible.builtin.debug:
+    var: absent_get_naptr_results
+  when: debug | default(false)
+
+- name: "Assert no records were found"
+  ansible.builtin.assert:
+    that:
+      - (absent_get_naptr_results.results | map(attribute='failed') | list | unique) == [ true ]
+
+# Phase 3: real creation
+- name: "Create NAPTR records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: NAPTR
+    naptrOrder: "{{ rec.naptrOrder }}"
+    naptrPreference: "{{ rec.naptrPreference }}"
+    naptrFlags: "{{ rec.naptrFlags }}"
+    naptrServices: "{{ rec.naptrServices }}"
+    naptrRegexp: "{{ rec.naptrRegexp }}"
+    naptrReplacement: "{{ rec.naptrReplacement }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_naptr_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Create: {{ rec.idx }}-{{ rec.name }}.{{ rec.zone }}"
+  register: create_naptr_results
+
+- name: "Assert creations changed"
+  ansible.builtin.assert:
+    that:
+      - (create_naptr_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 4: verify presence via get_records
+- name: "Get NAPTR records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+  loop: "{{ add_naptr_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: present_get_naptr_results
+
+- name: Debug present_get_naptr_results
+  ansible.builtin.debug:
+    var: present_get_naptr_results
+  when: debug | default(false)
+
+- name: "Assert records exist"
+  ansible.builtin.assert:
+    that: (present_get_naptr_results.results | map(attribute='api_response.status') | list | unique) == ['ok']
+    quiet: true
+
+- name: "Assert NAPTR record parameters match request"
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','NAPTR')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.order | int) == (item.rec.naptrOrder | int)
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','NAPTR')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.preference | int) == (item.rec.naptrPreference | int)
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','NAPTR')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.flags) == item.rec.naptrFlags
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','NAPTR')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.services) == item.rec.naptrServices
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','NAPTR')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.regexp) == item.rec.naptrRegexp
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','NAPTR')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.replacement) == item.rec.naptrReplacement
+      - >-
+        ('ttl' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','NAPTR')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).ttl | int) == (item.rec.ttl | int)
+        )
+      - >-
+        ('comments' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','NAPTR')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).comments | default(item.rec.comments)) == item.rec.comments
+        )
+    quiet: true
+  loop: "{{ present_get_naptr_results.results }}"
+  loop_control:
+    label: "Params: {{ item.rec.name }}.{{ item.rec.zone }}"
+
+# Phase 5: re-plan (no change)
+- name: "Check mode: Re-add NAPTR records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: NAPTR
+    naptrOrder: "{{ rec.naptrOrder }}"
+    naptrPreference: "{{ rec.naptrPreference }}"
+    naptrFlags: "{{ rec.naptrFlags }}"
+    naptrServices: "{{ rec.naptrServices }}"
+    naptrRegexp: "{{ rec.naptrRegexp }}"
+    naptrReplacement: "{{ rec.naptrReplacement }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_naptr_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: replan_naptr_results
+
+- name: "Assert re-add had no changes"
+  ansible.builtin.assert:
+    that:
+      - (replan_naptr_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 6: re-run real (no change)
+- name: "Idempotency: Re-run add NAPTR records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: NAPTR
+    naptrOrder: "{{ rec.naptrOrder }}"
+    naptrPreference: "{{ rec.naptrPreference }}"
+    naptrFlags: "{{ rec.naptrFlags }}"
+    naptrServices: "{{ rec.naptrServices }}"
+    naptrRegexp: "{{ rec.naptrRegexp }}"
+    naptrReplacement: "{{ rec.naptrReplacement }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_naptr_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Recreate: {{ rec.name }}.{{ rec.zone }}"
+  register: rerun_naptr_results
+
+- name: "Assert re-run no changes"
+  ansible.builtin.assert:
+    that:
+      - (rerun_naptr_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 7: overwrite tests
+- name: "Overwrite NAPTR record (naptr-basic) with new values"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_naptr_record.name }}.{{ overwrite_naptr_record.zone }}"
+    zone: "{{ overwrite_naptr_record.zone }}"
+    type: NAPTR
+    naptrOrder: "{{ overwrite_naptr_record.naptrOrder }}"
+    naptrPreference: "{{ overwrite_naptr_record.naptrPreference }}"
+    naptrFlags: "{{ overwrite_naptr_record.naptrFlags }}"
+    naptrServices: "{{ overwrite_naptr_record.naptrServices }}"
+    naptrRegexp: "{{ overwrite_naptr_record.naptrRegexp }}"
+    naptrReplacement: "{{ overwrite_naptr_record.naptrReplacement }}"
+    comments: "{{ overwrite_naptr_record.comments }}"
+    overwrite: true
+  register: overwrite_naptr_result
+
+- name: "Assert overwrite operation reports changed"
+  ansible.builtin.assert:
+    that:
+      - overwrite_naptr_result.changed
+
+- name: "Fetch overwritten NAPTR record for presence (get_records)"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_naptr_record.name }}.{{ overwrite_naptr_record.zone }}"
+    zone: "{{ overwrite_naptr_record.zone }}"
+  register: overwritten_naptr_get_result
+
+- name: Debug overwritten_naptr_get_result
+  ansible.builtin.debug:
+    var: overwritten_naptr_get_result
+  when: debug | default(false)
+
+- name: "Assert overwritten NAPTR record has new values"
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((overwritten_naptr_get_result.records | default([])
+           | selectattr('type','equalto','NAPTR')
+           | selectattr('name','equalto', (overwrite_naptr_record.name ~ '.' ~ overwrite_naptr_record.zone))
+           | list | first).rData.order | int) == (overwrite_naptr_record.naptrOrder | int)
+      - >-
+        ((overwritten_naptr_get_result.records | default([])
+           | selectattr('type','equalto','NAPTR')
+           | selectattr('name','equalto', (overwrite_naptr_record.name ~ '.' ~ overwrite_naptr_record.zone))
+           | list | first).rData.preference | int) == (overwrite_naptr_record.naptrPreference | int)
+      - >-
+        ((overwritten_naptr_get_result.records | default([])
+           | selectattr('type','equalto','NAPTR')
+           | selectattr('name','equalto', (overwrite_naptr_record.name ~ '.' ~ overwrite_naptr_record.zone))
+           | list | first).rData.flags) == overwrite_naptr_record.naptrFlags
+      - >-
+        ((overwritten_naptr_get_result.records | default([])
+           | selectattr('type','equalto','NAPTR')
+           | selectattr('name','equalto', (overwrite_naptr_record.name ~ '.' ~ overwrite_naptr_record.zone))
+           | list | first).rData.services) == overwrite_naptr_record.naptrServices
+      - >-
+        ((overwritten_naptr_get_result.records | default([])
+           | selectattr('type','equalto','NAPTR')
+           | selectattr('name','equalto', (overwrite_naptr_record.name ~ '.' ~ overwrite_naptr_record.zone))
+           | list | first).rData.regexp) == overwrite_naptr_record.naptrRegexp
+      - >-
+        ((overwritten_naptr_get_result.records | default([])
+           | selectattr('type','equalto','NAPTR')
+           | selectattr('name','equalto', (overwrite_naptr_record.name ~ '.' ~ overwrite_naptr_record.zone))
+           | list | first).rData.replacement) == overwrite_naptr_record.naptrReplacement
+      - >-
+        ((overwritten_naptr_get_result.records | default([])
+           | selectattr('type','equalto','NAPTR')
+           | selectattr('name','equalto', (overwrite_naptr_record.name ~ '.' ~ overwrite_naptr_record.zone))
+           | list | first).comments) == overwrite_naptr_record.comments
+
+# Phase 8: negative tests
+- name: "Negative: missing required naptrOrder"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-missing-order.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: NAPTR
+    naptrPreference: 10
+    naptrFlags: "u"
+    naptrServices: "E2U+sip"
+    naptrRegexp: "!^.*$!sip:bad@example.com!"
+    naptrReplacement: "."
+  register: neg_naptr_missing_order
+  ignore_errors: true
+
+- name: Debug neg_naptr_missing_order
+  ansible.builtin.debug:
+    var: neg_naptr_missing_order
+  when: debug | default(false)
+
+- name: Assert failure of missing naptrOrder
+  ansible.builtin.assert:
+    that:
+      - neg_naptr_missing_order.failed
+      - "'naptrOrder' in (neg_naptr_missing_order.msg | default(''))"
+
+- name: "Negative: unsupported param for NAPTR (ipAddress)"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-badparam-naptr.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: NAPTR
+    naptrOrder: 100
+    naptrPreference: 10
+    naptrFlags: "u"
+    naptrServices: "E2U+sip"
+    naptrRegexp: "!^.*$!sip:badparam@example.com!"
+    naptrReplacement: "."
+    ipAddress: 192.0.2.250
+  register: neg_naptr_bad_param
+  ignore_errors: true
+  
+- name: Assert failure of unsupported param
+  ansible.builtin.assert:
+    that:
+      - neg_naptr_bad_param.failed
+      - "'ipAddress' in (neg_naptr_bad_param.msg | default(''))"
+
+- name: "Negative: invalid API token"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: BADTOKEN
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-badtoken-naptr.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: NAPTR
+    naptrOrder: 100
+    naptrPreference: 10
+    naptrFlags: "u"
+    naptrServices: "E2U+sip"
+    naptrRegexp: "!^.*$!sip:badtoken@example.com!"
+    naptrReplacement: "."
+  register: neg_naptr_bad_token
+  ignore_errors: true
+
+- name: Assert failure of invalid API token
+  ansible.builtin.assert:
+    that:
+      - neg_naptr_bad_token.failed
+      - "'Invalid token' in (neg_naptr_bad_token.msg)"

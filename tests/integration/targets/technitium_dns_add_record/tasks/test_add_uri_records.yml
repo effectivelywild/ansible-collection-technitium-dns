@@ -1,0 +1,395 @@
+---
+# URI Record Tests
+
+- name: "Define URI test records"
+  ansible.builtin.set_fact:
+    add_uri_test_records:
+      - { idx: 1, name: basic-uri,   zone: "{{ primary_zone_name }}",     uriPriority: 10, uriWeight: 5,  uri: "https://service1.example/endpoint" }
+      - { idx: 2, name: meta-uri,    zone: "{{ primary_sec_zone_name }}", uriPriority: 20, uriWeight: 30, uri: "ftp://files.example/pub", ttl: 900, comments: "URI with ttl+comment" }
+      - { idx: 3, name: alt-uri,     zone: "{{ primary_zone_name }}",     uriPriority: 5,  uriWeight: 10, uri: "sip:alice@example.com", ttl: 1200 }
+    # Overwrite test record (will overwrite basic-uri)
+    overwrite_uri_record:
+      idx: 1
+      name: basic-uri
+      zone: "{{ primary_zone_name }}"
+      uriPriority: 99
+      uriWeight: 99
+      uri: "https://overwrite.example/endpoint"
+      ttl: 54321
+
+# Phase 1: Check mode - Add URI records
+- name: "Check mode - Add URI records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: URI
+    uriPriority: "{{ rec.uriPriority }}"
+    uriWeight: "{{ rec.uriWeight }}"
+    uri: "{{ rec.uri }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_uri_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: plan_uri_results
+
+- name: "Assert all URI plan operations report changed"
+  ansible.builtin.assert:
+    that:
+      - (plan_uri_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 2: external verify absence via get_records
+- name: "Verify check_mode didn't add records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+  loop: "{{ add_uri_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "absent: {{ rec.name }}.{{ rec.zone }}"
+  ignore_errors: true
+  register: absent_get_uri_results
+
+- name: "Assert no records were found"
+  ansible.builtin.assert:
+    that:
+      - (absent_get_uri_results.results | map(attribute='failed') | list | unique) == [ true ]
+    quiet: true
+
+# Phase 3: real creation
+- name: "Add URI records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: URI
+    uriPriority: "{{ rec.uriPriority }}"
+    uriWeight: "{{ rec.uriWeight }}"
+    uri: "{{ rec.uri }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_uri_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "add: {{ rec.name }}.{{ rec.zone }}"
+  register: create_uri_results
+
+- name: "Assert URI creations changed"
+  ansible.builtin.assert:
+    that:
+      - (create_uri_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 4: external verify presence via get_records
+- name: "Verify records were created"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+  loop: "{{ add_uri_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "get: {{ rec.name }}.{{ rec.zone }}"
+  register: present_get_uri_results
+
+- name: "Debug verification results"
+  debug:
+    msg: "Record {{ item.rec.name }}.{{ item.rec.zone }}: status={{ item.api_response.status }}, changed={{ item.changed }}"
+  loop: "{{ present_get_uri_results.results }}"
+  loop_control:
+    label: "debug: {{ item.rec.name }}.{{ item.rec.zone }}"
+
+- name: "Assert records were found successfully"
+  ansible.builtin.assert:
+    that:
+      - (present_get_uri_results.results | map(attribute='api_response') | map(attribute='status') | list | unique) == [ "ok" ]
+    quiet: true
+
+- name: "Assert URI record parameters match request (priority, weight, uri, ttl, comments)"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (((item.records | default([])
+            | selectattr('type','equalto','URI')
+            | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+            | list | first).rData.uri | default( ((item.records | default([])
+              | selectattr('type','equalto','URI')
+              | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+              | list | first).rData.value | default('')))) == item.rec.uri)
+      - >-
+        ((((item.records | default([])
+            | selectattr('type','equalto','URI')
+            | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+            | list | first).rData.uriPriority) | default(((item.records | default([])
+              | selectattr('type','equalto','URI')
+              | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+              | list | first).rData.priority))) | int) == (item.rec.uriPriority | int)
+      - >-
+        ((((item.records | default([])
+            | selectattr('type','equalto','URI')
+            | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+            | list | first).rData.uriWeight) | default(((item.records | default([])
+              | selectattr('type','equalto','URI')
+              | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+              | list | first).rData.weight))) | int) == (item.rec.uriWeight | int)
+      - >-
+        ('ttl' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','URI')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).ttl | int) == (item.rec.ttl | int)
+        )
+      - >-
+        ('comments' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','URI')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).comments | default(item.rec.comments)) == item.rec.comments
+        )
+    quiet: true
+  loop: "{{ present_get_uri_results.results }}"
+  loop_control:
+    label: "Params: {{ item.rec.name }}.{{ item.rec.zone }}"
+
+# Phase 5: Check mode - re-plan (no change)
+- name: "Check mode - Re-add URI records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: URI
+    uriPriority: "{{ rec.uriPriority }}"
+    uriWeight: "{{ rec.uriWeight }}"
+    uri: "{{ rec.uri }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_uri_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: replan_uri_results
+
+- name: "Assert URI re-plan no changes"
+  ansible.builtin.assert:
+    that:
+      - (replan_uri_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 6: idempotency check (no change)
+- name: "Idempotency - Re-add URI records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: URI
+    uriPriority: "{{ rec.uriPriority }}"
+    uriWeight: "{{ rec.uriWeight }}"
+    uri: "{{ rec.uri }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_uri_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "idempotency: {{ rec.name }}.{{ rec.zone }}"
+  register: recreate_uri_results
+
+- name: "Assert URI re-create no changes"
+  ansible.builtin.assert:
+    that:
+      - (recreate_uri_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 7: overwrite tests
+- name: "Overwrite URI record (basic-uri) with new values"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_uri_record.name }}.{{ overwrite_uri_record.zone }}"
+    zone: "{{ overwrite_uri_record.zone }}"
+    type: URI
+    uriPriority: "{{ overwrite_uri_record.uriPriority }}"
+    uriWeight: "{{ overwrite_uri_record.uriWeight }}"
+    uri: "{{ overwrite_uri_record.uri }}"
+    ttl: "{{ overwrite_uri_record.ttl }}"
+    overwrite: true
+  register: overwrite_uri_result
+
+- name: "Debug overwrite result"
+  debug:
+    msg: "Overwrite {{ overwrite_uri_record.name }}.{{ overwrite_uri_record.zone }}: changed={{ overwrite_uri_result.changed }}"
+
+- name: "Assert overwrite operation reports changed"
+  ansible.builtin.assert:
+    that:
+      - overwrite_uri_result.changed
+
+- name: "Fetch overwritten URI record for presence (get_records)"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_uri_record.name }}.{{ overwrite_uri_record.zone }}"
+    zone: "{{ overwrite_uri_record.zone }}"
+  register: overwritten_uri_get_result
+
+- name: "Debug overwritten record"
+  debug:
+    msg: "Get overwritten {{ overwrite_uri_record.name }}.{{ overwrite_uri_record.zone }}: status={{ overwritten_uri_get_result.api_response.status }}"
+
+- name: "Assert overwritten URI record has new values"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (overwritten_uri_get_result.records | default([])
+         | selectattr('type','equalto','URI')
+         | selectattr('name','equalto', (overwrite_uri_record.name ~ '.' ~ overwrite_uri_record.zone))
+         | list | first).rData.uri == overwrite_uri_record.uri
+      - >-
+        (overwritten_uri_get_result.records | default([])
+         | selectattr('type','equalto','URI')
+         | selectattr('name','equalto', (overwrite_uri_record.name ~ '.' ~ overwrite_uri_record.zone))
+         | list | first).rData.priority == overwrite_uri_record.uriPriority
+      - >-
+        (overwritten_uri_get_result.records | default([])
+         | selectattr('type','equalto','URI')
+         | selectattr('name','equalto', (overwrite_uri_record.name ~ '.' ~ overwrite_uri_record.zone))
+         | list | first).rData.weight == overwrite_uri_record.uriWeight
+      - >-
+        (overwritten_uri_get_result.records | default([])
+         | selectattr('type','equalto','URI')
+         | selectattr('name','equalto', (overwrite_uri_record.name ~ '.' ~ overwrite_uri_record.zone))
+         | list | first).ttl == overwrite_uri_record.ttl
+
+# Phase 8: negative tests (URI specific)
+- name: "Negative test - URI missing uriPriority"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-missing-pri-uri.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: URI
+    uriWeight: 10
+    uri: "https://neg.example/one"
+  register: neg_uri_missing_pri
+  ignore_errors: true
+
+- name: "Debug negative test - missing uriPriority"
+  debug:
+    msg: "Missing uriPriority test: failed={{ neg_uri_missing_pri.failed }}, msg={{ neg_uri_missing_pri.msg | default('') }}"
+
+- name: Assert failure of URI missing uriPriority
+  ansible.builtin.assert:
+    that:
+      - neg_uri_missing_pri.failed
+      - "'uriPriority' in (neg_uri_missing_pri.msg | default(''))"
+
+- name: "Negative test - URI missing uriWeight"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-missing-weight-uri.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: URI
+    uriPriority: 10
+    uri: "https://neg.example/two"
+  register: neg_uri_missing_weight
+  ignore_errors: true
+
+- name: "Debug negative test - missing uriWeight"
+  debug:
+    msg: "Missing uriWeight test: failed={{ neg_uri_missing_weight.failed }}, msg={{ neg_uri_missing_weight.msg | default('') }}"
+
+- name: Assert failure of URI missing uriWeight
+  ansible.builtin.assert:
+    that:
+      - neg_uri_missing_weight.failed
+      - "'uriWeight' in (neg_uri_missing_weight.msg | default(''))"
+
+- name: "Negative test - URI missing uri"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-missing-uri.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: URI
+    uriPriority: 1
+    uriWeight: 1
+  register: neg_uri_missing_uri
+  ignore_errors: true
+
+- name: "Debug negative test - missing uri"
+  debug:
+    msg: "Missing uri test: failed={{ neg_uri_missing_uri.failed }}, msg={{ neg_uri_missing_uri.msg | default('') }}"
+
+- name: Assert failure of URI missing uri
+  ansible.builtin.assert:
+    that:
+      - neg_uri_missing_uri.failed
+      - "'uri' in (neg_uri_missing_uri.msg | default(''))"
+
+- name: "Negative test - URI unsupported param (ipAddress)"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-param-uri.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: URI
+    uriPriority: 50
+    uriWeight: 10
+    uri: "ssh://bad.example/x"
+    ipAddress: 192.0.2.55
+  register: neg_uri_bad_param
+  ignore_errors: true
+
+- name: "Debug negative test - unsupported param"
+  debug:
+    msg: "Bad param test: failed={{ neg_uri_bad_param.failed }}, msg={{ neg_uri_bad_param.msg | default('') }}"
+
+- name: Assert failure of URI unsupported param
+  ansible.builtin.assert:
+    that:
+      - neg_uri_bad_param.failed
+      - "'ipAddress' in (neg_uri_bad_param.msg | default(''))"
+
+- name: "Negative test - URI invalid API token"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: BADTOKEN
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-token-uri.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: URI
+    uriPriority: 10
+    uriWeight: 10
+    uri: "https://neg.example/badtoken"
+  register: neg_uri_bad_token
+  ignore_errors: true
+
+- name: "Debug negative test - invalid token"
+  debug:
+    msg: "Bad token test: failed={{ neg_uri_bad_token.failed }}, msg={{ neg_uri_bad_token.msg | default('') }}"
+
+- name: Assert failure of URI invalid API token
+  ansible.builtin.assert:
+    that:
+      - neg_uri_bad_token.failed
+      - "'Invalid token' in (neg_uri_bad_token.msg)"

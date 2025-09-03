@@ -1,0 +1,205 @@
+---
+# Integration test for technitium_dns_delete_record (AAAA records)
+# Structure and variables match test_add_aaaa_records.yml
+
+- name: "Define AAAA test records to delete"
+  ansible.builtin.set_fact:
+    delete_aaaa_test_records:
+      - { idx: 1, name: basic-aaaa,      ipAddress: 2001:db8:0:1::10, zone: "{{ primary_zone_name }}" }
+      - { idx: 2, name: longttl-aaaa,    ipAddress: 2001:db8:0:2::10, zone: "{{ primary_zone_name }}", ttl: 86400 }
+      - { idx: 3, name: comment-aaaa-sec, ipAddress: 2001:db8:0:3::10, zone: "{{ primary_sec_zone_name }}", ttl: 3600, comments: "Sec zone AAAA with comment" }
+      - { idx: 4, name: forward-aaaa,    ipAddress: 2001:db8:0:4::10, zone: "{{ forwarder_zone_name }}" }
+
+# Phase 1: Create the records (using add module)
+- name: "Create AAAA records to be deleted"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: AAAA
+    ipAddress: "{{ rec.ipAddress }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ delete_aaaa_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Create: {{ rec.idx }}-{{ rec.name }}.{{ rec.zone }}"
+  register: create_aaaa_results
+
+- name: "Assert AAAA records created"
+  ansible.builtin.assert:
+    that:
+      - (create_aaaa_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 2: Check mode - plan deletion
+- name: "Plan delete AAAA records (check mode)"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: AAAA
+    ipAddress: "{{ rec.ipAddress }}"
+  check_mode: true
+  loop: "{{ delete_aaaa_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "PlanDelete: {{ rec.name }}.{{ rec.zone }}"
+  register: plan_delete_aaaa_results
+
+- name: "Assert all delete plans report changed"
+  ansible.builtin.assert:
+    that:
+      - (plan_delete_aaaa_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 3: Delete the records
+- name: "Delete AAAA records"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: AAAA
+    ipAddress: "{{ rec.ipAddress }}"
+  loop: "{{ delete_aaaa_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Delete: {{ rec.idx }}-{{ rec.name }}.{{ rec.zone }}"
+  register: delete_aaaa_results
+
+- name: "Assert AAAA records deleted"
+  ansible.builtin.assert:
+    that:
+      - (delete_aaaa_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 4: Check mode - plan deletion again (should be no changes)
+- name: "Plan delete AAAA records again (check mode, after deletion)"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: AAAA
+    ipAddress: "{{ rec.ipAddress }}"
+  check_mode: true
+  loop: "{{ delete_aaaa_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "PlanDeleteAgain: {{ rec.name }}.{{ rec.zone }}"
+  register: plan_delete_aaaa_again_results
+
+- name: "Assert all delete plans after deletion report no changes"
+  ansible.builtin.assert:
+    that:
+      - (plan_delete_aaaa_again_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 5: Verify record doesn't exist with get_record
+- name: "Fetch records for absence (get_records)"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.zone }}"
+  loop: "{{ delete_aaaa_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get(absent): {{ rec.name }}.{{ rec.zone }}"
+  register: absent_get_results
+
+- name: Debug absent_get_results
+  ansible.builtin.debug:
+    var: absent_get_results
+  when: debug | default(false)
+
+- name: "Assert absence (no pre-existing AAAA record by name)"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (item.records | default([])
+         | selectattr('type','equalto','AAAA')
+         | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+         | list | length) == 0
+    quiet: true
+  loop: "{{ absent_get_results.results }}"
+  loop_control:
+    label: "AbsentAssert: {{ item.rec.name }}.{{ item.rec.zone }}"
+
+# Phase 6: Idempotency - rerun delete (should be no changes)
+- name: "Idempotency: Re-run delete AAAA records"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: AAAA
+    ipAddress: "{{ rec.ipAddress }}"
+  loop: "{{ delete_aaaa_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "IdempotentDelete: {{ rec.name }}.{{ rec.zone }}"
+  register: idempotent_delete_aaaa_results
+
+- name: "Assert idempotent delete reports no changes"
+  ansible.builtin.assert:
+    that:
+      - (idempotent_delete_aaaa_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 7: Negative tests
+- name: "Negative: missing required ipAddress"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-missing-ipv6.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: AAAA
+  register: neg_delete_aaaa_missing_ip
+  ignore_errors: true
+
+- name: "Assert failure of missing ipAddress"
+  ansible.builtin.assert:
+    that:
+      - neg_delete_aaaa_missing_ip.failed
+      - "'ipAddress' in (neg_delete_aaaa_missing_ip.msg | default(''))"
+
+- name: "Negative: unsupported param for AAAA (cname)"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-param-aaaa.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: AAAA
+    cname: other.example.
+  register: neg_delete_aaaa_bad_param
+  ignore_errors: true
+
+- name: "Assert failure of unsupported param"
+  ansible.builtin.assert:
+    that:
+      - neg_delete_aaaa_bad_param.failed
+      - "'cname' in (neg_delete_aaaa_bad_param.msg | default(''))"
+
+- name: "Negative: invalid API token"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: BADTOKEN
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-token-aaaa.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: AAAA
+    ipAddress: 2001:db8:dead::1
+  register: neg_delete_aaaa_bad_token
+  ignore_errors: true
+
+- name: "Assert failure of invalid API token"
+  ansible.builtin.assert:
+    that:
+      - neg_delete_aaaa_bad_token.failed
+      - "'Invalid token' in (neg_delete_aaaa_bad_token.msg)"

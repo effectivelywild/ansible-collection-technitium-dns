@@ -1,0 +1,281 @@
+---
+# AAAA Record tests
+
+- name: "Define AAAA test records"
+  ansible.builtin.set_fact:
+    add_aaaa_test_records:
+      - { idx: 1, name: basic-aaaa,      ipAddress: 2001:db8:0:1::10, zone: "{{ primary_zone_name }}" }
+      - { idx: 2, name: longttl-aaaa,    ipAddress: 2001:db8:0:2::10, zone: "{{ primary_zone_name }}", ttl: 86400 }
+      - { idx: 3, name: comment-aaaa-sec, ipAddress: 2001:db8:0:3::10, zone: "{{ primary_sec_zone_name }}", ttl: 3600, comments: "Sec zone AAAA with comment" }
+      - { idx: 4, name: forward-aaaa,    ipAddress: 2001:db8:0:4::10, zone: "{{ forwarder_zone_name }}" }
+    # Overwrite test record (will overwrite basic-aaaa)
+    overwrite_aaaa_record:
+      idx: 1
+      name: basic-aaaa
+      ipAddress: 2001:db8:0:1::99
+      zone: "{{ primary_zone_name }}"
+      ttl: 43210
+
+# Phase 1: Check mode
+- name: "Check mode - Add AAAA records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: AAAA
+    ipAddress: "{{ rec.ipAddress }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_aaaa_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: plan_aaaa_results
+
+- name: "Assert change"
+  ansible.builtin.assert:
+    that:
+      - (plan_aaaa_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 2: external verify absence via get_records
+- name: "Verify check_mode didn't add records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{rec.name}}.{{ rec.zone }}"
+  loop: "{{ add_aaaa_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: absent_get_aaaa_results
+  ignore_errors: true
+
+- name: Debug absent_get_aaaa_results
+  ansible.builtin.debug:
+    var: absent_get_aaaa_results
+  when: debug | default(false)
+
+- name: "Assert no records were found"
+  ansible.builtin.assert:
+    that:
+      - (absent_get_aaaa_results.results | map(attribute='failed') | list | unique) == [ true ]
+
+# Phase 3: real creation
+- name: "Create AAAA records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: AAAA
+    ipAddress: "{{ rec.ipAddress }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_aaaa_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Create: {{ rec.idx }}-{{ rec.name }}.{{ rec.zone }}"
+  register: create_aaaa_results
+
+- name: "Assert creations changed"
+  ansible.builtin.assert:
+    that:
+      - (create_aaaa_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 4: verify presence via get_records
+- name: "Get AAAA records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+  loop: "{{ add_aaaa_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: present_get_aaaa_results
+
+- name: Debug present_get_aaaa_results
+  ansible.builtin.debug:
+    var: present_get_aaaa_results
+  when: debug | default(false)
+
+- name: "Assert records exist"
+  ansible.builtin.assert:
+    that: (present_get_aaaa_results.results | map(attribute='api_response.status') | list | unique) == ['ok']
+    quiet: true
+
+- name: "Assert AAAA record parameters match request (ip, ttl, comments)"
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','AAAA')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.ipAddress) == item.rec.ipAddress
+      - >-
+        ('ttl' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','AAAA')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).ttl | int) == (item.rec.ttl | int)
+        )
+      - >-
+        ('comments' not in item.rec) or (
+          ((item.records | default([])
+            | selectattr('type','equalto','AAAA')
+            | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+            | list | first).comments | default(item.rec.comments)) == item.rec.comments
+        )
+    quiet: true
+  loop: "{{ present_get_aaaa_results.results }}"
+  loop_control:
+    label: "Params: {{ item.rec.name }}.{{ item.rec.zone }}"
+
+# Phase 5: re-plan (no change)
+- name: "Check mode: Re-add AAAA records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: AAAA
+    ipAddress: "{{ rec.ipAddress }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_aaaa_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: replan_aaaa_results
+
+- name: "Assert re-add had no changes"
+  ansible.builtin.assert:
+    that:
+      - (replan_aaaa_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 6: re-run real (no change)
+- name: "Idempotency: Re-run add AAAA records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: AAAA
+    ipAddress: "{{ rec.ipAddress }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_aaaa_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Recreate: {{ rec.name }}.{{ rec.zone }}"
+  register: recreate_aaaa_results
+
+- name: "Assert re-run no changes"
+  ansible.builtin.assert:
+    that:
+      - (recreate_aaaa_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 7: overwrite test for AAAA record
+- name: "Overwrite AAAA record (basic-aaaa) with new values"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_aaaa_record.name }}.{{ overwrite_aaaa_record.zone }}"
+    zone: "{{ overwrite_aaaa_record.zone }}"
+    type: AAAA
+    ipAddress: "{{ overwrite_aaaa_record.ipAddress }}"
+    ttl: "{{ overwrite_aaaa_record.ttl }}"
+    overwrite: true
+  register: overwrite_aaaa_result
+
+- name: "Assert overwrite operation reports changed"
+  ansible.builtin.assert:
+    that:
+      - overwrite_aaaa_result.changed
+
+- name: "Get overwritten AAAA record"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_aaaa_record.name }}.{{ overwrite_aaaa_record.zone }}"
+  register: overwritten_aaaa_get_result
+
+- name: "Assert overwritten AAAA record has new values"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (overwritten_aaaa_get_result.records | default([])
+         | selectattr('type','equalto','AAAA')
+         | selectattr('name','equalto', (overwrite_aaaa_record.name ~ '.' ~ overwrite_aaaa_record.zone))
+         | list | first).rData.ipAddress == overwrite_aaaa_record.ipAddress
+      - >-
+        (overwritten_aaaa_get_result.records | default([])
+         | selectattr('type','equalto','AAAA')
+         | selectattr('name','equalto', (overwrite_aaaa_record.name ~ '.' ~ overwrite_aaaa_record.zone))
+         | list | first).ttl == overwrite_aaaa_record.ttl
+
+# Phase 8: negative tests (AAAA specific)
+- name: "Negative AAAA: missing ipAddress"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "missing-ipv6.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: AAAA
+  register: neg_aaaa_missing_ip
+  ignore_errors: true
+
+- name: Assert failure of AAAA missing IP
+  ansible.builtin.assert:
+    that:
+      - neg_aaaa_missing_ip.failed
+      - "'ipAddress' in (neg_aaaa_missing_ip.msg | default(''))"
+
+- name: "Negative AAAA: unsupported param (cname)"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-param-aaaa.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: AAAA
+    cname: other.example.
+    ipAddress: 2001:db8:ffff::1
+  register: neg_aaaa_bad_param
+  ignore_errors: true
+
+- name: Assert failure of AAAA unsupported param
+  ansible.builtin.assert:
+    that:
+      - neg_aaaa_bad_param.failed
+      - "'cname' in (neg_aaaa_bad_param.msg | default(''))"
+
+- name: "Negative AAAA: invalid API token"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: BADTOKEN
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-token-aaaa.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: AAAA
+    ipAddress: 2001:db8:dead::1
+  register: neg_aaaa_bad_token
+  ignore_errors: true
+
+- name: Assert failure of AAAA invalid API token
+  ansible.builtin.assert:
+    that:
+      - neg_aaaa_bad_token.failed
+      - "'Invalid token' in (neg_aaaa_bad_token.msg)"

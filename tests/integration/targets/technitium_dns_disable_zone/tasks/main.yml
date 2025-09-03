@@ -1,0 +1,293 @@
+---
+# Comprehensive integration test suite for technitium_dns_disable_zone
+# This test suite validates zone disable functionality across all scenarios
+
+# Phase 1: Load configuration
+- name: "Load test configuration"
+  include_vars: ../vars/config.yml
+
+- name: "Load zone disable test data"
+  include_vars: ../vars/zone_test_data.yml
+
+- name: "Delete DNS zones (cleanup)"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_deletion_result
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"
+
+# Phase 2: Create zones
+- name: "Create DNS zones for testing"
+  technitium_dns_create_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    type: "{{ zone_item.type }}"
+    # Optional parameters with defaults
+    catalog: "{{ zone_item.catalog | default(omit) }}"
+    useSoaSerialDateScheme: "{{ zone_item.useSoaSerialDateScheme | default(omit) }}"
+    # Secondary/Stub zone parameters
+    primaryNameServerAddresses: "{{ zone_item.primaryNameServerAddresses | default(omit) }}"
+    zoneTransferProtocol: "{{ zone_item.zoneTransferProtocol | default(omit) }}"
+    tsigKeyName: "{{ zone_item.tsigKeyName | default(omit) }}"
+    validateZone: "{{ zone_item.validateZone | default(omit) }}"
+    # Forwarder zone parameters
+    initializeForwarder: "{{ zone_item.initializeForwarder | default(omit) }}"
+    protocol: "{{ zone_item.protocol | default(omit) }}"
+    forwarder: "{{ zone_item.forwarder | default(omit) }}"
+    dnssecValidation: "{{ zone_item.dnssecValidation | default(omit) }}"
+    # Proxy parameters
+    proxyType: "{{ zone_item.proxyType | default(omit) }}"
+    proxyAddress: "{{ zone_item.proxyAddress | default(omit) }}"
+    proxyPort: "{{ zone_item.proxyPort | default(omit) }}"
+    proxyUsername: "{{ zone_item.proxyUsername | default(omit) }}"
+    proxyPassword: "{{ zone_item.proxyPassword | default(omit) }}"
+  register: zone_creation_results
+  loop: "{{ zones_to_create | default([]) }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"
+
+- name: "Debug setup results"
+  debug:
+    var: zone_creation_results
+  when: debug | default(false)
+
+# Phase 3: Verify zones are enabled by default
+- name: "Get zones to verify zones are enabled by default"
+  technitium_dns_get_zone_options:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_default_info_result
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"
+  ignore_errors: true
+
+- name: "Debug zone_default_info_result"
+  debug:
+    var: zone_default_info_result
+  when: debug | default(false)
+
+- name: "Assert zones are enabled by default"
+  assert:
+    that:
+      - not zone_info.options.disabled
+    quiet: true
+  loop: "{{ zone_default_info_result.results }}"
+  loop_control:
+    loop_var: zone_info
+    label: "{{ zone_info.zone_item.zone }} ({{ zone_info.zone_item.type }})"
+
+# Phase 4: Check mode
+- name: "Check mode - Disable zones"
+  technitium_dns_disable_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  check_mode: true
+  register: zone_checkmode_disable_result
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"
+
+- name: "Assert all zones would have been disabled"
+  ansible.builtin.assert:
+    that:
+      - item.changed
+    quiet: true
+  loop: "{{ zone_checkmode_disable_result.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+- name: "Get zones to verify Check mode didn't disable zones"
+  technitium_dns_get_zone_options:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_checkmode_info_result
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"
+  ignore_errors: true
+
+- name: "Assert zones still enabled after check mode disable"
+  assert:
+    that:
+      - not zone_info.options.disabled
+    quiet: true
+  loop: "{{ zone_checkmode_info_result.results }}"
+  loop_control:
+    loop_var: zone_info
+    label: "{{ zone_info.zone_item.zone }} ({{ zone_info.zone_item.type }})"
+
+# Phase 5 - Disable zones
+- name: "Disable zones"
+  technitium_dns_disable_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_disable_result
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"
+
+- name: "Assert all zones have been disabled"
+  ansible.builtin.assert:
+    that:
+      - item.changed
+    quiet: true
+  loop: "{{ zone_disable_result.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+- name: "Get zones to verify zones have been disabled"
+  technitium_dns_get_zone_options:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_info_result
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"
+  ignore_errors: true
+
+- name: "Assert zones are disabled after disable operation"
+  assert:
+    that:
+      - zone_info.options.disabled
+    quiet: true
+  loop: "{{ zone_info_result.results }}"
+  loop_control:
+    loop_var: zone_info
+    label: "{{ zone_info.zone_item.zone }} ({{ zone_info.zone_item.type }})"
+
+# Phase 6: Idempotency Testing
+- name: "Idempotency - Check mode - Disable zones"
+  technitium_dns_disable_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  check_mode: true
+  register: zone_checkmode_disable_result
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"
+
+- name: "Idempotency - assert no change"
+  ansible.builtin.assert:
+    that:
+      - not item.changed
+    quiet: true
+  loop: "{{ zone_checkmode_disable_result.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+- name: "Idempotency - Disable zones"
+  technitium_dns_disable_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_disable_result
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"
+
+- name: "Idempotency - assert no change"
+  ansible.builtin.assert:
+    that:
+      - not item.changed
+    quiet: true
+  loop: "{{ zone_disable_result.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+# Phase 7: Negative tests
+- name: "Test disable with empty zone name"
+  technitium.dns.technitium_dns_disable_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: ""
+  register: empty_zone_disable_result
+  ignore_errors: true
+
+- name: "Assert empty zone name disable fails appropriately"
+  assert:
+    that:
+      - empty_zone_disable_result.failed
+
+- name: "Test disable with nonexistent zone"
+  technitium.dns.technitium_dns_disable_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "nonexistent-zone.{{ test_suffix }}"
+  register: nonexistent_zone_disable_result
+  ignore_errors: true
+
+- name: "Assert nonexistent zone disable fails appropriately"
+  assert:
+    that:
+      - nonexistent_zone_disable_result.failed
+
+- name: "Test disable with invalid API credentials"
+  technitium.dns.technitium_dns_disable_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "invalid-token-12345"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "test-invalid-auth.{{ test_suffix }}"
+  register: invalid_auth_result
+  ignore_errors: true
+
+- name: "Assert invalid auth fails appropriately"
+  assert:
+    that:
+      - invalid_auth_result.failed
+
+# Phase 8: Cleanup
+- name: "Delete DNS zones (cleanup)"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_deletion_result
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"

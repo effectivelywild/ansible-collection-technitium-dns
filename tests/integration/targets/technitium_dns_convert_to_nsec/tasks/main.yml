@@ -1,0 +1,255 @@
+# technitium_dns_convert_to_nsec integration tests
+---
+# Phase 1: Load configuration and setup test zones
+- name: "Load test configuration"
+  include_vars: ../vars/config.yml
+
+- name: "Load zone test data"  
+  include_vars: ../vars/zone_test_data.yml
+
+- name: "Delete DNS zones (cleanup)"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_deletion_result
+  loop: "{{ convert_to_nsec_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+  ignore_errors: true
+
+# Phase 2: Create DNS zones for testing
+- name: "Create DNS zones for testing"
+  technitium_dns_create_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    type: Primary
+  register: zone_creation_results
+  loop: "{{ convert_to_nsec_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+# Phase 3: Sign zones with NSEC3 (source zones)
+- name: "Sign DNS zones with NSEC3"
+  technitium_dns_sign_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    algorithm: "{{ sign_parameters.algorithm }}"
+    hashAlgorithm: "{{ sign_parameters.hashAlgorithm }}"
+    kskKeySize: "{{ sign_parameters.kskKeySize }}"
+    zskKeySize: "{{ sign_parameters.zskKeySize }}"
+    dnsKeyTtl: "{{ sign_parameters.dnsKeyTtl }}"
+    zskRolloverDays: "{{ sign_parameters.zskRolloverDays }}"
+    nxProof: "NSEC3"
+    iterations: "{{ sign_parameters.iterations }}"
+    saltLength: "{{ sign_parameters.saltLength }}"
+  register: nsec3_zone_signing_results
+  loop: "{{ convert_to_nsec_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+- name: "Verify zones are signed with NSEC3"
+  technitium_dns_get_zone_options:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: pre_convert_zone_status
+  loop: "{{ convert_to_nsec_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+- name: "Assert zones are signed with NSEC3"
+  ansible.builtin.assert:
+    that:
+      - item.options.dnssecStatus == 'SignedWithNSEC3'
+    quiet: true
+    fail_msg: "Zone {{ item.zone_item.zone }} should be signed with NSEC3 but is {{ item.options.dnssecStatus }}"
+  loop: "{{ pre_convert_zone_status.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+# Phase 4: Test check mode conversion
+- name: "Check mode - Convert NSEC3 zones to NSEC"
+  technitium_dns_convert_to_nsec:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  check_mode: true
+  register: convert_to_nsec_check_results
+  loop: "{{ convert_to_nsec_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "check_mode: {{ zone_item.zone }}"
+
+- name: "Assert zones would be converted to NSEC (check mode)"
+  ansible.builtin.assert:
+    that:
+      - item is changed
+    quiet: true
+    fail_msg: "Zone {{ item.zone_item.zone }} should be marked as changed in check mode"
+  loop: "{{ convert_to_nsec_check_results.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+# Phase 5: Test actual conversion
+- name: "Convert NSEC3 zones to NSEC"
+  technitium_dns_convert_to_nsec:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: convert_to_nsec_results
+  loop: "{{ convert_to_nsec_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "convert: {{ zone_item.zone }}"
+
+- name: "Assert zones converted to NSEC"
+  ansible.builtin.assert:
+    that:
+      - item is changed
+    quiet: true
+    fail_msg: "Zone {{ item.zone_item.zone }} should be marked as changed after conversion"
+  loop: "{{ convert_to_nsec_results.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+# Phase 6: Verify conversions worked
+- name: "Verify zones have NSEC proof type after conversion"
+  technitium_dns_get_zone_options:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: post_convert_zone_status
+  loop: "{{ convert_to_nsec_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "verify: {{ zone_item.zone }}"
+
+- name: "Assert zones have NSEC proof type after conversion"
+  ansible.builtin.assert:
+    that:
+      - item.options.dnssecStatus == 'SignedWithNSEC'
+    quiet: true
+    fail_msg: "Zone {{ item.zone_item.zone }} should have NSEC proof type but is {{ item.options.dnssecStatus }}"
+    success_msg: "Zone {{ item.zone_item.zone }} correctly converted to NSEC"
+  loop: "{{ post_convert_zone_status.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+# Phase 7: Idempotency tests
+- name: "Idempotency - Convert already NSEC zones to NSEC"
+  technitium_dns_convert_to_nsec:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: idempotency_nsec_results
+  loop: "{{ convert_to_nsec_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "idempotency: {{ zone_item.zone }}"
+
+- name: "Assert NSEC conversion is idempotent"
+  ansible.builtin.assert:
+    that:
+      - not (item is changed)
+    quiet: true
+    fail_msg: "Already NSEC zone {{ item.zone_item.zone }} should not be changed"
+  loop: "{{ idempotency_nsec_results.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+# Phase 8: Negative tests
+- name: "Negative test - Convert with invalid API token"
+  technitium_dns_convert_to_nsec:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "BADTOKEN"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ convert_to_nsec_test_zones[0].zone }}"
+  register: fail_bad_token
+  ignore_errors: true
+
+- name: "Debug negative test - invalid API token"
+  debug:
+    msg: "Bad token test: failed={{ fail_bad_token.failed }}, msg={{ fail_bad_token.msg | default('') }}"
+
+- name: "Assert failure of invalid API token"
+  ansible.builtin.assert:
+    that:
+      - fail_bad_token.failed
+      - "'Invalid token' in (fail_bad_token.msg)"
+    quiet: true
+
+- name: "Negative test - Convert non-existent zone"
+  technitium_dns_convert_to_nsec:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "nonexistent999.{{ test_suffix }}"
+  ignore_errors: true
+  register: nonexistent_zone_convert_result
+
+- name: "Debug negative test - non-existent zone"
+  debug:
+    msg: "Nonexistent zone test: failed={{ nonexistent_zone_convert_result.failed }}, msg={{ nonexistent_zone_convert_result.msg | default('') }}"
+
+- name: "Assert conversion fails for non-existent zone"
+  ansible.builtin.assert:
+    that:
+      - nonexistent_zone_convert_result is failed
+      - "'No such zone was found' in (nonexistent_zone_convert_result.msg)"
+    quiet: true
+
+- name: "Negative test - Convert unsigned zone"
+  technitium_dns_create_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "unsigned999.{{ test_suffix }}"
+    type: Primary
+  register: unsigned_zone_creation
+
+- name: "Negative test - Try to convert unsigned zone to NSEC"
+  technitium_dns_convert_to_nsec:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "unsigned999.{{ test_suffix }}"
+  ignore_errors: true
+  register: unsigned_zone_convert_result
+
+- name: "Debug negative test - unsigned zone"
+  debug:
+    msg: "Unsigned zone test: failed={{ unsigned_zone_convert_result.failed }}, msg={{ unsigned_zone_convert_result.msg | default('') }}"
+
+- name: "Assert conversion fails for unsigned zone"
+  ansible.builtin.assert:
+    that:
+      - unsigned_zone_convert_result is failed
+      - "'is not signed with DNSSEC' in (unsigned_zone_convert_result.msg)"
+    quiet: true

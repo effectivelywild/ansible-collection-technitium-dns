@@ -1,0 +1,318 @@
+---
+# APP Record tests
+
+- name: "Define APP test records"
+  ansible.builtin.set_fact:
+    add_app_test_records:
+      - { idx: 1, name: app-basic, appName: "ExampleApp", classPath: "com.example.Main", recordData: "config=basic", zone: "{{ primary_zone_name }}" }
+      - { idx: 2, name: app-longttl, appName: "ExampleLongTTL", classPath: "com.example.Long", recordData: "config=advanced", ttl: 86400, zone: "{{ primary_zone_name }}" }
+      - { idx: 3, name: app-with-comment, appName: "ExampleComment", classPath: "com.example.Comment", recordData: "config=comment", ttl: 3600, comments: "APP record with comment", zone: "{{ primary_zone_name }}" }
+    # Overwrite test record (will overwrite app-basic)
+    overwrite_app_record:
+      idx: 1
+      name: app-basic
+      appName: "ExampleAppOverwrite"
+      classPath: "com.example.Overwrite"
+      recordData: "config=overwrite"
+      zone: "{{ primary_zone_name }}"
+      ttl: 54321
+
+# Phase 1: Check mode
+- name: "Check mode - Add APP records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: APP
+    appName: "{{ rec.appName }}"
+    classPath: "{{ rec.classPath }}"
+    recordData: "{{ rec.recordData }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_app_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: plan_app_results
+
+- name: "Assert change"
+  ansible.builtin.assert:
+    that:
+      - (plan_app_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 2: external verify absence via get_records
+- name: "Verify check_mode didn't add records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{rec.name}}.{{ rec.zone }}"
+  loop: "{{ add_app_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: absent_get_app_results
+  ignore_errors: true
+
+- name: Debug absent_get_app_results
+  ansible.builtin.debug:
+    var: absent_get_app_results
+  when: debug | default(false)
+
+- name: "Assert no records were found"
+  ansible.builtin.assert:
+    that:
+      - (absent_get_app_results.results | map(attribute='failed') | list | unique) == [ true ]
+
+# Phase 3: real creation
+- name: "Create APP records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: APP
+    appName: "{{ rec.appName }}"
+    classPath: "{{ rec.classPath }}"
+    recordData: "{{ rec.recordData }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_app_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Create: {{ rec.idx }}-{{ rec.name }}.{{ rec.zone }}"
+  register: create_app_results
+
+- name: "Assert creations changed"
+  ansible.builtin.assert:
+    that:
+      - (create_app_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 4: verify presence via get_records
+- name: "Get APP records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+  loop: "{{ add_app_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: present_get_app_results
+
+- name: Debug present_get_app_results
+  ansible.builtin.debug:
+    var: present_get_app_results
+  when: debug | default(false)
+
+- name: "Assert records exist"
+  ansible.builtin.assert:
+    that: (present_get_app_results.results | map(attribute='api_response.status') | list | unique) == ['ok']
+    quiet: true
+
+- name: "Assert APP record parameters match request (appName, classPath, recordData, ttl, comments)"
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','APP')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.appName) == item.rec.appName
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','APP')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.classPath) == item.rec.classPath
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','APP')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.data) == item.rec.recordData
+      - >-
+        ('ttl' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','APP')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).ttl | int) == (item.rec.ttl | int)
+        )
+      - >-
+        ('comments' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','APP')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).comments | default(item.rec.comments)) == item.rec.comments
+        )
+    quiet: true
+  loop: "{{ present_get_app_results.results }}"
+  loop_control:
+    label: "Params: {{ item.rec.name }}.{{ item.rec.zone }}"
+
+# Phase 5: re-plan (no change)
+- name: "Check mode: Re-add APP records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: APP
+    appName: "{{ rec.appName }}"
+    classPath: "{{ rec.classPath }}"
+    recordData: "{{ rec.recordData }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_app_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: replan_app_results
+
+- name: "Assert re-add had no changes"
+  ansible.builtin.assert:
+    that:
+      - (replan_app_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 6: re-run real (no change)
+- name: "Idempotency: Re-run add APP records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: APP
+    appName: "{{ rec.appName }}"
+    classPath: "{{ rec.classPath }}"
+    recordData: "{{ rec.recordData }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_app_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Recreate: {{ rec.name }}.{{ rec.zone }}"
+  register: recreate_app_results
+
+- name: "Assert re-run no changes"
+  ansible.builtin.assert:
+    that:
+      - (recreate_app_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 7: overwrite test for APP record
+- name: "Overwrite APP record (app-basic) with new values"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_app_record.name }}.{{ overwrite_app_record.zone }}"
+    zone: "{{ overwrite_app_record.zone }}"
+    type: APP
+    appName: "{{ overwrite_app_record.appName }}"
+    classPath: "{{ overwrite_app_record.classPath }}"
+    recordData: "{{ overwrite_app_record.recordData }}"
+    ttl: "{{ overwrite_app_record.ttl }}"
+    overwrite: true
+  register: overwrite_app_result
+
+- name: "Assert overwrite operation reports changed"
+  ansible.builtin.assert:
+    that:
+      - overwrite_app_result.changed
+
+- name: "Get overwritten APP record"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_app_record.name }}.{{ overwrite_app_record.zone }}"
+  register: overwritten_app_get_result
+
+- name: "Assert overwritten APP record has new values"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (overwritten_app_get_result.records | default([])
+         | selectattr('type','equalto','APP')
+         | selectattr('name','equalto', (overwrite_app_record.name ~ '.' ~ overwrite_app_record.zone))
+         | list | first).rData.appName == overwrite_app_record.appName
+      - >-
+        (overwritten_app_get_result.records | default([])
+         | selectattr('type','equalto','APP')
+         | selectattr('name','equalto', (overwrite_app_record.name ~ '.' ~ overwrite_app_record.zone))
+         | list | first).rData.classPath == overwrite_app_record.classPath
+      - >-
+        (overwritten_app_get_result.records | default([])
+         | selectattr('type','equalto','APP')
+         | selectattr('name','equalto', (overwrite_app_record.name ~ '.' ~ overwrite_app_record.zone))
+         | list | first).rData.data == overwrite_app_record.recordData
+      - >-
+        (overwritten_app_get_result.records | default([])
+         | selectattr('type','equalto','APP')
+         | selectattr('name','equalto', (overwrite_app_record.name ~ '.' ~ overwrite_app_record.zone))
+         | list | first).ttl == overwrite_app_record.ttl
+
+# Phase 8: negative tests
+- name: "Negative APP: missing required param (appName)"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "missing-app.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: APP
+    classPath: "com.example.Missing"
+    recordData: "config=missing"
+  register: neg_app_missing
+  ignore_errors: true
+
+- name: Assert failure of APP missing appName
+  ansible.builtin.assert:
+    that:
+      - neg_app_missing.failed
+      - "'appName' in (neg_app_missing.msg | default(''))"
+
+- name: "Negative APP: unsupported param (ipAddress)"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-param-app.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: APP
+    appName: "BadParamApp"
+    classPath: "com.example.Bad"
+    recordData: "config=bad"
+    ipAddress: 192.0.2.50
+  register: neg_app_bad_param
+  ignore_errors: true
+
+- name: Assert failure of APP unsupported param
+  ansible.builtin.assert:
+    that:
+      - neg_app_bad_param.failed
+      - "'ipAddress' in (neg_app_bad_param.msg | default(''))"
+
+- name: "Negative APP: invalid API token"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: BADTOKEN
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-token-app.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: APP
+    appName: "BadTokenApp"
+    classPath: "com.example.BadToken"
+    recordData: "config=badtoken"
+  register: neg_app_bad_token
+  ignore_errors: true
+
+- name: Assert failure of APP invalid API token
+  ansible.builtin.assert:
+    that:
+      - neg_app_bad_token.failed
+      - "'Invalid token' in (neg_app_bad_token.msg)"

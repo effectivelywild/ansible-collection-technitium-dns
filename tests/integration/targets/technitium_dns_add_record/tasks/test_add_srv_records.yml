@@ -1,0 +1,354 @@
+---
+# SRV Record Tests
+
+- name: "Define SRV test records"
+  ansible.builtin.set_fact:
+    #Domain for SRV constructed as _sip._tcp.<name>.<zone>
+    add_srv_test_records:
+      # 1. Basic SRV (no ttl/comments)
+      - { idx: 1, name: srv-basic, zone: "{{ primary_zone_name }}", priority: 10, weight: 5, srv_port: 5060, target: sip1.example }
+      # 2. SRV with ttl
+      - { idx: 2, name: srv-ttl, zone: "{{ primary_zone_name }}", priority: 20, weight: 0, srv_port: 5061, target: sip2.example, ttl: 7200 }
+      # 3. SRV with ttl + comments in signed zone
+      - { idx: 3, name: srv-comment-sec, zone: "{{ primary_sec_zone_name }}", priority: 5, weight: 10, srv_port: 5070, target: sip3.example, ttl: 3600, comments: "Secure zone SRV with comment" }
+    # Overwrite test record (will overwrite srv-basic)
+    overwrite_srv_record:
+      idx: 1
+      name: srv-basic
+      zone: "{{ primary_zone_name }}"
+      priority: 99
+      weight: 77
+      srv_port: 5099
+      target: overwrite-sip.example.net
+      comments: "Overwrite test comment"
+
+
+# Phase 1: Check mode
+- name: "Check mode - Add SRV records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "_sip._tcp.{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: SRV
+    priority: "{{ rec.priority }}"
+    weight: "{{ rec.weight }}"
+    srv_port: "{{ rec.srv_port }}"
+    target: "{{ rec.target }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_srv_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: _sip._tcp.{{ rec.name }}.{{ rec.zone }}"
+  register: plan_srv_results
+
+- name: "Assert change"
+  ansible.builtin.assert:
+    that:
+      - (plan_srv_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 2: external verify absence via get_records
+- name: "Verify check_mode didn't add records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "_sip._tcp.{{ rec.name }}.{{ rec.zone }}"
+  loop: "{{ add_srv_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: _sip._tcp.{{ rec.name }}.{{ rec.zone }}"
+  register: absent_get_srv_results
+  ignore_errors: true
+
+- name: Debug absent_get_srv_results
+  ansible.builtin.debug:
+    var: absent_get_srv_results
+  when: debug | default(false)
+
+- name: "Assert no records were found"
+  ansible.builtin.assert:
+    that:
+      - (absent_get_srv_results.results | map(attribute='failed') | list | unique) == [ true ]
+
+# Phase 3: real creation
+- name: "Create SRV records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "_sip._tcp.{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: SRV
+    priority: "{{ rec.priority }}"
+    weight: "{{ rec.weight }}"
+    srv_port: "{{ rec.srv_port }}"
+    target: "{{ rec.target }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_srv_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Create: {{ rec.idx }}-_sip._tcp.{{ rec.name }}.{{ rec.zone }}"
+  register: create_srv_results
+
+- name: "Assert creations changed"
+  ansible.builtin.assert:
+    that:
+      - (create_srv_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 4: verify presence via get_records
+- name: "Get SRV records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "_sip._tcp.{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+  loop: "{{ add_srv_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: _sip._tcp.{{ rec.name }}.{{ rec.zone }}"
+  register: present_get_srv_results
+
+- name: Debug present_get_srv_results
+  ansible.builtin.debug:
+    var: present_get_srv_results
+  when: debug | default(false)
+
+- name: "Assert records exist"
+  ansible.builtin.assert:
+    that: (present_get_srv_results.results | map(attribute='api_response.status') | list | unique) == ['ok']
+    quiet: true
+
+- name: "Assert SRV record parameters match request"
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','SRV')
+           | selectattr('name','equalto', ('_sip._tcp.' ~ item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.priority | int) == (item.rec.priority | int)
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','SRV')
+           | selectattr('name','equalto', ('_sip._tcp.' ~ item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.weight | int) == (item.rec.weight | int)
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','SRV')
+           | selectattr('name','equalto', ('_sip._tcp.' ~ item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.port | int) == (item.rec.srv_port | int)
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','SRV')
+           | selectattr('name','equalto', ('_sip._tcp.' ~ item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.target) == item.rec.target
+      - >-
+        ('ttl' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','SRV')
+             | selectattr('name','equalto', ('_sip._tcp.' ~ item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).ttl | int) == (item.rec.ttl | int)
+        )
+      - >-
+        ('comments' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','SRV')
+             | selectattr('name','equalto', ('_sip._tcp.' ~ item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).comments | default(item.rec.comments)) == item.rec.comments
+        )
+    quiet: true
+  loop: "{{ present_get_srv_results.results }}"
+  loop_control:
+    label: "Params: _sip._tcp.{{ item.rec.name }}.{{ item.rec.zone }}"
+
+# Phase 5: re-plan (no change)
+- name: "Check mode: Re-add SRV records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "_sip._tcp.{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: SRV
+    priority: "{{ rec.priority }}"
+    weight: "{{ rec.weight }}"
+    srv_port: "{{ rec.srv_port }}"
+    target: "{{ rec.target }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_srv_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: _sip._tcp.{{ rec.name }}.{{ rec.zone }}"
+  register: replan_srv_results
+
+- name: "Assert re-add had no changes"
+  ansible.builtin.assert:
+    that:
+      - (replan_srv_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 6: re-run real (no change)
+- name: "Idempotency: Re-run add SRV records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "_sip._tcp.{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: SRV
+    priority: "{{ rec.priority }}"
+    weight: "{{ rec.weight }}"
+    srv_port: "{{ rec.srv_port }}"
+    target: "{{ rec.target }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ add_srv_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Recreate: _sip._tcp.{{ rec.name }}.{{ rec.zone }}"
+  register: rerun_srv_results
+
+- name: "Assert re-run no changes"
+  ansible.builtin.assert:
+    that:
+      - (rerun_srv_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 7: overwrite tests
+- name: "Overwrite SRV record (srv-basic) with new values"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "_sip._tcp.{{ overwrite_srv_record.name }}.{{ overwrite_srv_record.zone }}"
+    zone: "{{ overwrite_srv_record.zone }}"
+    type: SRV
+    priority: "{{ overwrite_srv_record.priority }}"
+    weight: "{{ overwrite_srv_record.weight }}"
+    srv_port: "{{ overwrite_srv_record.srv_port }}"
+    target: "{{ overwrite_srv_record.target }}"
+    comments: "{{ overwrite_srv_record.comments }}"
+    overwrite: true
+  register: overwrite_srv_result
+
+- name: "Assert overwrite operation reports changed"
+  ansible.builtin.assert:
+    that:
+      - overwrite_srv_result.changed
+
+- name: "Fetch overwritten SRV record for presence (get_records)"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "_sip._tcp.{{ overwrite_srv_record.name }}.{{ overwrite_srv_record.zone }}"
+    zone: "{{ overwrite_srv_record.zone }}"
+  register: overwritten_srv_get_result
+
+- name: Debug overwritten_srv_get_result
+  ansible.builtin.debug:
+    var: overwritten_srv_get_result
+  when: debug | default(false)
+
+- name: "Assert overwritten SRV record has new values"
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((overwritten_srv_get_result.records | default([])
+           | selectattr('type','equalto','SRV')
+           | selectattr('name','equalto', ('_sip._tcp.' ~ overwrite_srv_record.name ~ '.' ~ overwrite_srv_record.zone))
+           | list | first).rData.priority | int) == (overwrite_srv_record.priority | int)
+      - >-
+        ((overwritten_srv_get_result.records | default([])
+           | selectattr('type','equalto','SRV')
+           | selectattr('name','equalto', ('_sip._tcp.' ~ overwrite_srv_record.name ~ '.' ~ overwrite_srv_record.zone))
+           | list | first).rData.weight | int) == (overwrite_srv_record.weight | int)
+      - >-
+        ((overwritten_srv_get_result.records | default([])
+           | selectattr('type','equalto','SRV')
+           | selectattr('name','equalto', ('_sip._tcp.' ~ overwrite_srv_record.name ~ '.' ~ overwrite_srv_record.zone))
+           | list | first).rData.port | int) == (overwrite_srv_record.srv_port | int)
+      - >-
+        ((overwritten_srv_get_result.records | default([])
+           | selectattr('type','equalto','SRV')
+           | selectattr('name','equalto', ('_sip._tcp.' ~ overwrite_srv_record.name ~ '.' ~ overwrite_srv_record.zone))
+           | list | first).rData.target) == overwrite_srv_record.target
+      - >-
+        ((overwritten_srv_get_result.records | default([])
+           | selectattr('type','equalto','SRV')
+           | selectattr('name','equalto', ('_sip._tcp.' ~ overwrite_srv_record.name ~ '.' ~ overwrite_srv_record.zone))
+           | list | first).comments) == overwrite_srv_record.comments
+
+# Phase 8: negative tests
+- name: "Negative: missing required priority"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "_sip._tcp.neg-missing-priority.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: SRV
+    weight: 10
+    srv_port: 5090
+    target: bad.example.
+  register: neg_srv_missing_priority
+  ignore_errors: true
+
+- name: Debug neg_srv_missing_priority
+  ansible.builtin.debug:
+    var: neg_srv_missing_priority
+  when: debug | default(false)
+
+- name: Assert failure of missing priority
+  ansible.builtin.assert:
+    that:
+      - neg_srv_missing_priority.failed
+      - "'priority' in (neg_srv_missing_priority.msg | default(''))"
+
+- name: "Negative: unsupported param for SRV (ipAddress)"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "_sip._tcp.neg-badparam-srv.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: SRV
+    priority: 1
+    weight: 1
+    srv_port: 5091
+    target: badparam.example.
+    ipAddress: 192.0.2.250
+  register: neg_srv_bad_param
+  ignore_errors: true
+  
+- name: Assert failure of unsupported param
+  ansible.builtin.assert:
+    that:
+      - neg_srv_bad_param.failed
+      - "'ipAddress' in (neg_srv_bad_param.msg | default(''))"
+
+- name: "Negative: invalid API token"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: BADTOKEN
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "_sip._tcp.neg-badtoken-srv.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: SRV
+    priority: 1
+    weight: 0
+    srv_port: 5092
+    target: badtoken.example.
+  register: neg_srv_bad_token
+  ignore_errors: true
+
+- name: Assert failure of invalid API token
+  ansible.builtin.assert:
+    that:
+      - neg_srv_bad_token.failed
+      - "'Invalid token' in (neg_srv_bad_token.msg)"

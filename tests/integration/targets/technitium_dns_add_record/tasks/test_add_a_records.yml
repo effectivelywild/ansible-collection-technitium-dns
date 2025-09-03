@@ -1,0 +1,335 @@
+---
+# A Record Tests
+
+- name: "Define A test records"
+  ansible.builtin.set_fact:
+    add_a_test_records:
+      - { idx: 1, name: basic-a,       ipAddress: 192.0.2.10, zone: "{{ primary_zone_name }}" }
+      - { idx: 2, name: longttl-a,     ipAddress: 192.0.3.10, zone: "{{ primary_zone_name }}", ttl: 86400 }
+      - { idx: 3, name: longttl-a-sec, ipAddress: 192.0.4.10, zone: "{{ primary_sec_zone_name }}", ttl: 86400 }
+      - { idx: 4, name: basic-a-fwd,   ipAddress: 192.0.6.10, zone: "{{ forwarder_zone_name }}" }
+      - { idx: 5, name: ptr-a,         ipAddress: 192.0.5.10, zone: "{{ primary_zone_name }}", ptr: true, createPtrZone: true }
+    # Overwrite test record (will overwrite basic-a)
+    overwrite_a_record:
+      idx: 1
+      name: basic-a
+      ipAddress: 203.0.113.77
+      zone: "{{ primary_zone_name }}"
+      ttl: 43200
+
+# Phase 1: Check mode
+- name: "Check mode - Add A records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: A
+    ipAddress: "{{ rec.ipAddress }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    ptr: "{{ rec.ptr | default(omit) }}"
+    createPtrZone: "{{ rec.createPtrZone | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_a_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: plan_a_results
+
+- name: "Assert change"
+  ansible.builtin.assert:
+    that:
+      - (plan_a_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 2: external verify absence via get_records
+- name: "Verify check_mode didn't add records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{rec.name}}.{{ rec.zone }}"
+  loop: "{{ add_a_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: absent_get_a_results
+  ignore_errors: true
+
+- name: Debug absent_get_a_results
+  ansible.builtin.debug:
+    var: absent_get_a_results
+  when: debug | default(false)
+
+- name: "Assert no records were found"
+  ansible.builtin.assert:
+    that:
+      - (absent_get_a_results.results | map(attribute='failed') | list | unique) == [ true ]
+
+# Phase 3: real creation
+- name: "Create A records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: A
+    ipAddress: "{{ rec.ipAddress }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    ptr: "{{ rec.ptr | default(omit) }}"
+    createPtrZone: "{{ rec.createPtrZone | default(omit) }}"
+  loop: "{{ add_a_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Create: {{ rec.idx }}-{{ rec.name }}.{{ rec.zone }}"
+  register: create_a_results
+
+- name: "Assert creations changed"
+  ansible.builtin.assert:
+    that:
+      - (create_a_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 4: verify presence via get_records
+- name: "Get A records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+  loop: "{{ add_a_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: present_get_a_results
+
+- name: Debug present_get_a_results
+  ansible.builtin.debug:
+    var: present_get_a_results
+  when: debug | default(false)
+
+- name: "Assert records exist"
+  ansible.builtin.assert:
+    that: (present_get_a_results.results | map(attribute='api_response.status') | list | unique) == ['ok']
+    quiet: true
+
+- name: "Assert A record parameters match request"
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','A')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.ipAddress) == item.rec.ipAddress
+      - >-
+        ('ttl' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','A')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).ttl | int) == (item.rec.ttl | int)
+        )
+    quiet: true
+  loop: "{{ present_get_a_results.results }}"
+  loop_control:
+    label: "Params: {{ item.rec.name }}.{{ item.rec.zone }}"
+
+# Phase 4b: verify PTR auto-creation for record with ptr/createPtrZone
+- name: "Create fact for PTR record"
+  ansible.builtin.set_fact:
+    ptr_a_record: >-
+      {{ (add_a_test_records | selectattr('ptr','defined') | selectattr('ptr') | list | first) | default(omit) }}
+
+- name: Debug ptr_a_record
+  ansible.builtin.debug:
+    var: ptr_a_record
+  when: debug | default(false)
+
+- name: "Derive reverse zone IP"
+  ansible.builtin.set_fact:
+    ptr_ip_parts: "{{ ptr_a_record.ipAddress.split('.') }}"
+
+- name: "Derive reverse zone and FQDN from IP"
+  ansible.builtin.set_fact:
+    ptr_reverse_zone: "{{ ptr_ip_parts[2] }}.{{ ptr_ip_parts[1] }}.{{ ptr_ip_parts[0] }}.in-addr.arpa"
+    ptr_reverse_fqdn: "{{ ptr_ip_parts[3] }}.{{ ptr_ip_parts[2] }}.{{ ptr_ip_parts[1] }}.{{ ptr_ip_parts[0] }}.in-addr.arpa"
+
+- name: "Get PTR record"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ ptr_reverse_fqdn }}"
+    zone: "{{ ptr_reverse_zone }}"
+  register: ptr_lookup
+
+- name: Debug ptr_lookup
+  ansible.builtin.debug:
+    var: ptr_lookup
+  when: debug | default(false)
+
+- name: "Assert PTR record exists and points to A FQDN"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (ptr_lookup.records | default([])
+          | selectattr('type','equalto','PTR')
+          | selectattr('name','equalto', ptr_reverse_fqdn)
+          | selectattr('rData.ptrName','search', (ptr_a_record.name ~ '.' ~ ptr_a_record.zone))
+          | list | length) == 1
+    fail_msg: "Expected PTR for {{ ptr_a_record.ipAddress }} not found or misconfigured (reverse fqdn: {{ ptr_reverse_fqdn }})"
+    success_msg: "PTR record verified for {{ ptr_a_record.ipAddress }}"
+
+# Phase 5: re-plan (no change)
+- name: "Check mode: Re-add A records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: A
+    ipAddress: "{{ rec.ipAddress }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    ptr: "{{ rec.ptr | default(omit) }}"
+    createPtrZone: "{{ rec.createPtrZone | default(omit) }}"
+  check_mode: true
+  loop: "{{ add_a_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "check_mode: {{ rec.name }}.{{ rec.zone }}"
+  register: replan_a_results
+
+- name: "Assert re-add had no changes"
+  ansible.builtin.assert:
+    that:
+      - (replan_a_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 6: re-run real (no change)
+- name: "Idempotency: Re-run add A records"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: A
+    ipAddress: "{{ rec.ipAddress }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    ptr: "{{ rec.ptr | default(omit) }}"
+    createPtrZone: "{{ rec.createPtrZone | default(omit) }}"
+  loop: "{{ add_a_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Recreate: {{ rec.name }}.{{ rec.zone }}"
+  register: recreate_a_results
+
+- name: "Assert re-run no changes"
+  ansible.builtin.assert:
+    that:
+      - (recreate_a_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 7: overwrite tests
+- name: "Overwrite A record (basic-a) with new values"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_a_record.name }}.{{ overwrite_a_record.zone }}"
+    zone: "{{ overwrite_a_record.zone }}"
+    type: A
+    ipAddress: "{{ overwrite_a_record.ipAddress }}"
+    ttl: "{{ overwrite_a_record.ttl }}"
+    overwrite: true
+  register: overwrite_a_result
+
+- name: "Assert overwrite operation reports changed"
+  ansible.builtin.assert:
+    that:
+      - overwrite_a_result.changed
+
+- name: "Fetch overwritten A record for presence (get_records)"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ overwrite_a_record.name }}.{{ overwrite_a_record.zone }}"
+    zone: "{{ overwrite_a_record.zone }}"
+  register: overwritten_a_get_result
+
+- name: Debug overwritten_a_get_result
+  ansible.builtin.debug:
+    var: overwritten_a_get_result
+  when: debug | default(false)
+
+- name: "Assert overwritten A record has new values"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (overwritten_a_get_result.records | default([])
+         | selectattr('type','equalto','A')
+         | selectattr('name','equalto', (overwrite_a_record.name ~ '.' ~ overwrite_a_record.zone))
+         | list | first).rData.ipAddress == overwrite_a_record.ipAddress
+      - >-
+        (overwritten_a_get_result.records | default([])
+         | selectattr('type','equalto','A')
+         | selectattr('name','equalto', (overwrite_a_record.name ~ '.' ~ overwrite_a_record.zone))
+         | list | first).ttl == overwrite_a_record.ttl
+
+# Phase 8: negative tests
+- name: "Negative: missing ipAddress"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "missing-ip.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: A
+  register: neg_a_missing_ip
+  ignore_errors: true
+
+- name: Debug neg_a_missing_ip
+  ansible.builtin.debug:
+    var: neg_a_missing_ip
+  when: debug | default(false)
+
+- name: Assert failure of missing IP
+  ansible.builtin.assert:
+    that:
+      - neg_a_missing_ip.failed
+      - "'ipAddress' in (neg_a_missing_ip.msg | default(''))"
+
+- name: "Negative: unsupported param for A (cname)"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-param.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: A
+    cname: other.example.
+  register: neg_a_bad_param
+  ignore_errors: true
+  
+- name: Assert failure of unsupported param
+  ansible.builtin.assert:
+    that:
+      - neg_a_bad_param.failed
+      - "'cname' in (neg_a_bad_param.msg | default(''))"
+
+- name: "Negative: invalid API token"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: BADTOKEN
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-token.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: A
+    ipAddress: 198.51.100.200
+  register: neg_a_bad_token
+  ignore_errors: true
+
+- name: Assert failure of invalid API token
+  ansible.builtin.assert:
+    that:
+      - neg_a_bad_token.failed
+      - "'Invalid token' in (neg_a_bad_token.msg)"

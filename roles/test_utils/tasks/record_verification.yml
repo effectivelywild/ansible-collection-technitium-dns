@@ -1,0 +1,3 @@
+---
+# Simplified record verification (loop + small Jinja snippets only)
+# TODO: Record verification living in main test for now

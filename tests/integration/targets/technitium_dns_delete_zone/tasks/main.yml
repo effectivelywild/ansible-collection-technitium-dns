@@ -1,0 +1,269 @@
+---
+# Comprehensive 8-phase integration test suite for technitium_dns_delete_zone
+# This test suite validates zone deletion functionality across all scenarios
+
+# Phase 1: Load configuration
+- name: "Load test configuration"
+  include_vars: ../vars/config.yml
+
+- name: "Load zone deletion test data"
+  include_vars: ../vars/zone_test_data.yml
+
+- name: "Delete DNS zones (cleanup)"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_deletion_result
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"
+
+# Phase 2: Create zones
+- name: "Create DNS zones for testing"
+  technitium_dns_create_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    type: "{{ zone_item.type }}"
+    # Optional parameters with defaults
+    catalog: "{{ zone_item.catalog | default(omit) }}"
+    useSoaSerialDateScheme: "{{ zone_item.useSoaSerialDateScheme | default(omit) }}"
+    # Secondary/Stub zone parameters
+    primaryNameServerAddresses: "{{ zone_item.primaryNameServerAddresses | default(omit) }}"
+    zoneTransferProtocol: "{{ zone_item.zoneTransferProtocol | default(omit) }}"
+    tsigKeyName: "{{ zone_item.tsigKeyName | default(omit) }}"
+    validateZone: "{{ zone_item.validateZone | default(omit) }}"
+    # Forwarder zone parameters
+    initializeForwarder: "{{ zone_item.initializeForwarder | default(omit) }}"
+    protocol: "{{ zone_item.protocol | default(omit) }}"
+    forwarder: "{{ zone_item.forwarder | default(omit) }}"
+    dnssecValidation: "{{ zone_item.dnssecValidation | default(omit) }}"
+    # Proxy parameters
+    proxyType: "{{ zone_item.proxyType | default(omit) }}"
+    proxyAddress: "{{ zone_item.proxyAddress | default(omit) }}"
+    proxyPort: "{{ zone_item.proxyPort | default(omit) }}"
+    proxyUsername: "{{ zone_item.proxyUsername | default(omit) }}"
+    proxyPassword: "{{ zone_item.proxyPassword | default(omit) }}"
+  register: zone_creation_results
+  loop: "{{ zones_to_create | default([]) }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"
+
+- name: Sign DNSSEC-enabled zones
+  technitium_dns_sign_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    algorithm: "{{ zone_item.dnssec_algorithm | default('RSA') }}"
+    # RSA-specific parameters
+    hashAlgorithm: "{{ zone_item.dnssec_hash_algorithm | default('SHA256') if (zone_item.dnssec_algorithm | default('RSA')) == 'RSA' else omit }}"
+    kskKeySize: "{{ zone_item.ksk_key_size | default(2048) if (zone_item.dnssec_algorithm | default('RSA')) == 'RSA' else omit }}"
+    zskKeySize: "{{ zone_item.zsk_key_size | default(1024) if (zone_item.dnssec_algorithm | default('RSA')) == 'RSA' else omit }}"
+    # ECDSA/EDDSA-specific parameters
+    curve: "{{ zone_item.dnssec_curve | default('P256') if (zone_item.dnssec_algorithm | default('RSA')) in ['ECDSA', 'EDDSA'] else omit }}"
+    # Common optional parameters
+    pemKskPrivateKey: "{{ zone_item.pem_ksk_private_key | default(omit) }}"
+    pemZskPrivateKey: "{{ zone_item.pem_zsk_private_key | default(omit) }}"
+    dnsKeyTtl: "{{ zone_item.dns_key_ttl | default(omit) }}"
+    zskRolloverDays: "{{ zone_item.zsk_rollover_days | default(omit) }}"
+    nxProof: "{{ zone_item.nx_proof | default('NSEC') }}"
+    iterations: "{{ zone_item.nsec3_iterations | default(omit) }}"
+    saltLength: "{{ zone_item.nsec3_salt_length | default(omit) }}"
+  register: zone_signing_result
+  loop: "{{ zones_to_create | default([]) }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} (DNSSEC signing)"
+  when:
+    - zone_item.dnssec is defined
+
+- name: "Debug setup results"
+  debug:
+    var: zone_creation_results
+  when: debug | default(false)
+
+# Phase 3: Check mode
+- name: "Check mode - Delete zones"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  check_mode: true
+  register: zone_checkmode_deletion_result
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"
+
+- name: "Debug zone_info_result"
+  debug:
+    var: zone_info_result
+  when: debug | default(false)
+
+- name: "Assert all zones would have been deleted"
+  ansible.builtin.assert:
+    that:
+      - item.changed
+    quiet: true
+  loop: "{{ zone_checkmode_deletion_result.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+- name: "Get zones to verify Check mode didn't delete zones"
+  technitium_dns_get_zone_info:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_checkmode_info_result
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"
+  ignore_errors: true
+
+- name: "Assert zones still exist after check mode deletion"
+  assert:
+    that:
+      - not info_item.failed
+    quiet: true
+  loop: "{{ zone_checkmode_info_result.results }}"
+  loop_control:
+    loop_var: info_item
+    label: "{{ info_item.zone_item.zone }} ({{ info_item.zone_item.type }})"
+
+# Phase 4 - Delete zones
+- name: "Delete zones"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_deletion_result
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"
+
+- name: "Assert all zones have been deleted"
+  ansible.builtin.assert:
+    that:
+      - item.changed
+    quiet: true
+  loop: "{{ zone_deletion_result.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+- name: "Get zones to verify zones have been deleted (should fail)"
+  technitium_dns_get_zone_info:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_info_result
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"
+  ignore_errors: true
+
+- name: "Assert zones no longer exist after deletion"
+  assert:
+    that:
+      - info_item.failed
+    quiet: true
+  loop: "{{ zone_info_result.results }}"
+  loop_control:
+    loop_var: info_item
+    label: "{{ info_item.zone_item.zone }} ({{ info_item.zone_item.type }})"
+
+# Phase 5: Idempotecy Testing
+- name: "Idempotency - Check mode - Delete zones"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  check_mode: true
+  register: zone_checkmode_deletion_result
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"
+
+- name: "Idempotency - assert no change"
+  ansible.builtin.assert:
+    that:
+      - not item.changed
+    quiet: true
+  loop: "{{ zone_checkmode_deletion_result.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+- name: "Idempotency - Delete zones"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_deletion_result
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"
+
+- name: "Idempotency - assert no change"
+  ansible.builtin.assert:
+    that:
+      - not item.changed
+    quiet: true
+  loop: "{{ zone_deletion_result.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+# Phase 6: Negative tests
+- name: "Test deletion with empty zone name"
+  technitium.dns.technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: ""
+  register: empty_zone_deletion_result
+  ignore_errors: true
+
+- name: "Assert empty zone name deletion fails appropriately"
+  assert:
+    that:
+      - empty_zone_deletion_result.failed
+
+- name: "Test deletion with invalid API credentials"
+  technitium.dns.technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "invalid-token-12345"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "test-invalid-auth.{{ test_suffix }}"
+  register: invalid_auth_result
+  ignore_errors: true
+
+- name: "Assert invalid auth fails appropriately"
+  assert:
+    that:
+      - invalid_auth_result.failed

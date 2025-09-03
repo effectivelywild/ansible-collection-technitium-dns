@@ -1,0 +1,34 @@
+---
+# Zone deletion tasks using Technitium API terminology
+# Deletes zones based on the zones_to_delete variable (or created_zones if not specified)
+
+- name: Set zones to delete
+  ansible.builtin.set_fact:
+    zones_for_deletion: "{{ zones_to_delete | default(created_zones | default([])) }}"
+
+- name: Delete DNS zones (cleanup)
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_deletion_result
+  loop: "{{ zones_for_deletion }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+  ignore_errors: true
+
+- name: Debug zone deletion results
+  ansible.builtin.debug:
+    var: zone_deletion_result.results
+  when: debug | default(false)
+
+- name: Store deleted zone information
+  ansible.builtin.set_fact:
+    zone_deletion_results: "{{ zone_deletion_result.results }}"
+
+- name: Clear created zones fact
+  ansible.builtin.set_fact:
+    created_zones: []

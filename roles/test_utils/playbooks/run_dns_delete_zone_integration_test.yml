@@ -1,0 +1,13 @@
+---
+# Wrapper playbook
+
+- name: Wrapper playbook for technitium_dns_delete_zone integration test
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - "{{ playbook_dir }}/../../../tests/integration/targets/technitium_dns_delete_zone/vars/zone_test_data.yml"
+    - "{{ playbook_dir }}/../../../tests/integration/targets/technitium_dns_delete_zone/vars/config.yml"
+    - "{{ playbook_dir }}/../../../tests/integration/integration_config.yml"
+  tasks:
+    - name: technitium_dns_delete_zone integration test
+      include_tasks: "{{ playbook_dir }}/../../../tests/integration/targets/technitium_dns_delete_zone/tasks/main.yml"

@@ -1,0 +1,14 @@
+---
+# Wrapper playbook
+
+- name: Wrapper playbook for technitium_dns_delete_record integration test
+  hosts: localhost
+  gather_facts: false
+  vars:
+    test_tasks_dir: "{{ playbook_dir }}/../../../tests/integration/targets/technitium_dns_delete_record/tasks"
+  vars_files:
+    - "{{ playbook_dir }}/../../../tests/integration/targets/technitium_dns_delete_record/vars/zones.yml"
+    - "{{ playbook_dir }}/../../../tests/integration/integration_config.yml"
+  tasks:
+    - name: technitium_dns_delete_record integration test
+      include_tasks: "{{ playbook_dir }}/../../../tests/integration/targets/technitium_dns_delete_record/tasks/main.yml"

@@ -1,0 +1,1164 @@
+---
+# This test suite validates zone information retrieval functionality including DNSSEC
+
+# Phase 1: Setup - Load configuration and create zones for testing
+- name: "Load test configuration"
+  include_vars: ../vars/config.yml
+
+- name: "Load zone test data"  
+  include_vars: ../vars/zone_test_data.yml
+
+- name: "Delete DNS zones (cleanup)"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_deletion_result
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+# Phase 2: Create DNS zones for testing
+- name: "Create DNS zones for testing"
+  technitium_dns_create_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    type: "{{ zone_item.type }}"
+    # Optional parameters with defaults
+    catalog: "{{ zone_item.catalog | default(omit) }}"
+    useSoaSerialDateScheme: "{{ zone_item.useSoaSerialDateScheme | default(omit) }}"
+    # Secondary/Stub zone parameters
+    primaryNameServerAddresses: "{{ zone_item.primaryNameServerAddresses | default(omit) }}"
+    zoneTransferProtocol: "{{ zone_item.zoneTransferProtocol | default(omit) }}"
+    tsigKeyName: "{{ zone_item.tsigKeyName | default(omit) }}"
+    validateZone: "{{ zone_item.validateZone | default(omit) }}"
+    # Forwarder zone parameters
+    initializeForwarder: "{{ zone_item.initializeForwarder | default(omit) }}"
+    protocol: "{{ zone_item.protocol | default(omit) }}"
+    forwarder: "{{ zone_item.forwarder | default(omit) }}"
+    dnssecValidation: "{{ zone_item.dnssecValidation | default(omit) }}"
+    # Proxy parameters
+    proxyType: "{{ zone_item.proxyType | default(omit) }}"
+    proxyAddress: "{{ zone_item.proxyAddress | default(omit) }}"
+    proxyPort: "{{ zone_item.proxyPort | default(omit) }}"
+    proxyUsername: "{{ zone_item.proxyUsername | default(omit) }}"
+    proxyPassword: "{{ zone_item.proxyPassword | default(omit) }}"
+  register: zone_creation_results
+  loop: "{{ zones_to_create | default([]) }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"
+
+- name: "Sign DNSSEC-enabled zones"
+  technitium_dns_sign_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    algorithm: "{{ zone_item.dnssec_algorithm | default('RSA') }}"
+    # RSA-specific parameters
+    hashAlgorithm: "{{ zone_item.dnssec_hash_algorithm | default('SHA256') if (zone_item.dnssec_algorithm | default('RSA')) == 'RSA' else omit }}"
+    kskKeySize: "{{ zone_item.ksk_key_size | default(2048) if (zone_item.dnssec_algorithm | default('RSA')) == 'RSA' else omit }}"
+    zskKeySize: "{{ zone_item.zsk_key_size | default(1024) if (zone_item.dnssec_algorithm | default('RSA')) == 'RSA' else omit }}"
+    # ECDSA/EDDSA-specific parameters
+    curve: "{{ zone_item.dnssec_curve | default('P256') if (zone_item.dnssec_algorithm | default('RSA')) in ['ECDSA', 'EDDSA'] else omit }}"
+    # Common optional parameters
+    pemKskPrivateKey: "{{ zone_item.pem_ksk_private_key | default(omit) }}"
+    pemZskPrivateKey: "{{ zone_item.pem_zsk_private_key | default(omit) }}"
+    dnsKeyTtl: "{{ zone_item.dns_key_ttl | default(omit) }}"
+    zskRolloverDays: "{{ zone_item.zsk_rollover_days | default(omit) }}"
+    nxProof: "{{ zone_item.nx_proof | default('NSEC') }}"
+    iterations: "{{ zone_item.nsec3_iterations | default(omit) }}"
+    saltLength: "{{ zone_item.nsec3_salt_length | default(omit) }}"
+  register: zone_signing_result
+  loop: "{{ zones_to_create | default([]) }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} (DNSSEC signing)"
+  when:
+    - zone_item.dnssec is defined
+
+# Phase 3: Set zone options
+# Primary Zone
+- name: "Checkmode - Set zone options for primary.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "primary.{{ test_suffix }}"
+    disabled: true
+  register: set_primary_zone_options_results
+  check_mode: true
+
+- name: "Assert check mode is changed"
+  ansible.builtin.assert:
+    that:
+      - set_primary_zone_options_results.changed
+
+- name: "Get zone options for primary.{{ test_suffix }}"
+  technitium.dns.technitium_dns_get_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "primary.{{ test_suffix }}"
+  register: get_primary_zone_options_results
+
+- name: "Assert check mode didn't disable zone"
+  ansible.builtin.assert:
+    that:
+      - get_primary_zone_options_results.options.disabled == false
+
+- name: "Set zone options for primary.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "primary.{{ test_suffix }}"
+    update: UseSpecifiedNetworkACL
+    updateNetworkACL: "1.1.1.1,!2.2.2.2"
+    updateSecurityPolicies: "key|primary.{{ test_suffix }}|A"
+    queryAccess: "UseSpecifiedNetworkACL"
+    queryAccessNetworkACL: "1.1.1.0/24,1.1.2.0/24"
+    zoneTransfer: "UseSpecifiedNetworkACL"
+    zoneTransferNetworkACL: "1.1.1.1,!2.2.2.2"
+    zoneTransferTsigKeyNames: "key1,key2"
+    notify: "SpecifiedNameServers"
+    notifyNameServers: "{{ notify_name_server }}"
+    catalog: "catalog.{{ test_suffix }}"
+    overrideCatalogQueryAccess: true
+    overrideCatalogZoneTransfer: false
+    overrideCatalogNotify: true
+    disabled: false
+  register: set_primary_zone_options_results
+
+- name: "Assert change when setting zone options"
+  ansible.builtin.assert:
+    that:
+      - set_primary_zone_options_results.changed
+    quiet: true
+
+- name: "Get zone options for primary.{{ test_suffix }}"
+  technitium.dns.technitium_dns_get_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "primary.{{ test_suffix }}"
+  register: get_primary_zone_options_results
+
+- name: "Debug get_primary_zone_options_results"
+  ansible.builtin.debug:
+    var: get_primary_zone_options_results
+  when: debug | default(false)
+
+- name: "Set expected primary zone name"
+  set_fact:
+    expected_primary_zone_name: "primary.{{ test_suffix }}"
+
+- name: "Assert retrieved primary zone options match set options"
+  ansible.builtin.assert:
+    that:
+      - get_primary_zone_options_results.options.name == expected_primary_zone_name
+      - get_primary_zone_options_results.options['update'] == "UseSpecifiedNetworkACL"
+      - get_primary_zone_options_results.options.updateNetworkACL == ["1.1.1.1", "!2.2.2.2"]
+      - get_primary_zone_options_results.options.updateSecurityPolicies[0].allowedTypes == ["A"]
+      - get_primary_zone_options_results.options.updateSecurityPolicies[0].domain == expected_primary_zone_name
+      - get_primary_zone_options_results.options.updateSecurityPolicies[0].tsigKeyName == "key"
+      - get_primary_zone_options_results.options.queryAccess == "UseSpecifiedNetworkACL"
+      - get_primary_zone_options_results.options.queryAccessNetworkACL == ["1.1.1.0/24", "1.1.2.0/24"]
+      - get_primary_zone_options_results.options.zoneTransfer == "UseSpecifiedNetworkACL"
+      - get_primary_zone_options_results.options.zoneTransferNetworkACL == ["1.1.1.1", "!2.2.2.2"]
+      - get_primary_zone_options_results.options.zoneTransferTsigKeyNames == ["key1", "key2"]
+      - get_primary_zone_options_results.options.notify == "SpecifiedNameServers"
+      - get_primary_zone_options_results.options.notifyNameServers == ["{{ notify_name_server }}"]
+      - get_primary_zone_options_results.options.overrideCatalogQueryAccess == true
+      - get_primary_zone_options_results.options.overrideCatalogZoneTransfer == false
+      - get_primary_zone_options_results.options.overrideCatalogNotify == true
+      - get_primary_zone_options_results.options.disabled == false
+
+- name: "Idempotency - Set zone options for primary.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "primary.{{ test_suffix }}"
+    update: UseSpecifiedNetworkACL
+    updateNetworkACL: "1.1.1.1,!2.2.2.2"
+    updateSecurityPolicies: "key|primary.{{ test_suffix }}|A"
+    queryAccess: "UseSpecifiedNetworkACL"
+    queryAccessNetworkACL: "1.1.1.0/24,1.1.2.0/24"
+    zoneTransfer: "UseSpecifiedNetworkACL"
+    zoneTransferNetworkACL: "1.1.1.1,!2.2.2.2"
+    zoneTransferTsigKeyNames: "key1,key2"
+    notify: "SpecifiedNameServers"
+    notifyNameServers: "{{ notify_name_server }}"
+    catalog: "catalog.{{ test_suffix }}"
+    overrideCatalogQueryAccess: true
+    overrideCatalogZoneTransfer: false
+    overrideCatalogNotify: true
+    disabled: false
+  register: set_primary_zone_options_results
+
+- name: "Assert no change when setting zone options"
+  ansible.builtin.assert:
+    that:
+      - not set_primary_zone_options_results.changed
+    quiet: true
+
+- name: "Check mode - Idempotency - Set zone options for primary.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "primary.{{ test_suffix }}"
+    update: UseSpecifiedNetworkACL
+    updateNetworkACL: "1.1.1.1,!2.2.2.2"
+    updateSecurityPolicies: "key|primary.{{ test_suffix }}|A"
+    queryAccess: "UseSpecifiedNetworkACL"
+    queryAccessNetworkACL: "1.1.1.0/24,1.1.2.0/24"
+    zoneTransfer: "UseSpecifiedNetworkACL"
+    zoneTransferNetworkACL: "1.1.1.1,!2.2.2.2"
+    zoneTransferTsigKeyNames: "key1,key2"
+    notify: "SpecifiedNameServers"
+    notifyNameServers: "{{ notify_name_server }}"
+    catalog: "catalog.{{ test_suffix }}"
+    overrideCatalogQueryAccess: true
+    overrideCatalogZoneTransfer: false
+    overrideCatalogNotify: true
+    disabled: false
+  register: set_primary_zone_options_results
+  check_mode: true
+
+- name: "Assert no change when setting zone options"
+  ansible.builtin.assert:
+    that:
+      - not set_primary_zone_options_results.changed
+    quiet: true
+
+# Primary DNSSEC Enabled Zone
+- name: "Checkmode - Set zone options for dnssec-primary.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "dnssec-primary.{{ test_suffix }}"
+    disabled: true
+  register: set_dnssec_primary_zone_options_results
+  check_mode: true
+
+- name: "Assert check mode is changed"
+  ansible.builtin.assert:
+    that:
+      - set_dnssec_primary_zone_options_results.changed
+
+- name: "Set zone options for dnssec-primary.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "dnssec-primary.{{ test_suffix }}"
+    update: AllowZoneNameServersAndUseSpecifiedNetworkACL
+    updateNetworkACL: "192.168.1.0/24,!172.2.2.0/24"
+    updateSecurityPolicies: "key|dnssec-primary.{{ test_suffix }}|A"
+    queryAccess: "AllowZoneNameServersAndUseSpecifiedNetworkACL"
+    queryAccessNetworkACL: "192.168.1.0/24,!172.2.2.0/24"
+    zoneTransfer: "AllowZoneNameServersAndUseSpecifiedNetworkACL"
+    zoneTransferNetworkACL: "192.168.1.0/24,!172.2.2.0/24"
+    zoneTransferTsigKeyNames: "key1,key2"
+    notify: "BothZoneAndSpecifiedNameServers"
+    notifyNameServers: "{{ notify_name_server }}"
+    catalog: "catalog.{{ test_suffix }}"
+    overrideCatalogQueryAccess: true
+    overrideCatalogZoneTransfer: false
+    overrideCatalogNotify: true
+    disabled: false
+  register: set_dnssec_primary_zone_options_results
+
+- name: "Assert change when setting zone options"
+  ansible.builtin.assert:
+    that:
+      - set_dnssec_primary_zone_options_results.changed
+    quiet: true
+
+- name: "Get zone options for dnssec-primary.{{ test_suffix }}"
+  technitium.dns.technitium_dns_get_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "dnssec-primary.{{ test_suffix }}"
+  register: get_dnssec_primary_zone_options_results
+
+- name: "Debug get_dnssec_primary_zone_options_results"
+  ansible.builtin.debug:
+    var: get_dnssec_primary_zone_options_results
+  when: debug | default(false)
+
+- name: "Set expected dnssec-primary zone name"
+  set_fact:
+    expected_dnssec_primary_zone_name: "dnssec-primary.{{ test_suffix }}"
+
+- name: "Assert retrieved dnssec-primary zone options match set options"
+  ansible.builtin.assert:
+    that:
+      - get_dnssec_primary_zone_options_results.options.name == expected_dnssec_primary_zone_name
+      - get_dnssec_primary_zone_options_results.options['update'] == "AllowZoneNameServersAndUseSpecifiedNetworkACL"
+      - get_dnssec_primary_zone_options_results.options.updateNetworkACL == ["192.168.1.0/24", "!172.2.2.0/24"]
+      - get_dnssec_primary_zone_options_results.options.updateSecurityPolicies[0].allowedTypes == ["A"]
+      - get_dnssec_primary_zone_options_results.options.updateSecurityPolicies[0].domain == expected_dnssec_primary_zone_name
+      - get_dnssec_primary_zone_options_results.options.updateSecurityPolicies[0].tsigKeyName == "key"
+      - get_dnssec_primary_zone_options_results.options.queryAccess == "AllowZoneNameServersAndUseSpecifiedNetworkACL"
+      - get_dnssec_primary_zone_options_results.options.queryAccessNetworkACL == ["192.168.1.0/24", "!172.2.2.0/24"]
+      - get_dnssec_primary_zone_options_results.options.zoneTransfer == "AllowZoneNameServersAndUseSpecifiedNetworkACL"
+      - get_dnssec_primary_zone_options_results.options.zoneTransferNetworkACL == ["192.168.1.0/24", "!172.2.2.0/24"]
+      - get_dnssec_primary_zone_options_results.options.zoneTransferTsigKeyNames == ["key1", "key2"]
+      - get_dnssec_primary_zone_options_results.options.notify == "BothZoneAndSpecifiedNameServers"
+      - get_dnssec_primary_zone_options_results.options.notifyNameServers == ["{{ notify_name_server }}"]
+      - get_dnssec_primary_zone_options_results.options.overrideCatalogQueryAccess == true
+      - get_dnssec_primary_zone_options_results.options.overrideCatalogZoneTransfer == false
+      - get_dnssec_primary_zone_options_results.options.overrideCatalogNotify == true
+      - get_dnssec_primary_zone_options_results.options.disabled == false
+
+- name: "Idempotency - Set zone options for dnssec-primary.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "dnssec-primary.{{ test_suffix }}"
+    update: AllowZoneNameServersAndUseSpecifiedNetworkACL
+    updateNetworkACL: "192.168.1.0/24,!172.2.2.0/24"
+    updateSecurityPolicies: "key|dnssec-primary.{{ test_suffix }}|A"
+    queryAccess: "AllowZoneNameServersAndUseSpecifiedNetworkACL"
+    queryAccessNetworkACL: "192.168.1.0/24,!172.2.2.0/24"
+    zoneTransfer: "AllowZoneNameServersAndUseSpecifiedNetworkACL"
+    zoneTransferNetworkACL: "192.168.1.0/24,!172.2.2.0/24"
+    zoneTransferTsigKeyNames: "key1,key2"
+    notify: "BothZoneAndSpecifiedNameServers"
+    notifyNameServers: "{{ notify_name_server }}"
+    catalog: "catalog.{{ test_suffix }}"
+    overrideCatalogQueryAccess: true
+    overrideCatalogZoneTransfer: false
+    overrideCatalogNotify: true
+    disabled: false
+  register: set_dnssec_primary_zone_options_results
+
+- name: "Assert no change when setting zone options"
+  ansible.builtin.assert:
+    that:
+      - set_dnssec_primary_zone_options_results.changed == false
+
+- name: "Idempotency - Check mode - Set zone options for dnssec-primary.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "dnssec-primary.{{ test_suffix }}"
+    update: AllowZoneNameServersAndUseSpecifiedNetworkACL
+    updateNetworkACL: "192.168.1.0/24,!172.2.2.0/24"
+    updateSecurityPolicies: "key|dnssec-primary.{{ test_suffix }}|A"
+    queryAccess: "AllowZoneNameServersAndUseSpecifiedNetworkACL"
+    queryAccessNetworkACL: "192.168.1.0/24,!172.2.2.0/24"
+    zoneTransfer: "AllowZoneNameServersAndUseSpecifiedNetworkACL"
+    zoneTransferNetworkACL: "192.168.1.0/24,!172.2.2.0/24"
+    zoneTransferTsigKeyNames: "key1,key2"
+    notify: "BothZoneAndSpecifiedNameServers"
+    notifyNameServers: "{{ notify_name_server }}"
+    catalog: "catalog.{{ test_suffix }}"
+    overrideCatalogQueryAccess: true
+    overrideCatalogZoneTransfer: false
+    overrideCatalogNotify: true
+    disabled: false
+  register: set_dnssec_primary_zone_options_results
+  check_mode: true
+
+- name: "Assert no change when setting zone options"
+  ansible.builtin.assert:
+    that:
+      - set_dnssec_primary_zone_options_results.changed == false
+
+# Secondary Zone
+- name: "Checkmode - Set zone options for secondary.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "secondary.{{ test_suffix }}"
+    disabled: true
+  register: set_secondary_zone_options_results
+  check_mode: true
+
+- name: "Assert check mode is changed"
+  ansible.builtin.assert:
+    that:
+      - set_secondary_zone_options_results.changed
+
+- name: "Set zone options for secondary.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "secondary.{{ test_suffix }}"
+    zoneTransfer: "UseSpecifiedNetworkACL"
+    zoneTransferNetworkACL: "1.1.1.1,!2.2.2.2"
+    zoneTransferTsigKeyNames: "key1,key2"
+    notify: "SpecifiedNameServers"
+    notifyNameServers: "{{ notify_name_server }}"
+    queryAccess: "UseSpecifiedNetworkACL"
+    queryAccessNetworkACL: "1.2.3.0/24,6.7.8.0/24"
+    disabled: false
+    primaryNameServerAddresses: "{{ notify_name_server }}"
+    primaryZoneTransferProtocol: "Tcp"
+    primaryZoneTransferTsigKeyName: "key"
+    validateZone: true
+    update: UseSpecifiedNetworkACL
+    updateNetworkACL: "10.11.21.1,!5.2.9.243"
+  register: set_secondary_zone_options_results
+
+- name: "Assert change when setting zone options"
+  ansible.builtin.assert:
+    that:
+      - set_secondary_zone_options_results.changed
+    quiet: true
+
+- name: "Get zone options for secondary.{{ test_suffix }}"
+  technitium.dns.technitium_dns_get_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "secondary.{{ test_suffix }}"
+  register: get_secondary_zone_options_results
+
+- name: "Debug get_secondary_zone_options_results"
+  ansible.builtin.debug:
+    var: get_secondary_zone_options_results
+  when: debug | default(false)
+
+- name: "Set expected secondary zone name"
+  set_fact:
+    expected_secondary_zone_name: "secondary.{{ test_suffix }}"
+
+- name: "Assert retrieved secondary zone options match set options"
+  ansible.builtin.assert:
+    that:
+      - get_secondary_zone_options_results.options.name == expected_secondary_zone_name
+      - get_secondary_zone_options_results.options.zoneTransfer == "UseSpecifiedNetworkACL"
+      - get_secondary_zone_options_results.options.zoneTransferNetworkACL == ["1.1.1.1", "!2.2.2.2"]
+      - get_secondary_zone_options_results.options.zoneTransferTsigKeyNames == ["key1", "key2"]
+      - get_secondary_zone_options_results.options.notify == "SpecifiedNameServers"
+      - get_secondary_zone_options_results.options.notifyNameServers == ["{{ notify_name_server }}"]
+      - get_secondary_zone_options_results.options.queryAccess == "UseSpecifiedNetworkACL"
+      - get_secondary_zone_options_results.options.queryAccessNetworkACL == ["1.2.3.0/24", "6.7.8.0/24"]
+      - get_secondary_zone_options_results.options.disabled == false
+      - get_secondary_zone_options_results.options.primaryNameServerAddresses == ["{{ notify_name_server }}"]
+      - get_secondary_zone_options_results.options.primaryZoneTransferProtocol == "Tcp"
+      - get_secondary_zone_options_results.options.primaryZoneTransferTsigKeyName == "key"
+      - get_secondary_zone_options_results.options.validateZone == true
+      - get_secondary_zone_options_results.options['update'] == "UseSpecifiedNetworkACL"
+      - get_secondary_zone_options_results.options.updateNetworkACL == ["10.11.21.1", "!5.2.9.243"]
+
+- name: "Idempotency - Set zone options for secondary.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "secondary.{{ test_suffix }}"
+    zoneTransfer: "UseSpecifiedNetworkACL"
+    zoneTransferNetworkACL: "1.1.1.1,!2.2.2.2"
+    zoneTransferTsigKeyNames: "key1,key2"
+    notify: "SpecifiedNameServers"
+    notifyNameServers: "{{ notify_name_server }}"
+    queryAccess: "UseSpecifiedNetworkACL"
+    queryAccessNetworkACL: "1.2.3.0/24,6.7.8.0/24"
+    disabled: false
+    primaryNameServerAddresses: "{{ notify_name_server }}"
+    primaryZoneTransferProtocol: "Tcp"
+    primaryZoneTransferTsigKeyName: "key"
+    validateZone: true
+    update: UseSpecifiedNetworkACL
+    updateNetworkACL: "10.11.21.1,!5.2.9.243"
+  register: set_secondary_zone_options_results
+
+- name: "Assert no change when setting zone options"
+  ansible.builtin.assert:
+    that:
+      - set_secondary_zone_options_results.changed == false
+
+- name: "Idempotency - Check mode - Set zone options for secondary.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "secondary.{{ test_suffix }}"
+    zoneTransfer: "UseSpecifiedNetworkACL"
+    zoneTransferNetworkACL: "1.1.1.1,!2.2.2.2"
+    zoneTransferTsigKeyNames: "key1,key2"
+    notify: "SpecifiedNameServers"
+    notifyNameServers: "{{ notify_name_server }}"
+    queryAccess: "UseSpecifiedNetworkACL"
+    queryAccessNetworkACL: "1.2.3.0/24,6.7.8.0/24"
+    disabled: false
+    primaryNameServerAddresses: "{{ notify_name_server }}"
+    primaryZoneTransferProtocol: "Tcp"
+    primaryZoneTransferTsigKeyName: "key"
+    validateZone: true
+    update: UseSpecifiedNetworkACL
+    updateNetworkACL: "10.11.21.1,!5.2.9.243"
+  register: set_secondary_zone_options_results
+  check_mode: true
+
+- name: "Assert no change when setting zone options"
+  ansible.builtin.assert:
+    that:
+      - set_secondary_zone_options_results.changed == false
+
+# Stub Zone
+- name: "Checkmode - Set zone options for stub.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "stub.{{ test_suffix }}"
+    disabled: true
+  register: set_stub_zone_options_results
+  check_mode: true
+
+- name: "Assert check mode is changed"
+  ansible.builtin.assert:
+    that:
+      - set_stub_zone_options_results.changed
+
+- name: "Set zone options for stub.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "stub.{{ test_suffix }}"
+    queryAccess: "UseSpecifiedNetworkACL"
+    queryAccessNetworkACL: "1.8.1.0/24,1.1.22.0/24"
+    disabled: false
+    catalog: "catalog.{{ test_suffix }}"
+    primaryNameServerAddresses: "{{ notify_name_server }}"
+    overrideCatalogQueryAccess: true
+  register: set_stub_zone_options_results
+
+- name: "Assert change when setting zone options"
+  ansible.builtin.assert:
+    that:
+      - set_stub_zone_options_results.changed
+    quiet: true
+
+- name: "Get zone options for stub.{{ test_suffix }}"
+  technitium.dns.technitium_dns_get_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "stub.{{ test_suffix }}"
+  register: get_stub_zone_options_results
+
+- name: "Debug get_stub_zone_options_results"
+  ansible.builtin.debug:
+    var: get_secondary_zone_options_results
+  when: debug | default(false)
+
+- name: "Set expected stub zone name"
+  set_fact:
+    expected_stub_zone_name: "stub.{{ test_suffix }}"
+
+- name: "Assert retrieved stub zone options match set options"
+  ansible.builtin.assert:
+    that:
+      - get_stub_zone_options_results.options.name == expected_stub_zone_name
+      - get_stub_zone_options_results.options.queryAccess == "UseSpecifiedNetworkACL"
+      - get_stub_zone_options_results.options.queryAccessNetworkACL == ["1.8.1.0/24", "1.1.22.0/24"]
+      - get_stub_zone_options_results.options.disabled == false
+      - get_stub_zone_options_results.options.catalog == "catalog.{{ test_suffix }}"
+      - get_stub_zone_options_results.options.overrideCatalogQueryAccess == true
+      - get_stub_zone_options_results.options.primaryNameServerAddresses == ["{{ notify_name_server }}"]
+
+- name: "Idempotency - Set zone options for stub.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "stub.{{ test_suffix }}"
+    queryAccess: "UseSpecifiedNetworkACL"
+    queryAccessNetworkACL: "1.8.1.0/24,1.1.22.0/24"
+    disabled: false
+    catalog: "catalog.{{ test_suffix }}"
+    primaryNameServerAddresses: "{{ notify_name_server }}"
+    overrideCatalogQueryAccess: true
+  register: set_stub_zone_options_results
+
+- name: "Assert no change when setting zone options"
+  ansible.builtin.assert:
+    that:
+      - set_stub_zone_options_results.changed == false
+
+- name: "Idempotency - Check modde - Set zone options for stub.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "stub.{{ test_suffix }}"
+    queryAccess: "UseSpecifiedNetworkACL"
+    queryAccessNetworkACL: "1.8.1.0/24,1.1.22.0/24"
+    disabled: false
+    catalog: "catalog.{{ test_suffix }}"
+    primaryNameServerAddresses: "{{ notify_name_server }}"
+    overrideCatalogQueryAccess: true
+  register: set_stub_zone_options_results
+  check_mode: true
+
+- name: "Assert no change when setting zone options"
+  ansible.builtin.assert:
+    that:
+      - set_stub_zone_options_results.changed == false
+
+# Forwarder Zone
+- name: "Checkmode - Set zone options for forwarder.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "forwarder.{{ test_suffix }}"
+    disabled: true
+  register: set_forwarder_zone_options_results
+  check_mode: true
+
+- name: "Assert check mode is changed"
+  ansible.builtin.assert:
+    that:
+      - set_forwarder_zone_options_results.changed
+
+- name: "Set zone options for forwarder.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "forwarder.{{ test_suffix }}"
+    disabled: false
+    catalog: "catalog.{{ test_suffix }}"
+    overrideCatalogQueryAccess: true
+    overrideCatalogNotify: true
+    zoneTransfer: "UseSpecifiedNetworkACL"
+    zoneTransferNetworkACL: "10.11.12.13,!2.2.2.0/24"
+    zoneTransferTsigKeyNames: "key1,key2"
+    notify: "SpecifiedNameServers"
+    notifyNameServers: "{{ notify_name_server }}"
+    update: "UseSpecifiedNetworkACL"
+    updateNetworkACL: "1.1.1.1,!2.2.2.2"
+    updateSecurityPolicies: "testkey|forwarder.{{ test_suffix }}|A,AAAA,MX"
+  register: set_forwarder_zone_options_results
+
+- name: "Assert change when setting zone options"
+  ansible.builtin.assert:
+    that:
+      - set_forwarder_zone_options_results.changed
+    quiet: true
+
+- name: "Get zone options for forwarder.{{ test_suffix }}"
+  technitium.dns.technitium_dns_get_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "forwarder.{{ test_suffix }}"
+  register: get_forwarder_zone_options_results
+
+- name: "Debug get_forwarder_zone_options_results"
+  ansible.builtin.debug:
+    var: get_forwarder_zone_options_results
+  when: debug | default(false)
+
+- name: "Set expected forwarder zone name"
+  set_fact:
+    expected_forwarder_zone_name: "forwarder.{{ test_suffix }}"
+
+- name: "Assert retrieved forwarder zone options match set options"
+  ansible.builtin.assert:
+    that:
+      - get_forwarder_zone_options_results.options.name == expected_forwarder_zone_name
+      - get_forwarder_zone_options_results.options.zoneTransfer == "UseSpecifiedNetworkACL"
+      - get_forwarder_zone_options_results.options.zoneTransferNetworkACL == ["10.11.12.13", "!2.2.2.0/24"]
+      - get_forwarder_zone_options_results.options.zoneTransferTsigKeyNames == ["key1", "key2"]
+      - get_forwarder_zone_options_results.options.notify == "SpecifiedNameServers"
+      - get_forwarder_zone_options_results.options.notifyNameServers == ["{{ notify_name_server }}"]
+      - get_forwarder_zone_options_results.options['update'] == "UseSpecifiedNetworkACL"
+      - get_forwarder_zone_options_results.options.updateNetworkACL == ["1.1.1.1", "!2.2.2.2"]
+      - get_forwarder_zone_options_results.options.updateSecurityPolicies[0].allowedTypes == ["A", "AAAA", "MX"]
+      - get_forwarder_zone_options_results.options.updateSecurityPolicies[0].domain == expected_forwarder_zone_name
+      - get_forwarder_zone_options_results.options.updateSecurityPolicies[0].tsigKeyName == "testkey"
+
+- name: "Idempotency - Set zone options for forwarder.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "forwarder.{{ test_suffix }}"
+    disabled: false
+    catalog: "catalog.{{ test_suffix }}"
+    overrideCatalogQueryAccess: true
+    overrideCatalogNotify: true
+    zoneTransfer: "UseSpecifiedNetworkACL"
+    zoneTransferNetworkACL: "10.11.12.13,!2.2.2.0/24"
+    zoneTransferTsigKeyNames: "key1,key2"
+    notify: "SpecifiedNameServers"
+    notifyNameServers: "{{ notify_name_server }}"
+    update: "UseSpecifiedNetworkACL"
+    updateNetworkACL: "1.1.1.1,!2.2.2.2"
+    updateSecurityPolicies: "testkey|forwarder.{{ test_suffix }}|A,AAAA,MX"
+  register: set_forwarder_zone_options_results
+
+- name: Asset no change when setting zone options
+  ansible.builtin.assert:
+    that:
+      - set_forwarder_zone_options_results.changed == false
+
+- name: "Idempotency - Check mode - Set zone options for forwarder.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "forwarder.{{ test_suffix }}"
+    disabled: false
+    catalog: "catalog.{{ test_suffix }}"
+    overrideCatalogQueryAccess: true
+    overrideCatalogNotify: true
+    zoneTransfer: "UseSpecifiedNetworkACL"
+    zoneTransferNetworkACL: "10.11.12.13,!2.2.2.0/24"
+    zoneTransferTsigKeyNames: "key1,key2"
+    notify: "SpecifiedNameServers"
+    notifyNameServers: "{{ notify_name_server }}"
+    update: "UseSpecifiedNetworkACL"
+    updateNetworkACL: "1.1.1.1,!2.2.2.2"
+    updateSecurityPolicies: "testkey|forwarder.{{ test_suffix }}|A,AAAA,MX"
+  check_mode: true
+  register: set_forwarder_zone_options_results
+
+- name: "Assert no change when setting zone options"
+  ansible.builtin.assert:
+    that:
+      - set_forwarder_zone_options_results.changed == false  
+# Catalog Zone
+- name: "Checkmode - Set zone options for catalog.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "catalog.{{ test_suffix }}"
+    disabled: true
+  register: set_catalog_zone_options_results
+  check_mode: true
+
+- name: "Assert check mode is changed"
+  ansible.builtin.assert:
+    that:
+      - set_catalog_zone_options_results.changed
+
+- name: "Set zone options for catalog.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "catalog.{{ test_suffix }}"
+    disabled: false
+    queryAccess: "UseSpecifiedNetworkACL"
+    queryAccessNetworkACL: "100.99.88.13,!2.2.22.0/24"
+    zoneTransfer: "UseSpecifiedNetworkACL"
+    zoneTransferNetworkACL: "100.99.88.13,!2.2.22.0/24"
+    zoneTransferTsigKeyNames: "key1,key2"
+    notify: "SpecifiedNameServers"
+    notifyNameServers: "{{ notify_name_server }}"
+    notifySecondaryCatalogsNameServers: "{{ notify_name_server }}"
+  register: set_catalog_zone_options_results
+
+- name: "Assert change when setting zone options"
+  ansible.builtin.assert:
+    that:
+      - set_catalog_zone_options_results.changed
+    quiet: true
+
+- name: "Get zone options for catalog.{{ test_suffix }}"
+  technitium.dns.technitium_dns_get_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "catalog.{{ test_suffix }}"
+  register: get_catalog_zone_options_results
+
+- name: "Debug get_catalog_zone_options_results"
+  ansible.builtin.debug:
+    var: get_catalog_zone_options_results
+  when: debug | default(false)
+
+- name: "Set expected catalog zone name"
+  set_fact:
+    expected_catalog_zone_name: "catalog.{{ test_suffix }}"
+
+- name: "Assert retrieved catalog zone options match set options"
+  ansible.builtin.assert:
+    that:
+      - get_catalog_zone_options_results.options.name == expected_catalog_zone_name
+      - get_catalog_zone_options_results.options.queryAccess == "UseSpecifiedNetworkACL"
+      - get_catalog_zone_options_results.options.queryAccessNetworkACL == ["100.99.88.13", "!2.2.22.0/24"]
+      - get_catalog_zone_options_results.options.zoneTransfer == "UseSpecifiedNetworkACL"
+      - get_catalog_zone_options_results.options.zoneTransferNetworkACL == ["100.99.88.13", "!2.2.22.0/24"]
+      - get_catalog_zone_options_results.options.zoneTransferTsigKeyNames == ["key1", "key2"]
+      - get_catalog_zone_options_results.options.notify == "SpecifiedNameServers"
+      - get_catalog_zone_options_results.options.notifyNameServers == ["{{ notify_name_server }}"]
+      - get_catalog_zone_options_results.options.notifySecondaryCatalogsNameServers == ["{{ notify_name_server }}"]
+      - get_catalog_zone_options_results.options.disabled == false
+
+- name: "Idempotency - Set zone options for catalog.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "catalog.{{ test_suffix }}"
+    disabled: false
+    queryAccess: "UseSpecifiedNetworkACL"
+    queryAccessNetworkACL: "100.99.88.13,!2.2.22.0/24"
+    zoneTransfer: "UseSpecifiedNetworkACL"
+    zoneTransferNetworkACL: "100.99.88.13,!2.2.22.0/24"
+    zoneTransferTsigKeyNames: "key1,key2"
+    notify: "SpecifiedNameServers"
+    notifyNameServers: "{{ notify_name_server }}"
+    notifySecondaryCatalogsNameServers: "{{ notify_name_server }}"
+  register: set_catalog_zone_options_results
+
+- name: "Assert no change when setting zone options"
+  ansible.builtin.assert:
+    that:
+      - set_catalog_zone_options_results.changed == false
+
+- name: "Idempotency - Check mode - Set zone options for catalog.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "catalog.{{ test_suffix }}"
+    disabled: false
+    queryAccess: "UseSpecifiedNetworkACL"
+    queryAccessNetworkACL: "100.99.88.13,!2.2.22.0/24"
+    zoneTransfer: "UseSpecifiedNetworkACL"
+    zoneTransferNetworkACL: "100.99.88.13,!2.2.22.0/24"
+    zoneTransferTsigKeyNames: "key1,key2"
+    notify: "SpecifiedNameServers"
+    notifyNameServers: "{{ notify_name_server }}"
+    notifySecondaryCatalogsNameServers: "{{ notify_name_server }}"
+  check_mode: true
+  register: set_catalog_zone_options_results
+
+- name: "Assert no change when setting zone options"
+  ansible.builtin.assert:
+    that:
+      - set_catalog_zone_options_results.changed == false
+
+# Secondary Forwarder
+- name: "Checkmode - Set zone options for secondary-forwarder.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "secondary-forwarder.{{ test_suffix }}"
+    disabled: true
+  register: set_secondary_forwarder_zone_options_results
+  check_mode: true
+
+- name: "Assert check mode is changed"
+  ansible.builtin.assert:
+    that:
+      - set_secondary_forwarder_zone_options_results.changed
+
+- name: "Set zone options for secondary-forwarder.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "secondary-forwarder.{{ test_suffix }}"
+    disabled: false
+    primaryNameServerAddresses: "192.168.28.5"
+    primaryZoneTransferProtocol: "Tls"
+    primaryZoneTransferTsigKeyName: "sec_key"
+    queryAccess: "UseSpecifiedNetworkACL"
+    queryAccessNetworkACL: "192.168.88.13,!10.1.0.0/16"
+  register: set_secondary_forwarder_zone_options_results
+
+- name: "Assert change when setting zone options"
+  ansible.builtin.assert:
+    that:
+      - set_secondary_forwarder_zone_options_results.changed
+    quiet: true
+
+- name: "Get zone options for secondary-forwarder.{{ test_suffix }}"
+  technitium.dns.technitium_dns_get_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "secondary-forwarder.{{ test_suffix }}"
+  register: get_secondary_forwarder_zone_options_results
+
+- name: "Debug get_secondary_forwarder_zone_options_results"
+  ansible.builtin.debug:
+    var: get_secondary_forwarder_zone_options_results
+  when: debug | default(false)
+
+- name: "Set expected secondary-forwarder zone name"
+  set_fact:
+    expected_secondary_forwarder_zone_name: "secondary-forwarder.{{ test_suffix }}"
+
+- name: "Assert retrieved secondary-forwarder zone options match set options"
+  ansible.builtin.assert:
+    that:
+      - get_secondary_forwarder_zone_options_results.options.name == expected_secondary_forwarder_zone_name
+      - get_secondary_forwarder_zone_options_results.options.queryAccess == "UseSpecifiedNetworkACL"
+      - get_secondary_forwarder_zone_options_results.options.queryAccessNetworkACL == ["192.168.88.13", "!10.1.0.0/16"]
+      - get_secondary_forwarder_zone_options_results.options.primaryNameServerAddresses == ["192.168.28.5"]
+      - get_secondary_forwarder_zone_options_results.options.primaryZoneTransferProtocol == "Tls"
+      - get_secondary_forwarder_zone_options_results.options.primaryZoneTransferTsigKeyName == "sec_key"
+      - get_secondary_forwarder_zone_options_results.options.disabled == false
+
+- name: "Idempotency - Set zone options for secondary-forwarder.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "secondary-forwarder.{{ test_suffix }}"
+    disabled: false
+    primaryNameServerAddresses: "192.168.28.5"
+    primaryZoneTransferProtocol: "Tls"
+    primaryZoneTransferTsigKeyName: "sec_key"
+    queryAccess: "UseSpecifiedNetworkACL"
+    queryAccessNetworkACL: "192.168.88.13,!10.1.0.0/16"
+  register: set_secondary_forwarder_zone_options_results
+
+- name: "Assert no change when setting zone options"
+  ansible.builtin.assert:
+    that:
+      - set_secondary_forwarder_zone_options_results.changed == false
+
+- name: "Idempotency - Check mode - Set zone options for secondary-forwarder.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "secondary-forwarder.{{ test_suffix }}"
+    disabled: false
+    primaryNameServerAddresses: "192.168.28.5"
+    primaryZoneTransferProtocol: "Tls"
+    primaryZoneTransferTsigKeyName: "sec_key"
+    queryAccess: "UseSpecifiedNetworkACL"
+    queryAccessNetworkACL: "192.168.88.13,!10.1.0.0/16"
+  register: set_secondary_forwarder_zone_options_results
+  check_mode: true
+
+- name: "Assert no change when setting zone options"
+  ansible.builtin.assert:
+    that:
+      - set_secondary_forwarder_zone_options_results.changed == false
+
+# Secondary Catalog
+- name: "Checkmode - Set zone options for secondary-catalog.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "secondary-catalog.{{ test_suffix }}"
+    disabled: true
+  register: set_secondary_catalog_zone_options_results
+  check_mode: true
+
+- name: "Assert check mode is changed"
+  ansible.builtin.assert:
+    that:
+      - set_secondary_catalog_zone_options_results.changed
+
+- name: "Set zone options for secondary-catalog.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "secondary-catalog.{{ test_suffix }}"
+    disabled: false
+    primaryNameServerAddresses: "192.168.29.5"
+    primaryZoneTransferProtocol: "Quic"
+    primaryZoneTransferTsigKeyName: "sec_key_1"
+  register: set_secondary_catalog_zone_options_results
+
+- name: "Assert change when setting zone options"
+  ansible.builtin.assert:
+    that:
+      - set_secondary_catalog_zone_options_results.changed
+    quiet: true
+
+- name: "Get zone options for secondary-catalog.{{ test_suffix }}"
+  technitium.dns.technitium_dns_get_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "secondary-catalog.{{ test_suffix }}"
+  register: get_secondary_catalog_zone_options_results
+
+- name: "Debug get_secondary_catalog_zone_options_results"
+  ansible.builtin.debug:
+    var: get_secondary_catalog_zone_options_results
+  when: debug | default(false)
+
+- name: "Set expected secondary-catalog zone name"
+  set_fact:
+    expected_secondary_catalog_zone_name: "secondary-catalog.{{ test_suffix }}"
+
+- name: "Assert retrieved secondary-catalog zone options match set options"
+  ansible.builtin.assert:
+    that:
+      - get_secondary_catalog_zone_options_results.options.name == expected_secondary_catalog_zone_name
+      - get_secondary_catalog_zone_options_results.options.primaryNameServerAddresses == ["192.168.29.5"]
+      - get_secondary_catalog_zone_options_results.options.primaryZoneTransferProtocol == "Quic"
+      - get_secondary_catalog_zone_options_results.options.primaryZoneTransferTsigKeyName == "sec_key_1"
+      - get_secondary_catalog_zone_options_results.options.disabled == false
+
+- name: "Idempotency - Set zone options for secondary-catalog.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "secondary-catalog.{{ test_suffix }}"
+    disabled: false
+    primaryNameServerAddresses: "192.168.29.5"
+    primaryZoneTransferProtocol: "Quic"
+    primaryZoneTransferTsigKeyName: "sec_key_1"
+  register: set_secondary_catalog_zone_options_results
+
+- name: "Assert no change when setting zone options"
+  ansible.builtin.assert:
+    that:
+      - set_secondary_catalog_zone_options_results.changed == false
+
+- name: "Idempotency - Check mode Set zone options for secondary-catalog.{{ test_suffix }}"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "secondary-catalog.{{ test_suffix }}"
+    disabled: false
+    primaryNameServerAddresses: "192.168.29.5"
+    primaryZoneTransferProtocol: "Quic"
+    primaryZoneTransferTsigKeyName: "sec_key_1"
+  register: set_secondary_catalog_zone_options_results
+
+- name: "Assert no change when setting zone options"
+  ansible.builtin.assert:
+    that:
+      - set_secondary_catalog_zone_options_results.changed == false
+
+# Failure tests
+- name: "Failure Test: Set zone options with invalid API token"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: BADTOKEN
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "secondary-forwarder.{{ test_suffix }}"
+    disabled: true
+  register: fail_bad_token
+  ignore_errors: true
+
+- name: "Assert failure of invalid API token"
+  ansible.builtin.assert:
+    that:
+      - fail_bad_token.failed
+      - "'Invalid token' in (fail_bad_token.msg)"
+
+- name: "Failure Test: Set zone options for non-existent zone"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: badzone.com
+    disabled: true
+  register: fail_bad_zone
+  ignore_errors: true
+
+- name: "Assert failure of invalid zone"
+  ansible.builtin.assert:
+    that:
+      - fail_bad_zone.failed
+      - "'No such zone was found' in (fail_bad_zone.msg)"
+
+- name: "Failure Test: Invalid parameter option"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: forwarder.{{ test_suffix }}
+    zoneTransfer: AllowZoneNameServersAndUseSpecifiedNetworkACL
+  register: invalid_param_1
+  ignore_errors: true
+
+- name: "Assert failure of invalid parameter"
+  ansible.builtin.assert:
+    that:
+      - invalid_param_1.failed
+
+- name: "Failure Test: Invalid parameter option"
+  technitium.dns.technitium_dns_set_zone_options:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: forwarder.{{ test_suffix }}
+    primaryNameServerAddresses: "8.8.8.8"
+  register: invalid_param_2
+  ignore_errors: true
+
+- name: "Assert failure of invalid parameter"
+  ansible.builtin.assert:
+    that:
+      - invalid_param_2.failed

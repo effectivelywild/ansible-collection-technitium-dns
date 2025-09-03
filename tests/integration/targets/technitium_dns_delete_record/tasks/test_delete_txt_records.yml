@@ -1,0 +1,218 @@
+---
+# Integration test for technitium_dns_delete_record (TXT records)
+# Structure and variables match test_add_txt_records.yml
+
+- name: "Define TXT test records to delete"
+  ansible.builtin.set_fact:
+    delete_txt_test_records:
+      - { idx: 1, name: basic-txt,     zone: "{{ primary_zone_name }}", text: "simple text value" }
+      - { idx: 2, name: longttl-txt,   zone: "{{ primary_zone_name }}", text: "v=spf1 include:example.com ~all", ttl: 7200 }
+      - { idx: 3, name: comment-txt,   zone: "{{ primary_sec_zone_name }}", text: "multi part string example", splitText: true, ttl: 3600, comments: "Sec zone TXT with comment" }
+
+# Phase 1: Create the records (using add module)
+- name: "Create TXT records to be deleted"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: TXT
+    text: "{{ rec.text }}"
+    splitText: "{{ rec.splitText | default(omit) }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ delete_txt_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Create: {{ rec.idx }}-{{ rec.name }}.{{ rec.zone }}"
+  register: create_txt_results
+
+- name: "Assert TXT records created"
+  ansible.builtin.assert:
+    that:
+      - (create_txt_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 2: Check mode - plan deletion
+- name: "Plan delete TXT records (check mode)"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: TXT
+    text: "{{ rec.text }}"
+    splitText: "{{ rec.splitText | default(omit) }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ delete_txt_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "PlanDelete: {{ rec.name }}.{{ rec.zone }}"
+  register: plan_delete_txt_results
+
+- name: "Assert all delete plans report changed"
+  ansible.builtin.assert:
+    that:
+      - (plan_delete_txt_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 3: Delete the records
+- name: "Delete TXT records"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: TXT
+    text: "{{ rec.text }}"
+    splitText: "{{ rec.splitText | default(omit) }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ delete_txt_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Delete: {{ rec.idx }}-{{ rec.name }}.{{ rec.zone }}"
+  register: delete_txt_results
+
+- name: "Assert TXT records deleted"
+  ansible.builtin.assert:
+    that:
+      - (delete_txt_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# Phase 4: Check mode - plan deletion again (should be no changes)
+- name: "Plan delete TXT records again (check mode, after deletion)"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: TXT
+    text: "{{ rec.text }}"
+    splitText: "{{ rec.splitText | default(omit) }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  check_mode: true
+  loop: "{{ delete_txt_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "PlanDeleteAgain: {{ rec.name }}.{{ rec.zone }}"
+  register: plan_delete_txt_again_results
+
+- name: "Assert all delete plans after deletion report no changes"
+  ansible.builtin.assert:
+    that:
+      - (plan_delete_txt_again_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 5: Verify record doesn't exist with get_record
+- name: "Fetch records for absence (get_records)"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.zone }}"
+  loop: "{{ delete_txt_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get(absent): {{ rec.name }}.{{ rec.zone }}"
+  register: absent_get_results
+
+- name: Debug absent_get_results
+  ansible.builtin.debug:
+    var: absent_get_results
+  when: debug | default(false)
+
+- name: "Assert absence (no pre-existing TXT record by name)"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (item.records | default([])
+         | selectattr('type','equalto','TXT')
+         | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+         | list | length) == 0
+    quiet: true
+  loop: "{{ absent_get_results.results }}"
+  loop_control:
+    label: "AbsentAssert: {{ item.rec.name }}.{{ item.rec.zone }}"
+
+# Phase 6: Idempotency - rerun delete (should be no changes)
+- name: "Idempotency: Re-run delete TXT records"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: TXT
+    text: "{{ rec.text }}"
+    splitText: "{{ rec.splitText | default(omit) }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+  loop: "{{ delete_txt_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "IdempotentDelete: {{ rec.name }}.{{ rec.zone }}"
+  register: idempotent_delete_txt_results
+
+- name: "Assert idempotent delete reports no changes"
+  ansible.builtin.assert:
+    that:
+      - (idempotent_delete_txt_results.results | map(attribute='changed') | list | unique) == [ false ]
+
+# Phase 7: Negative tests
+- name: "Negative: missing required text"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "neg-missing-text.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: TXT
+  register: neg_delete_txt_missing_text
+  ignore_errors: true
+
+- name: "Assert failure of missing text"
+  ansible.builtin.assert:
+    that:
+      - neg_delete_txt_missing_text.failed
+      - "'text' in (neg_delete_txt_missing_text.msg | default(''))"
+
+- name: "Negative: unsupported param for TXT (ipAddress)"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-param.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: TXT
+    ipAddress: 198.51.100.10
+    text: "some text"
+  register: neg_delete_txt_bad_param
+  ignore_errors: true
+
+- name: "Assert failure of unsupported param"
+  ansible.builtin.assert:
+    that:
+      - neg_delete_txt_bad_param.failed
+      - "'ipAddress' in (neg_delete_txt_bad_param.msg | default(''))"
+
+- name: "Negative: invalid API token"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: BADTOKEN
+    api_port: "{{ technitium_api_port | default(5380) }}"
+    name: "bad-token.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: TXT
+    text: "token test"
+  register: neg_delete_txt_bad_token
+  ignore_errors: true
+
+- name: "Assert failure of invalid API token"
+  ansible.builtin.assert:
+    that:
+      - neg_delete_txt_bad_token.failed
+      - "'Invalid token' in (neg_delete_txt_bad_token.msg)"

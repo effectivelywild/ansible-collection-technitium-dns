@@ -1,0 +1,87 @@
+---
+# test data for technitium_dns_get_zone_info integration tests
+zones_to_create:
+  # Primary zones
+  - zone: "primary-basic.{{ test_suffix }}"
+    type: "Primary"
+    test_scenario: "basic_primary"
+    dnssecStatus: "Unsigned"
+    
+  - zone: "primary-soa.{{ test_suffix }}"
+    type: "Primary"
+    useSoaSerialDateScheme: true
+    test_scenario: "primary_with_soa_scheme"
+    dnssecStatus: "Unsigned"
+
+  # Forwarder zones
+  - zone: "forwarder-basic.{{ test_suffix }}"
+    type: "Forwarder"
+    forwarder: "8.8.8.8"
+    protocol: "Udp"
+    initializeForwarder: true
+    test_scenario: "basic_forwarder"
+
+  - zone: "forwarder-dnssec.{{ test_suffix }}"
+    type: "Forwarder"
+    forwarder: "8.8.8.8"
+    protocol: "Tcp"
+    dnssecValidation: true
+    test_scenario: "forwarder_with_dnssec"
+
+  # Catalog zones
+  - zone: "catalog-basic.{{ test_suffix }}"
+    type: "Catalog"
+    useSoaSerialDateScheme: true
+    test_scenario: "basic_catalog"
+
+  # DNSSEC-enabled zones
+  - zone: "dnssec-nsec.{{ test_suffix }}"
+    type: "Primary"
+    dnssec: true
+    dnssec_algorithm: "RSA"
+    dnssec_hash_algorithm: "SHA256"
+    ksk_key_size: 2048
+    zsk_key_size: 1024
+    nx_proof: NSEC
+    dnssecStatus: "SignedWithNSEC"
+    test_scenario: "dnssec_nsec"
+    description: "DNSSEC-enabled primary zone with NSEC for creation testing"
+
+  - zone: "dnssec-nsec3.{{ test_suffix }}"
+    type: "Primary"
+    dnssec: true
+    dnssec_algorithm: "RSA"
+    dnssec_hash_algorithm: "SHA256"
+    ksk_key_size: 2048
+    zsk_key_size: 1024
+    nx_proof: NSEC3
+    nsec3_iterations: 25
+    nsec3_saltLength: 16
+    dnssecStatus: "SignedWithNSEC3"
+    test_scenario: "dnssec_nsec3"
+    description: "DNSSEC-enabled primary zone with NSEC3 for creation testing"
+
+  # Secondary zones
+  - zone: "secondary.{{ test_suffix }}"
+    type: "Secondary"
+    primaryNameServerAddresses: ["{{ notify_name_server }}"]
+    zoneTransferProtocol: "Tcp"
+    test_scenario: "basic_secondary"
+    dnssecStatus: "Unsigned"
+
+  - zone: "stub.{{ test_suffix }}"
+    type: "Stub"
+    primaryNameServerAddresses: ["{{ notify_name_server }}"]
+    test_scenario: "basic_stub"
+
+  - zone: "secfwd-basic.{{ test_suffix }}"
+    type: "SecondaryForwarder"
+    primaryNameServerAddresses: ["8.8.8.8"]
+    zoneTransferProtocol: "Tcp"
+    test_scenario: "basic_secondary_forwarder"
+
+  - zone: "seccat-basic.{{ test_suffix }}"
+    type: "SecondaryCatalog"
+    primaryNameServerAddresses: ["8.8.8.8"]
+    zoneTransferProtocol: "Tcp"
+    test_scenario: "basic_secondary_catalog"
