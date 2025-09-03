@@ -1,0 +1,89 @@
+---
+name: CI (Improved)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  # Fast feedback - runs first and fails fast
+  sanity-check:
+    name: Sanity Tests
+    uses: ./.github/workflows/test-reusable.yml
+    with:
+      test-type: sanity
+      python-version: '3.11'
+      ansible-version: 'stable-2.15'
+    secrets: inherit
+
+  # Unit tests - parallel with sanity
+  unit-tests:
+    name: Unit Tests
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11']
+        ansible-version: ['stable-2.14', 'stable-2.15', 'devel']
+      fail-fast: false
+    uses: ./.github/workflows/test-reusable.yml
+    with:
+      test-type: units
+      python-version: ${{ matrix.python-version }}
+      ansible-version: ${{ matrix.ansible-version }}
+    secrets: inherit
+
+  # Integration tests - runs after sanity passes
+  integration-tests:
+    name: Integration Tests
+    needs: sanity-check
+    if: ${{ !cancelled() && (needs.sanity-check.result == 'success') }}
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.11']
+        ansible-version: ['stable-2.14', 'stable-2.15']
+      fail-fast: false
+    uses: ./.github/workflows/test-reusable.yml
+    with:
+      test-type: integration
+      python-version: ${{ matrix.python-version }}
+      ansible-version: ${{ matrix.ansible-version }}
+    secrets: inherit
+
+  # Build validation
+  collection-build:
+    name: Collection Build Test
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Cache pip packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-3.11-build
+        restore-keys: |
+          ${{ runner.os }}-pip-3.11-
+          ${{ runner.os }}-pip-
+
+    - name: Install Ansible
+      run: |
+        python -m pip install --upgrade pip
+        pip install ansible
+
+    - name: Build collection
+      run: |
+        ansible-galaxy collection build . --force
+        ls -la *.tar.gz
+
+    - name: Install and verify collection
+      run: |
+        ansible-galaxy collection install *.tar.gz
+        ansible-galaxy collection list effectivelywild.technitium_dns

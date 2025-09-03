@@ -1,0 +1,37 @@
+---
+name: Ansible Lint
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  ansible-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install ansible-lint ansible yamllint
+
+    - name: Run ansible-lint
+      run: |
+        ansible-lint .
+      continue-on-error: false
+
+    - name: Run yamllint
+      run: |
+        yamllint -d relaxed .
+      continue-on-error: true

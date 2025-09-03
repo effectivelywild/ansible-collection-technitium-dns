@@ -1,0 +1,58 @@
+---
+name: Unit Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11"]
+      fail-fast: false
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install ansible pytest pytest-ansible
+        pip install requests urllib3
+
+    - name: Validate Python syntax
+      run: |
+        python -m py_compile plugins/modules/*.py
+
+    - name: Basic module import tests
+      run: |
+        cd plugins/modules
+        for module in *.py; do
+          echo "Testing import for $module"
+          python -c "
+import sys
+sys.path.append('.')
+try:
+    exec(open('$module').read())
+    print('✓ $module syntax is valid')
+except Exception as e:
+    print('✗ $module has issues: $e')
+    sys.exit(1)
+          "
+        done
+
+    - name: Run collection build test
+      run: |
+        ansible-galaxy collection build .
+        echo "Collection built successfully"

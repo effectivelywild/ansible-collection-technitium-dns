@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # Ansible module to update DNS records in Technitium DNS using TechnitiumModule base class
 
-from ansible_collections.technitium.dns.plugins.module_utils.technitium import TechnitiumModule
+from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 DOCUMENTATION = r'''
 ---
@@ -10,598 +10,54 @@ module: technitium_dns_update_record
 short_description: Update a DNS record in a Technitium DNS zone
 version_added: "0.0.1"
 description:
-    - Update an existing DNS resource record in a Technitium DNS authoritative zone using its API.
-    - This module is idempotent - it will only make changes if the record properties differ from what is specified.
+    - Update an existing DNS record in a Technitium DNS zone
+    - The module supports all DNS record types
+    - Some parameters are only valid or required for specific record types
+    - For example, C(ipAddress) is required for A and AAAA records, while C(cname) is required for CNAME records
 options:
-    api_url:
+    algorithm:
         description:
-            - Base URL for the Technitium DNS API (e.g., http://localhost)
-            - Do not include the port; use the 'port' parameter instead.
-        required: true
+            - Algorithm (DS only)
+        choices:
+            - RSAMD5
+            - DSA
+            - RSASHA1
+            - DSA-NSEC3-SHA1
+            - RSASHA1-NSEC3-SHA1
+            - RSASHA256
+            - RSASHA512
+            - ECC-GOST
+            - ECDSAP256SHA256
+            - ECDSAP384SHA384
+            - ED25519
+            - ED448
+        required: false
         type: str
-    port:
+    aname:
         description:
-            - Port for the Technitium DNS API. Defaults to 5380.
+            - Current ANAME domain name (ANAME only)
+        required: false
+        type: str
+    api_port:
+        description:
+            - Port for the Technitium DNS API. Defaults to 5380
         required: false
         type: int
         default: 5380
     api_token:
         description:
-            - API token for authenticating with the Technitium DNS API.
+            - API token for authenticating with the Technitium DNS API
         required: true
         type: str
-    validate_certs:
+    api_url:
         description:
-            - Whether to validate SSL certificates when making API requests.
-            - Set to false to disable SSL certificate validation (not recommended for production).
-        required: false
-        type: bool
-        default: true
-    name:
-        description:
-            - The record name (e.g., test.example.com).
-            - The use of domain is also supported to align with API.
+            - Base URL for the Technitium DNS API (e.g., http://localhost)
+            - Do not include the port; use the 'port' parameter instead
         required: true
         type: str
-        aliases: ['domain']
-    zone:
+    appName:
         description:
-            - The authoritative zone name (optional, defaults to closest match).
-        required: false
-        type: str
-    type:
-        description:
-            - The DNS record type to update.
-        required: true
-        type: str
-    # Common record parameters
-    newDomain:
-        description:
-            - The new domain name to be set for the record (to rename subdomain).
-        required: false
-        type: str
-    ttl:
-        description:
-            - The TTL value of the resource record. Default value of 3600 is used when parameter is missing.
-        required: false
-        type: int
-        default: null
-    disable:
-        description:
-            - Specifies if the record should be disabled. The default value is false when this parameter is missing.
-        required: false
-        type: bool
-        default: false
-    overwrite:
-        description:
-            - Overwrite existing record set for this type.
-        required: false
-        type: bool
-        default: false
-    comments:
-        description:
-            - Sets comments for the updated resource record.
-        required: false
-        type: str
-    expiryTtl:
-        description:
-            - Set to automatically delete the record when the value in seconds elapses since the record's last modified time.
-        required: false
-        type: int
-    # A/AAAA record parameters
-    ipAddress:
-        description:
-            - The current IP address in the A or AAAA record. This parameter is required when updating A or AAAA record.
-        required: false
-        type: str
-    newIpAddress:
-        description:
-            - The new IP address in the A or AAAA record. This parameter when missing will use the current value in the record.
-        required: false
-        type: str
-    ptr:
-        description:
-            - Set this option to true to specify if the PTR record associated with the A or AAAA record must also be updated.
-        required: false
-        type: bool
-    createPtrZone:
-        description:
-            - Set this option to true to create a reverse zone for PTR record. This option is used only for A and AAAA records.
-        required: false
-        type: bool
-    updateSvcbHints:
-        description:
-            - Set this option to true to update any SVCB/HTTPS records in the zone that has Automatic Hints option enabled.
-        required: false
-        type: bool
-    # NS record parameters
-    nameServer:
-        description:
-            - The current name server domain name. This option is required for updating NS record.
-        required: false
-        type: str
-    newNameServer:
-        description:
-            - The new server domain name. This option is used for updating NS record.
-        required: false
-        type: str
-    glue:
-        description:
-            - The comma separated list of IP addresses set as glue for the NS record.
-        required: false
-        type: str
-    # CNAME record parameters
-    cname:
-        description:
-            - The CNAME domain name to update in the existing CNAME record.
-        required: false
-        type: str
-    # SOA record parameters
-    primaryNameServer:
-        description:
-            - This is the primary name server parameter in the SOA record. This parameter is required when updating the SOA record.
-        required: false
-        type: str
-    responsiblePerson:
-        description:
-            - This is the responsible person parameter in the SOA record. This parameter is required when updating the SOA record.
-        required: false
-        type: str
-    serial:
-        description:
-            - This is the serial parameter in the SOA record. This parameter is required when updating the SOA record.
-        required: false
-        type: int
-    refresh:
-        description:
-            - This is the refresh parameter in the SOA record. This parameter is required when updating the SOA record.
-        required: false
-        type: int
-    retry:
-        description:
-            - This is the retry parameter in the SOA record. This parameter is required when updating the SOA record.
-        required: false
-        type: int
-    expire:
-        description:
-            - This is the expire parameter in the SOA record. This parameter is required when updating the SOA record.
-        required: false
-        type: int
-    minimum:
-        description:
-            - This is the minimum parameter in the SOA record. This parameter is required when updating the SOA record.
-        required: false
-        type: int
-    useSerialDateScheme:
-        description:
-            - Set value to true to enable using date scheme for SOA serial. This parameter is required when updating the SOA record.
-        required: false
-        type: bool
-    # PTR record parameters
-    ptrName:
-        description:
-            - The current PTR domain name. This option is required for updating PTR record.
-        required: false
-        type: str
-    newPtrName:
-        description:
-            - The new PTR domain name. This option is required for updating PTR record.
-        required: false
-        type: str
-    # MX record parameters
-    preference:
-        description:
-            - The current preference value in an MX record. This parameter when missing will default to 1 value.
-        required: false
-        type: int
-    newPreference:
-        description:
-            - The new preference value in an MX record. This parameter when missing will use the old value.
-        required: false
-        type: int
-    exchange:
-        description:
-            - The current exchange domain name. This option is required for updating MX record.
-        required: false
-        type: str
-    newExchange:
-        description:
-            - The new exchange domain name. This option is required for updating MX record.
-        required: false
-        type: str
-    # TXT record parameters
-    text:
-        description:
-            - The current text value. This option is required for updating TXT record.
-        required: false
-        type: str
-    newText:
-        description:
-            - The new text value. This option is required for updating TXT record.
-        required: false
-        type: str
-    splitText:
-        description:
-            - The current split text value. This option is used for updating TXT record and is set to false when unspecified.
-        required: false
-        type: bool
-    newSplitText:
-        description:
-            - The new split text value. This option is used for updating TXT record and is set to current split text value when unspecified.
-        required: false
-        type: bool
-    # SRV record parameters
-    priority:
-        description:
-            - This is the current priority in the SRV record. This parameter is required when updating the SRV record.
-        required: false
-        type: int
-    newPriority:
-        description:
-            - This is the new priority in the SRV record. This parameter when missing will use the old value.
-        required: false
-        type: int
-    weight:
-        description:
-            - This is the current weight in the SRV record. This parameter is required when updating the SRV record.
-        required: false
-        type: int
-    newWeight:
-        description:
-            - This is the new weight in the SRV record. This parameter when missing will use the old value.
-        required: false
-        type: int
-    srv_port:
-        description:
-            - This is the port parameter in the SRV record. This parameter is required when updating the SRV record.
-        required: false
-        type: int
-    newSrvPort:
-        description:
-            - This is the new value of the port parameter in the SRV record. This parameter when missing will use the old value.
-        required: false
-        type: int
-    target:
-        description:
-            - The current target value. This parameter is required when updating the SRV record.
-        required: false
-        type: str
-    newTarget:
-        description:
-            - The new target value. This parameter when missing will use the old value.
-        required: false
-        type: str
-    # CAA record parameters
-    flags:
-        description:
-            - This is the flags parameter in the CAA record. This parameter is required when updating the CAA record.
-        required: false
-        type: int
-    newFlags:
-        description:
-            - This is the new value of the flags parameter in the CAA record.
-        required: false
-        type: int
-    tag:
-        description:
-            - This is the tag parameter in the CAA record. This parameter is required when updating the CAA record.
-        required: false
-        type: str
-    newTag:
-        description:
-            - This is the new value of the tag parameter in the CAA record.
-        required: false
-        type: str
-    value:
-        description:
-            - The current value in CAA record. This parameter is required when updating the CAA record.
-        required: false
-        type: str
-    newValue:
-        description:
-            - The new value in CAA record. This parameter is required when updating the CAA record.
-        required: false
-        type: str
-    # ANAME record parameters
-    aname:
-        description:
-            - The current ANAME domain name. This parameter is required when updating the ANAME record.
-        required: false
-        type: str
-    newAName:
-        description:
-            - The new ANAME domain name. This parameter is required when updating the ANAME record.
-        required: false
-        type: str
-    # FWD record parameters
-    protocol:
-        description:
-            - This is the current protocol value in the FWD record. Valid values are [Udp, Tcp, Tls, Https, Quic].
-        required: false
-        type: str
-        choices: ['Udp', 'Tcp', 'Tls', 'Https', 'Quic']
-    newProtocol:
-        description:
-            - This is the new protocol value in the FWD record. Valid values are [Udp, Tcp, Tls, Https, Quic].
-        required: false
-        type: str
-        choices: ['Udp', 'Tcp', 'Tls', 'Https', 'Quic']
-    forwarder:
-        description:
-            - The current forwarder address. This parameter is required when updating the FWD record.
-        required: false
-        type: str
-    newForwarder:
-        description:
-            - The new forwarder address. This parameter is required when updating the FWD record.
-        required: false
-        type: str
-    forwarderPriority:
-        description:
-            - The current forwarder priority value. This optional parameter is to be used with FWD record.
-        required: false
-        type: int
-    dnssecValidation:
-        description:
-            - Set this boolean value to indicate if DNSSEC validation must be done. This optional parameter is to be used with FWD records.
-        required: false
-        type: bool
-    proxyType:
-        description:
-            - The type of proxy that must be used for conditional forwarding.
-        required: false
-        type: str
-        choices: ['NoProxy', 'DefaultProxy', 'Http', 'Socks5']
-    proxyAddress:
-        description:
-            - The proxy server address to use when proxyType is configured.
-        required: false
-        type: str
-    proxyPort:
-        description:
-            - The proxy server port to use when proxyType is configured.
-        required: false
-        type: int
-    proxyUsername:
-        description:
-            - The proxy server username to use when proxyType is configured.
-        required: false
-        type: str
-    proxyPassword:
-        description:
-            - The proxy server password to use when proxyType is configured.
-        required: false
-        type: str
-    # RP record parameters
-    mailbox:
-        description:
-            - The current email address value. This option is required for updating RP record.
-        required: false
-        type: str
-    newMailbox:
-        description:
-            - The new email address value. This option is used for updating RP record and is set to the current value when unspecified.
-        required: false
-        type: str
-    txtDomain:
-        description:
-            - The current TXT record's domain name value. This option is required for updating RP record.
-        required: false
-        type: str
-    newTxtDomain:
-        description:
-            - The new TXT record's domain name value. This option is used for updating RP record and is set to the current value when unspecified.
-        required: false
-        type: str
-    # NAPTR record parameters
-    naptrOrder:
-        description:
-            - The current value in the NAPTR record. This parameter is required when updating the NAPTR record.
-        required: false
-        type: int
-    naptrNewOrder:
-        description:
-            - The new value in the NAPTR record. This parameter when missing will use the old value.
-        required: false
-        type: int
-    naptrPreference:
-        description:
-            - The current value in the NAPTR record. This parameter is required when updating the NAPTR record.
-        required: false
-        type: int
-    naptrNewPreference:
-        description:
-            - The new value in the NAPTR record. This parameter when missing will use the old value.
-        required: false
-        type: int
-    naptrFlags:
-        description:
-            - The current value in the NAPTR record. This parameter is required when updating the NAPTR record.
-        required: false
-        type: str
-    naptrNewFlags:
-        description:
-            - The new value in the NAPTR record. This parameter when missing will use the old value.
-        required: false
-        type: str
-    naptrServices:
-        description:
-            - The current value in the NAPTR record. This parameter is required when updating the NAPTR record.
-        required: false
-        type: str
-    naptrNewServices:
-        description:
-            - The new value in the NAPTR record. This parameter when missing will use the old value.
-        required: false
-        type: str
-    naptrRegexp:
-        description:
-            - The current value in the NAPTR record. This parameter is required when updating the NAPTR record.
-        required: false
-        type: str
-    naptrNewRegexp:
-        description:
-            - The new value in the NAPTR record. This parameter when missing will use the old value.
-        required: false
-        type: str
-    naptrReplacement:
-        description:
-            - The current value in the NAPTR record. This parameter is required when updating the NAPTR record.
-        required: false
-        type: str
-    naptrNewReplacement:
-        description:
-            - The new value in the NAPTR record. This parameter when missing will use the old value.
-        required: false
-        type: str
-    # DNAME record parameters
-    dname:
-        description:
-            - The DNAME domain name. This parameter is required when updating the DNAME record.
-        required: false
-        type: str
-    # DS record parameters
-    keyTag:
-        description:
-            - This parameter is required when updating DS record.
-        required: false
-        type: int
-    newKeyTag:
-        description:
-            - This parameter is required when updating DS record.
-        required: false
-        type: int
-    algorithm:
-        description:
-            - This parameter is required when updating DS record.
-        required: false
-        type: str
-    newAlgorithm:
-        description:
-            - This parameter is required when updating DS record.
-        required: false
-        type: str
-    digestType:
-        description:
-            - This parameter is required when updating DS record.
-        required: false
-        type: str
-    newDigestType:
-        description:
-            - This parameter is required when updating DS record.
-        required: false
-        type: str
-    digest:
-        description:
-            - This parameter is required when updating DS record.
-        required: false
-        type: str
-    newDigest:
-        description:
-            - This parameter is required when updating DS record.
-        required: false
-        type: str
-    # SSHFP record parameters
-    sshfpAlgorithm:
-        description:
-            - This parameter is required when updating SSHFP record.
-        required: false
-        type: str
-    newSshfpAlgorithm:
-        description:
-            - This parameter is required when updating SSHFP record.
-        required: false
-        type: str
-    sshfpFingerprintType:
-        description:
-            - This parameter is required when updating SSHFP record.
-        required: false
-        type: str
-    newSshfpFingerprintType:
-        description:
-            - This parameter is required when updating SSHFP record.
-        required: false
-        type: str
-    sshfpFingerprint:
-        description:
-            - This parameter is required when updating SSHFP record.
-        required: false
-        type: str
-    newSshfpFingerprint:
-        description:
-            - This parameter is required when updating SSHFP record.
-        required: false
-        type: str
-    # TLSA record parameters
-    tlsaCertificateUsage:
-        description:
-            - This parameter is required when updating TLSA record.
-        required: false
-        type: str
-    newTlsaCertificateUsage:
-        description:
-            - This parameter is required when updating TLSA record.
-        required: false
-        type: str
-    tlsaSelector:
-        description:
-            - This parameter is required when updating TLSA record.
-        required: false
-        type: str
-    newTlsaSelector:
-        description:
-            - This parameter is required when updating TLSA record.
-        required: false
-        type: str
-    tlsaMatchingType:
-        description:
-            - This parameter is required when updating TLSA record.
-        required: false
-        type: str
-    newTlsaMatchingType:
-        description:
-            - This parameter is required when updating TLSA record.
-        required: false
-        type: str
-    tlsaCertificateAssociationData:
-        description:
-            - This parameter is required when updating TLSA record.
-        required: false
-        type: str
-    newTlsaCertificateAssociationData:
-        description:
-            - This parameter is required when updating TLSA record.
-        required: false
-        type: str
-    # SVCB/HTTPS record parameters
-    svcPriority:
-        description:
-            - The priority value for SVCB or HTTPS record. This parameter is required for updating SCVB or HTTPS record.
-        required: false
-        type: int
-    newSvcPriority:
-        description:
-            - The new priority value for SVCB or HTTPS record. This parameter when missing will use the old value.
-        required: false
-        type: int
-    svcTargetName:
-        description:
-            - The target domain name for SVCB or HTTPS record. This parameter is required for updating SCVB or HTTPS record.
-        required: false
-        type: str
-    newSvcTargetName:
-        description:
-            - The new target domain name for SVCB or HTTPS record. This parameter when missing will use the old value.
-        required: false
-        type: str
-    svcParams:
-        description:
-            - The service parameters for SVCB or HTTPS record which is a pipe separated list of key and value. This parameter is required for updating SCVB or HTTPS record.
-        required: false
-        type: str
-    newSvcParams:
-        description:
-            - The new service parameters for SVCB or HTTPS record which is a pipe separated list of key and value. This parameter when missing will use the old value.
+            - This parameter is required for updating the APP record.
         required: false
         type: str
     autoIpv4Hint:
@@ -614,30 +70,392 @@ options:
             - Set this option to true to enable Automatic Hints for the ipv6hint parameter in the newSvcParams. This option is valid only for SVCB and HTTPS records.
         required: false
         type: bool
-    # URI record parameters
-    uriPriority:
+    classPath:
         description:
-            - The priority value for the URI record. This parameter is required for updating the URI record.
+            - This parameter is required for updating the APP record.
+        required: false
+        type: str
+    cname:
+        description:
+            - The CNAME domain name to update in the existing CNAME record (CNAME only)
+        required: false
+        type: str
+    comments:
+        description:
+            - Sets comments for the updated resource record
+        required: false
+        type: str
+    createPtrZone:
+        description:
+            - Set this option to true to create a reverse zone for PTR record (A/AAAA only)
+        required: false
+        type: bool
+    digest:
+        description:
+            - Digest (DS only)
+        required: false
+        type: str
+    digestType:
+        description:
+            - Digest type (DS only)
+        choices:
+            - SHA1
+            - SHA256
+            - GOST-R-34-11-94
+            - SHA384
+        required: false
+        type: str
+    disable:
+        description:
+            - Specifies if the record should be disabled. The default value is false when this parameter is missing
+        required: false
+        type: bool
+        default: false
+    dname:
+        description:
+            - The DNAME domain name. This parameter is required when updating the DNAME record.
+        required: false
+        type: str
+    dnssecValidation:
+        description:
+            - Set this boolean value to indicate if DNSSEC validation must be done (FWD only)
+        required: false
+        type: bool
+    exchange:
+        description:
+            - The current exchange domain name (MX only)
+        required: false
+        type: str
+    expire:
+        description:
+            - This is the expire parameter in the SOA record (SOA only)
         required: false
         type: int
-    newUriPriority:
+    expiryTtl:
         description:
-            - The new priority value for the URI record. This parameter when missing will use the old value.
+            - Set to automatically delete the record when the value in seconds elapses since the record's last modified time
         required: false
         type: int
-    uriWeight:
+    flags:
         description:
-            - The weight value for the URI record. This parameter is required for updating the URI record.
+            - Current flags (CAA only)
         required: false
         type: int
-    newUriWeight:
+    forwarder:
         description:
-            - The new weight value for the URI record. This parameter when missing will use the old value.
+            - Current forwarder address (FWD only)
+        required: false
+        type: str
+    forwarderPriority:
+        description:
+            - Current forwarder priority value (FWD only)
         required: false
         type: int
-    uri:
+    glue:
         description:
-            - The URI value for the URI record. This parameter is required for updating the URI record.
+            - The comma separated list of IP addresses set as glue for the NS record (NS only)
+        required: false
+        type: str
+    ipAddress:
+        description:
+            - The current IP address in the A or AAAA record (A/AAAA only)
+        required: false
+        type: str
+    keyTag:
+        description:
+            - Key tag (DS only)
+        required: false
+        type: int
+    mailbox:
+        description:
+            - The current email address value. This option is required for updating RP record.
+        required: false
+        type: str
+    minimum:
+        description:
+            - This is the minimum parameter in the SOA record (SOA only)
+        required: false
+        type: int
+    name:
+        description:
+            - The record name (e.g., test.example.com)
+            - The use of domain is also supported to align with API
+        required: true
+        type: str
+        aliases: ['domain']
+    nameServer:
+        description:
+            - The current name server domain name (NS only)
+        required: false
+        type: str
+    naptrFlags:
+        description:
+            - The current value in the NAPTR record. This parameter is required when updating the NAPTR record.
+        required: false
+        type: str
+    naptrNewFlags:
+        description:
+            - The new value in the NAPTR record. This parameter when missing will use the old value.
+        required: false
+        type: str
+    naptrNewOrder:
+        description:
+            - The new value in the NAPTR record. This parameter when missing will use the old value.
+        required: false
+        type: int
+    naptrNewPreference:
+        description:
+            - The new value in the NAPTR record. This parameter when missing will use the old value.
+        required: false
+        type: int
+    naptrNewRegexp:
+        description:
+            - The new value in the NAPTR record. This parameter when missing will use the old value.
+        required: false
+        type: str
+    naptrNewReplacement:
+        description:
+            - The new value in the NAPTR record. This parameter when missing will use the old value.
+        required: false
+        type: str
+    naptrNewServices:
+        description:
+            - The new value in the NAPTR record. This parameter when missing will use the old value.
+        required: false
+        type: str
+    naptrOrder:
+        description:
+            - The current value in the NAPTR record. This parameter is required when updating the NAPTR record.
+        required: false
+        type: int
+    naptrPreference:
+        description:
+            - The current value in the NAPTR record. This parameter is required when updating the NAPTR record.
+        required: false
+        type: int
+    naptrRegexp:
+        description:
+            - The current value in the NAPTR record. This parameter is required when updating the NAPTR record.
+        required: false
+        type: str
+    naptrReplacement:
+        description:
+            - The current value in the NAPTR record. This parameter is required when updating the NAPTR record.
+        required: false
+        type: str
+    naptrServices:
+        description:
+            - The current value in the NAPTR record. This parameter is required when updating the NAPTR record.
+        required: false
+        type: str
+    newAName:
+        description:
+            - New ANAME domain name (ANAME only)
+        required: false
+        type: str
+    newAlgorithm:
+        description:
+            - New algorithm (DS only)
+        choices:
+            - RSAMD5
+            - DSA
+            - RSASHA1
+            - DSA-NSEC3-SHA1
+            - RSASHA1-NSEC3-SHA1
+            - RSASHA256
+            - RSASHA512
+            - ECC-GOST
+            - ECDSAP256SHA256
+            - ECDSAP384SHA384
+            - ED25519
+            - ED448
+        required: false
+        type: str
+    newDigest:
+        description:
+            - New digest (DS only)
+        required: false
+        type: str
+    newDigestType:
+        description:
+            - New digest type (DS only)
+        choices:
+            - SHA1
+            - SHA256
+            - GOST-R-34-11-94
+            - SHA384
+        required: false
+        type: str
+    newDomain:
+        description:
+            - The new domain name to be set for the record (to rename subdomain)
+        required: false
+        type: str
+    newExchange:
+        description:
+            - The new exchange domain name (MX only)
+        required: false
+        type: str
+    newFlags:
+        description:
+            - New flags (CAA only)
+        required: false
+        type: int
+    newForwarder:
+        description:
+            - New forwarder address (FWD only)
+        required: false
+        type: str
+    newIpAddress:
+        description:
+            - The new IP address in the A or AAAA record (A/AAAA only)
+        required: false
+        type: str
+    newKeyTag:
+        description:
+            - New key tag (DS only)
+        required: false
+        type: int
+    newMailbox:
+        description:
+            - The new email address value. This option is used for updating RP record and is set to the current value when unspecified.
+        required: false
+        type: str
+    newNameServer:
+        description:
+            - The new server domain name (NS only)
+        required: false
+        type: str
+    newPreference:
+        description:
+            - The new preference value in an MX record (MX only)
+        required: false
+        type: int
+    newPriority:
+        description:
+            - New priority (SRV only)
+        required: false
+        type: int
+    newProtocol:
+        description:
+            - New protocol (FWD only)
+        choices:
+            - Udp
+            - Tcp
+            - Tls
+            - Https
+            - Quic
+        required: false
+        type: str
+    newPtrName:
+        description:
+            - The new PTR domain name (PTR only)
+        required: false
+        type: str
+    newRData:
+        description:
+            - This parameter is used for updating unknown i.e. unsupported record types. The new value must be formatted as a hex string.
+        required: false
+        type: str
+    newSplitText:
+        description:
+            - The new split text value (TXT only)
+        required: false
+        type: bool
+    newSrvPort:
+        description:
+            - New port (SRV only)
+        required: false
+        type: int
+    newSshfpAlgorithm:
+        description:
+            - New SSHFP algorithm (SSHFP only)
+        choices:
+            - RSA
+            - DSA
+            - ECDSA
+            - Ed25519
+            - Ed448
+        required: false
+        type: str
+    newSshfpFingerprint:
+        description:
+            - New SSHFP fingerprint (SSHFP only)
+        required: false
+        type: str
+    newSshfpFingerprintType:
+        description:
+            - New SSHFP fingerprint type (SSHFP only)
+        choices:
+            - SHA1
+            - SHA256
+        required: false
+        type: str
+    newSvcParams:
+        description:
+            - The new service parameters for SVCB or HTTPS record which is a pipe separated list of key and value. This parameter when missing will use the old value.
+        required: false
+        type: str
+    newSvcPriority:
+        description:
+            - The new priority value for SVCB or HTTPS record. This parameter when missing will use the old value.
+        required: false
+        type: int
+    newSvcTargetName:
+        description:
+            - The new target domain name for SVCB or HTTPS record. This parameter when missing will use the old value.
+        required: false
+        type: str
+    newTag:
+        description:
+            - New tag (CAA only)
+        required: false
+        type: str
+    newTarget:
+        description:
+            - New target (SRV only)
+        required: false
+        type: str
+    newText:
+        description:
+            - The new text value (TXT only)
+        required: false
+        type: str
+    newTlsaCertificateAssociationData:
+        description:
+            - This parameter is required when updating TLSA record.
+        required: false
+        type: str
+    newTlsaCertificateUsage:
+        description:
+            - New TLSA certificate usage (TLSA only)
+        choices:
+            - PKIX-TA
+            - PKIX-EE
+            - DANE-TA
+            - DANE-EE
+        required: false
+        type: str
+    newTlsaMatchingType:
+        description:
+            - New TLSA matching type (TLSA only)
+        choices:
+            - Full
+            - SHA2-256
+            - SHA2-512
+        required: false
+        type: str
+    newTlsaSelector:
+        description:
+            - New TLSA selector (TLSA only)
+        choices:
+            - Cert
+            - SPKI
+        required: false
+        type: str
+    newTxtDomain:
+        description:
+            - The new TXT record's domain name value. This option is used for updating RP record and is set to the current value when unspecified.
         required: false
         type: str
     newUri:
@@ -645,15 +463,101 @@ options:
             - The new URI value for the URI record. This parameter when missing will use the old value.
         required: false
         type: str
-    # APP record parameters
-    appName:
+    newUriPriority:
         description:
-            - This parameter is required for updating the APP record.
+            - The new priority value for the URI record. This parameter when missing will use the old value.
+        required: false
+        type: int
+    newUriWeight:
+        description:
+            - The new weight value for the URI record. This parameter when missing will use the old value.
+        required: false
+        type: int
+    newValue:
+        description:
+            - New value (CAA only)
         required: false
         type: str
-    classPath:
+    newWeight:
         description:
-            - This parameter is required for updating the APP record.
+            - New weight (SRV only)
+        required: false
+        type: int
+    overwrite:
+        description:
+            - Overwrite existing record set for this type
+        required: false
+        type: bool
+        default: false
+    preference:
+        description:
+            - The current preference value in an MX record (MX only)
+        required: false
+        type: int
+    primaryNameServer:
+        description:
+            - This is the primary name server parameter in the SOA record (SOA only)
+        required: false
+        type: str
+    priority:
+        description:
+            - Current priority (SRV only)
+        required: false
+        type: int
+    protocol:
+        description:
+            - Current protocol (FWD only)
+        choices:
+            - Udp
+            - Tcp
+            - Tls
+            - Https
+            - Quic
+        required: false
+        type: str
+    proxyAddress:
+        description:
+            - The proxy server address to use when proxyType is configured (FWD only)
+        required: false
+        type: str
+    proxyPassword:
+        description:
+            - The proxy server password to use when proxyType is configured (FWD only)
+        required: false
+        type: str
+    proxyPort:
+        description:
+            - The proxy server port to use when proxyType is configured (FWD only)
+        required: false
+        type: int
+    proxyType:
+        description:
+            - The type of proxy that must be used for conditional forwarding (FWD only)
+        choices:
+            - NoProxy
+            - DefaultProxy
+            - Http
+            - Socks5
+        required: false
+        type: str
+    proxyUsername:
+        description:
+            - The proxy server username to use when proxyType is configured (FWD only)
+        required: false
+        type: str
+    ptr:
+        description:
+            - Set this option to true to specify if the PTR record associated with the A or AAAA record must also be updated (A/AAAA only)
+        required: false
+        type: bool
+    ptrName:
+        description:
+            - The current PTR domain name (PTR only)
+        required: false
+        type: str
+    rdata:
+        description:
+            - This parameter is used for updating unknown i.e. unsupported record types. The value must be formatted as a hex string.
         required: false
         type: str
     recordData:
@@ -661,15 +565,207 @@ options:
             - This parameter is used for updating the APP record as per the DNS app requirements.
         required: false
         type: str
-    # Unknown record type parameters
-    rdata:
+    refresh:
         description:
-            - This parameter is used for updating unknown i.e. unsupported record types. The value must be formatted as a hex string.
+            - This is the refresh parameter in the SOA record (SOA only)
+        required: false
+        type: int
+    responsiblePerson:
+        description:
+            - This is the responsible person parameter in the SOA record (SOA only)
         required: false
         type: str
-    newRData:
+    retry:
         description:
-            - This parameter is used for updating unknown i.e. unsupported record types. The new value must be formatted as a hex string.
+            - This is the retry parameter in the SOA record (SOA only)
+        required: false
+        type: int
+    serial:
+        description:
+            - This is the serial parameter in the SOA record (SOA only)
+        required: false
+        type: int
+    splitText:
+        description:
+            - The current split text value (TXT only)
+        required: false
+        type: bool
+    srv_port:
+        description:
+            - Current port (SRV only)
+        required: false
+        type: int
+    sshfpAlgorithm:
+        description:
+            - SSHFP algorithm (SSHFP only)
+        choices:
+            - RSA
+            - DSA
+            - ECDSA
+            - Ed25519
+            - Ed448
+        required: false
+        type: str
+    sshfpFingerprint:
+        description:
+            - SSHFP fingerprint (SSHFP only)
+        required: false
+        type: str
+    sshfpFingerprintType:
+        description:
+            - SSHFP fingerprint type (SSHFP only)
+        choices:
+            - SHA1
+            - SHA256
+        required: false
+        type: str
+    svcParams:
+        description:
+            - The service parameters for SVCB or HTTPS record which is a pipe separated list of key and value. This parameter is required for updating SCVB or HTTPS record.
+        required: false
+        type: str
+    svcPriority:
+        description:
+            - The priority value for SVCB or HTTPS record. This parameter is required for updating SCVB or HTTPS record.
+        required: false
+        type: int
+    svcTargetName:
+        description:
+            - The target domain name for SVCB or HTTPS record. This parameter is required for updating SCVB or HTTPS record.
+        required: false
+        type: str
+    tag:
+        description:
+            - Current tag (CAA only)
+        required: false
+        type: str
+    target:
+        description:
+            - Current target (SRV only)
+        required: false
+        type: str
+    text:
+        description:
+            - The current text value (TXT only)
+        required: false
+        type: str
+    tlsaCertificateAssociationData:
+        description:
+            - This parameter is required when updating TLSA record.
+        required: false
+        type: str
+    tlsaCertificateUsage:
+        description:
+            - TLSA certificate usage (TLSA only)
+        choices:
+            - PKIX-TA
+            - PKIX-EE
+            - DANE-TA
+            - DANE-EE
+        required: false
+        type: str
+    tlsaMatchingType:
+        description:
+            - TLSA matching type (TLSA only)
+        choices:
+            - Full
+            - SHA2-256
+            - SHA2-512
+        required: false
+        type: str
+    tlsaSelector:
+        description:
+            - TLSA selector (TLSA only)
+        choices:
+            - Cert
+            - SPKI
+        required: false
+        type: str
+    ttl:
+        description:
+            - The TTL value of the resource record. Default value of 3600 is used when parameter is missing
+        required: false
+        type: int
+        default: null
+    txtDomain:
+        description:
+            - The current TXT record's domain name value. This option is required for updating RP record.
+        required: false
+        type: str
+    type:
+        description:
+            - The DNS record type to update
+        choices:
+            - A
+            - AAAA
+            - ANAME
+            - APP
+            - CNAME
+            - CAA
+            - DNAME
+            - DS
+            - FWD
+            - HTTPS
+            - MX
+            - NAPTR
+            - NS
+            - PTR
+            - RP
+            - SOA
+            - SSHFP
+            - SRV
+            - SVCB
+            - TLSA
+            - TXT
+            - UNKNOWN
+            - URI
+        required: true
+        type: str
+    updateSvcbHints:
+        description:
+            - Set this option to true to update any SVCB/HTTPS records in the zone that has Automatic Hints option enabled (A/AAAA only)
+        required: false
+        type: bool
+    uri:
+        description:
+            - The URI value for the URI record. This parameter is required for updating the URI record.
+        required: false
+        type: str
+    uriPriority:
+        description:
+            - The priority value for the URI record. This parameter is required for updating the URI record.
+        required: false
+        type: int
+    uriWeight:
+        description:
+            - The weight value for the URI record. This parameter is required for updating the URI record.
+        required: false
+        type: int
+    useSerialDateScheme:
+        description:
+            - Set value to true to enable using date scheme for SOA serial (SOA only)
+        required: false
+        type: bool
+    validate_certs:
+        description:
+            - Whether to validate SSL certificates when making API requests
+            - Set to false to disable SSL certificate validation
+        required: false
+        type: bool
+        default: true
+    value:
+        description:
+            - Current value (CAA only)
+        required: false
+        type: str
+    weight:
+        description:
+            - Current weight (SRV only)
+        required: false
+        type: int
+    zone:
+        description:
+            - The authoritative zone name (optional, defaults to closest match)
         required: false
         type: str
 '''

@@ -1,0 +1,92 @@
+---
+name: Reusable Test Workflow
+
+on:
+  workflow_call:
+    inputs:
+      test-type:
+        required: true
+        type: string
+        description: 'Type of test to run (sanity, units, integration)'
+      python-version:
+        required: false
+        type: string
+        default: '3.11'
+      ansible-version:
+        required: false
+        type: string
+        default: 'stable-2.15'
+      module-name:
+        required: false
+        type: string
+        description: 'Specific module to test (for integration tests)'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        path: ansible_collections/effectivelywild/technitium_dns
+
+    - name: Set up Python ${{ inputs.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Cache pip packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ inputs.python-version }}-${{ hashFiles('**/requirements*.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-${{ inputs.python-version }}-
+          ${{ runner.os }}-pip-
+
+    - name: Cache Ansible collections
+      uses: actions/cache@v3
+      with:
+        path: ~/.ansible/collections
+        key: ${{ runner.os }}-ansible-collections-${{ hashFiles('**/galaxy.yml') }}
+        restore-keys: |
+          ${{ runner.os }}-ansible-collections-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install https://github.com/ansible/ansible/archive/${{ inputs.ansible-version }}.tar.gz
+        pip install requests urllib3
+        # Install test requirements if they exist
+        if [ -f ansible_collections/effectivelywild/technitium_dns/tests/requirements.txt ]; then
+          pip install -r ansible_collections/effectivelywild/technitium_dns/tests/requirements.txt
+        fi
+
+    - name: Run ansible-test sanity
+      if: inputs.test-type == 'sanity'
+      working-directory: ansible_collections/effectivelywild/technitium_dns
+      run: |
+        ansible-test sanity --docker --python ${{ inputs.python-version }}
+
+    - name: Run ansible-test units
+      if: inputs.test-type == 'units'
+      working-directory: ansible_collections/effectivelywild/technitium_dns
+      run: |
+        ansible-test units --docker --python ${{ inputs.python-version }}
+
+    - name: Run ansible-test integration
+      if: inputs.test-type == 'integration'
+      working-directory: ansible_collections/effectivelywild/technitium_dns
+      env:
+        TECHNITIUM_API_URL: ${{ secrets.TECHNITIUM_API_URL }}
+        TECHNITIUM_API_TOKEN: ${{ secrets.TECHNITIUM_API_TOKEN }}
+        TECHNITIUM_API_PORT: ${{ secrets.TECHNITIUM_API_PORT || '5380' }}
+        VALIDATE_CERTS: ${{ secrets.VALIDATE_CERTS || 'false' }}
+        NOTIFY_NAME_SERVER: ${{ secrets.NOTIFY_NAME_SERVER }}
+        DEBUG: ${{ secrets.DEBUG || 'false' }}
+      run: |
+        if [ -n "${{ inputs.module-name }}" ]; then
+          ansible-test integration ${{ inputs.module-name }} --docker --python ${{ inputs.python-version }}
+        else
+          ansible-test integration --docker --python ${{ inputs.python-version }}
+        fi

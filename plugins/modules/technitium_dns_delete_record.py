@@ -23,173 +23,6 @@ seealso:
     - module: effectivelywild.technitium_dns.technitium_dns_get_record
       description: Used to get DNS record details
 options:
-    api_url:
-        description:
-            - Base URL for the Technitium DNS API (e.g., http://localhost)
-            - Do not include the port; use the 'port' parameter instead
-        required: true
-        type: str
-    api_port:
-        description:
-            - Port for the Technitium DNS API. Defaults to 5380
-        required: false
-        type: int
-        default: 5380
-    api_token:
-        description:
-            - API token for authenticating with the Technitium DNS API
-        required: true
-        type: str
-    validate_certs:
-        description:
-            - Whether to validate SSL certificates when making API requests
-            - Set to false to disable SSL certificate validation
-        required: false
-        type: bool
-        default: true
-    name:
-        description:
-            - The record name (e.g., test.example.com)
-            - The use of domain is also supported to align with API
-        required: true
-        type: str
-    zone:
-        description:
-            - The authoritative zone name (optional, defaults to closest match)
-        required: false
-        type: str
-    type:
-        description:
-            - The DNS record type
-        choices:
-            - A
-            - AAAA
-            - ANAME
-            - APP
-            - CNAME
-            - CAA
-            - DNAME
-            - DS
-            - FWD
-            - HTTPS
-            - MX
-            - NAPTR
-            - NS
-            - PTR
-            - SSHFP
-            - SRV
-            - SVCB
-            - TLSA
-            - TXT
-            - UNKNOWN
-            - URI
-        required: true
-        type: str
-    ipAddress:
-        description:
-            - IP address (A/AAAA only)
-        required: false
-        type: str
-    updateSvcbHints:
-        description:
-            - Update SVCB/HTTPS hints (A/AAAA only)
-        required: false
-        type: bool
-    nameServer:
-        description:
-            - Name server domain (NS only)
-        required: false
-        type: str
-    ptrName:
-        description:
-            - PTR domain name (PTR only)
-        required: false
-        type: str
-    preference:
-        description:
-            - MX preference (MX only)
-        required: false
-        type: int
-    exchange:
-        description:
-            - MX exchange domain (MX only)
-        required: false
-        type: str
-    text:
-        description:
-            - TXT record text (TXT only)
-        required: false
-        type: str
-    splitText:
-        description:
-            - Split TXT into multiple strings (TXT only)
-        required: false
-        type: bool
-    mailbox:
-        description:
-            - Responsible mailbox (MX only)
-        required: false
-        type: str
-    txtDomain:
-        description:
-            - Domain for TXT record (if different from the main domain, TXT only)
-        required: false
-        type: str
-    priority:
-        description:
-            - Priority (SRV only)
-        required: false
-        type: int
-    weight:
-        description:
-            - Weight (SRV only)
-        required: false
-        type: int
-    srv_port:
-        description:
-            - Port (SRV only)
-        required: false
-        type: int
-    target:
-        description:
-            - Target (SRV only)
-        required: false
-        type: str
-    naptrOrder:
-        description:
-            - Order (NAPTR only)
-        required: false
-        type: int
-    naptrPreference:
-        description:
-            - Preference (NAPTR only)
-        required: false
-        type: int
-    naptrFlags:
-        description:
-            - Flags (NAPTR only)
-        required: false
-        type: str
-    naptrServices:
-        description:
-            - Services (NAPTR only)
-        required: false
-        type: str
-    naptrRegexp:
-        description:
-            - Regular expression (NAPTR only)
-        required: false
-        type: str
-    naptrReplacement:
-        description:
-            - Replacement string (NAPTR only)
-        required: false
-        type: str
-    keyTag:
-        description:
-            - Key tag (DS only)
-        required: false
-        type: int
     algorithm:
         description:
             - Algorithm (DS only)
@@ -208,148 +41,27 @@ options:
             - ED448
         required: false
         type: str
-    digestType:
-        description:
-            - Digest type (DS and SSHFP only)
-        choices:
-            - SHA1
-            - SHA256
-            - GOST-R-34-11-94
-            - SHA384
-        required: false
-        type: str
-    digest:
-        description:
-            - Digest (DS and SSHFP only)
-        required: false
-        type: str
-    sshfpAlgorithm:
-        description:
-            - SSHFP algorithm (SSHFP only)
-        choices:
-            - RSA
-            - DSA
-            - ECDSA
-            - Ed25519
-            - Ed448
-        required: false
-        type: str
-    sshfpFingerprintType:
-        description:
-            - SSHFP fingerprint type (SSHFP only)
-        choices:
-            - SHA1
-            - SHA256
-        required: false
-        type: str
-    sshfpFingerprint:
-        description:
-            - SSHFP fingerprint (SSHFP only)
-        required: false
-        type: str
-    tlsaCertificateUsage:
-        description:
-            - TLSA certificate usage (TLSA only)
-        choices: 
-            - PKIX-TA
-            - PKIX-EE
-            - DANE-TA
-            - DANE-EE
-        required: false
-        type: str
-    tlsaSelector:
-        description:
-            - TLSA selector (TLSA only)
-        choices:
-            - Cert
-            - SPKI
-        required: false
-        type: str
-    tlsaMatchingType:
-        description:
-            - TLSA matching type (TLSA only)
-        choices:
-            - Full
-            - SHA2-256
-            - SHA2-512
-        required: false
-        type: str
-    tlsaCertificateAssociationData:
-        description:
-            - TLSA certificate association data (TLSA only)
-        required: false
-        type: str
-    svcPriority:
-        description:
-            - SVCB/HTTPS priority (SVCB and HTTPS only)
-        required: false
-        type: int
-    svcTargetName:
-        description:
-            - SVCB/HTTPS target name (SVCB and HTTPS only)
-        required: false
-        type: str
-    svcParams:
-        description:
-            - SVCB/HTTPS parameters (SVCB and HTTPS only)
-        required: false
-        type: str
-    uriPriority:
-        description:
-            - URI priority (URI only)
-        required: false
-        type: int
-    uriWeight:
-        description:
-            - URI weight (URI only)
-        required: false
-        type: int
-    uri:
-        description:
-            - URI target (URI only)
-        required: false
-        type: str
-    flags:
-        description:
-            - Flags (CAA only)
-        required: false
-        type: str
-    tag:
-        description:
-            - Tag (CAA only)
-        required: false
-        type: str
-    value:
-        description:
-            - Value (CAA only)
-        required: false
-        type: str
     aname:
         description:
             - ANAME target (ANAME only)
         required: false
         type: str
-    protocol:
+    api_port:
         description:
-            - Protocol (FWD only)
-        choices:
-            - Udp
-            - Tcp
-            - Tls
-            - Https
-            - Quic
+            - Port for the Technitium DNS API. Defaults to 5380
         required: false
+        type: int
+        default: 5380
+    api_token:
+        description:
+            - API token for authenticating with the Technitium DNS API
+        required: true
         type: str
-    forwarder:
+    api_url:
         description:
-            - Forwarder address (FWD only)
-        required: false
-        type: str
-    rdata:
-        description:
-            - Used for adding unknown i.e. unsupported record types (UNKNOWN Only)
-            - The value must be formatted as a hex string or a colon separated hex string
-        required: false
+            - Base URL for the Technitium DNS API (e.g., http://localhost)
+            - Do not include the port; use the 'port' parameter instead
+        required: true
         type: str
     appName:
         description:
@@ -386,6 +98,21 @@ options:
             - Create reverse zone for PTR (A/AAAA only)
         required: false
         type: bool
+    digest:
+        description:
+            - Digest (DS and SSHFP only)
+        required: false
+        type: str
+    digestType:
+        description:
+            - Digest type (DS and SSHFP only)
+        choices:
+            - SHA1
+            - SHA256
+            - GOST-R-34-11-94
+            - SHA384
+        required: false
+        type: str
     dname:
         description:
             - DNAME target (DNAME only)
@@ -396,11 +123,26 @@ options:
             - DNSSEC validation flag (FWD only)
         required: false
         type: bool
+    exchange:
+        description:
+            - MX exchange domain (MX only)
+        required: false
+        type: str
     expiryTtl:
         description:
             - Expiry in seconds for auto-deletion
         required: false
         type: int
+    flags:
+        description:
+            - Flags (CAA only)
+        required: false
+        type: str
+    forwarder:
+        description:
+            - Forwarder address (FWD only)
+        required: false
+        type: str
     forwarderPriority:
         description:
             - Forwarder priority (FWD only)
@@ -409,6 +151,32 @@ options:
     glue:
         description:
             - Glue address (NS only)
+        required: false
+        type: str
+    ipAddress:
+        description:
+            - IP address (A/AAAA only)
+        required: false
+        type: str
+    keyTag:
+        description:
+            - Key tag (DS only)
+        required: false
+        type: int
+    mailbox:
+        description:
+            - Responsible mailbox (MX only)
+        required: false
+        type: str
+    name:
+        description:
+            - The record name (e.g., test.example.com)
+            - The use of domain is also supported to align with API
+        required: true
+        type: str
+    nameServer:
+        description:
+            - Name server domain (NS only)
         required: false
         type: str
     naptrFlags:
@@ -447,6 +215,27 @@ options:
         required: false
         type: bool
         default: false
+    preference:
+        description:
+            - MX preference (MX only)
+        required: false
+        type: int
+    priority:
+        description:
+            - Priority (SRV only)
+        required: false
+        type: int
+    protocol:
+        description:
+            - Protocol (FWD only)
+        choices:
+            - Udp
+            - Tcp
+            - Tls
+            - Https
+            - Quic
+        required: false
+        type: str
     proxyAddress:
         description:
             - Proxy address (FWD only)
@@ -482,9 +271,116 @@ options:
             - Add reverse PTR record (A/AAAA only)
         required: false
         type: bool
+    ptrName:
+        description:
+            - PTR domain name (PTR only)
+        required: false
+        type: str
+    rdata:
+        description:
+            - Used for adding unknown i.e. unsupported record types (UNKNOWN Only)
+            - The value must be formatted as a hex string or a colon separated hex string
+        required: false
+        type: str
     recordData:
         description:
             - Record data (APP only)
+        required: false
+        type: str
+    splitText:
+        description:
+            - Split TXT into multiple strings (TXT only)
+        required: false
+        type: bool
+    sshfpAlgorithm:
+        description:
+            - SSHFP algorithm (SSHFP only)
+        choices:
+            - RSA
+            - DSA
+            - ECDSA
+            - Ed25519
+            - Ed448
+        required: false
+        type: str
+    sshfpFingerprint:
+        description:
+            - SSHFP fingerprint (SSHFP only)
+        required: false
+        type: str
+    sshfpFingerprintType:
+        description:
+            - SSHFP fingerprint type (SSHFP only)
+        choices:
+            - SHA1
+            - SHA256
+        required: false
+        type: str
+    srv_port:
+        description:
+            - Port (SRV only)
+        required: false
+        type: int
+    svcParams:
+        description:
+            - SVCB/HTTPS parameters (SVCB and HTTPS only)
+        required: false
+        type: str
+    svcPriority:
+        description:
+            - SVCB/HTTPS priority (SVCB and HTTPS only)
+        required: false
+        type: int
+    svcTargetName:
+        description:
+            - SVCB/HTTPS target name (SVCB and HTTPS only)
+        required: false
+        type: str
+    tag:
+        description:
+            - Tag (CAA only)
+        required: false
+        type: str
+    target:
+        description:
+            - Target (SRV only)
+        required: false
+        type: str
+    text:
+        description:
+            - TXT record text (TXT only)
+        required: false
+        type: str
+    tlsaCertificateAssociationData:
+        description:
+            - TLSA certificate association data (TLSA only)
+        required: false
+        type: str
+    tlsaCertificateUsage:
+        description:
+            - TLSA certificate usage (TLSA only)
+        choices: 
+            - PKIX-TA
+            - PKIX-EE
+            - DANE-TA
+            - DANE-EE
+        required: false
+        type: str
+    tlsaMatchingType:
+        description:
+            - TLSA matching type (TLSA only)
+        choices:
+            - Full
+            - SHA2-256
+            - SHA2-512
+        required: false
+        type: str
+    tlsaSelector:
+        description:
+            - TLSA selector (TLSA only)
+        choices:
+            - Cert
+            - SPKI
         required: false
         type: str
     ttl:
@@ -492,6 +388,75 @@ options:
             - TTL for the record in seconds
         required: false
         type: int
+    txtDomain:
+        description:
+            - Domain for TXT record (if different from the main domain, TXT only)
+        required: false
+        type: str
+    type:
+        description:
+            - The DNS record type
+        choices:
+            - A
+            - AAAA
+            - ANAME
+            - APP
+            - CNAME
+            - CAA
+            - DNAME
+            - DS
+            - FWD
+            - HTTPS
+            - MX
+            - NAPTR
+            - NS
+            - PTR
+            - SSHFP
+            - SRV
+            - SVCB
+            - TLSA
+            - TXT
+            - UNKNOWN
+            - URI
+        required: true
+        type: str
+    updateSvcbHints:
+        description:
+            - Update SVCB/HTTPS hints (A/AAAA only)
+        required: false
+        type: bool
+    uri:
+        description:
+            - URI target (URI only)
+        required: false
+        type: str
+    uriPriority:
+        description:
+            - URI priority (URI only)
+        required: false
+        type: int
+    uriWeight:
+        description:
+            - URI weight (URI only)
+        required: false
+        type: int
+    validate_certs:
+        description:
+            - Whether to validate SSL certificates when making API requests
+            - Set to false to disable SSL certificate validation
+        required: false
+        type: bool
+        default: true
+    value:
+        description:
+            - Value (CAA only)
+        required: false
+        type: str
+    zone:
+        description:
+            - The authoritative zone name (optional, defaults to closest match)
+        required: false
+        type: str
 '''
 
 EXAMPLES = r'''
