@@ -61,14 +61,16 @@ options:
         choices: [None, ZoneNameServers, SpecifiedNameServers, BothZoneAndSpecifiedNameServers, SeparateNameServersForCatalogAndMemberZones]
     notifyNameServers:
         description:
-            - Comma separated IPs to notify (Primary, Secondary, Forwarder, Catalog only)
+            - List of IPs to notify (Primary, Secondary, Forwarder, Catalog only)
         required: false
-        type: str
+        type: list
+        elements: str
     notifySecondaryCatalogsNameServers:
         description:
-            - Comma separated IPs to notify for catalog updates (Catalog only)
+            - List of IPs to notify for catalog updates (Catalog only)
         required: false
-        type: str
+        type: list
+        elements: str
     overrideCatalogNotify:
         description:
             - Override Notify option in the Catalog zone (Primary, Forwarder only)
@@ -86,9 +88,10 @@ options:
         type: bool
     primaryNameServerAddresses:
         description:
-            - Comma separated IPs or names of the primary name server (Secondary, SecondaryForwarder, SecondaryCatalog, Stub only)
+            - List of IPs or names of the primary name server (Secondary, SecondaryForwarder, SecondaryCatalog, Stub only)
         required: false
-        type: str
+        type: list
+        elements: str
     primaryZoneTransferProtocol:
         description:
             - Zone transfer protocol (Secondary, SecondaryForwarder, SecondaryCatalog only)
@@ -108,9 +111,10 @@ options:
         choices: [Deny, Allow, AllowOnlyPrivateNetworks, AllowOnlyZoneNameServers, UseSpecifiedNetworkACL, AllowZoneNameServersAndUseSpecifiedNetworkACL]
     queryAccessNetworkACL:
         description:
-            - Comma separated ACL for query access (not SecondaryCatalog, only with certain queryAccess set)
+            - List of network ACL entries for query access (not SecondaryCatalog, only with certain queryAccess set)
         required: false
-        type: str
+        type: list
+        elements: str
     update:
         description:
             - Allow dynamic updates
@@ -119,9 +123,10 @@ options:
         choices: [Deny, Allow, AllowOnlyZoneNameServers, UseSpecifiedNetworkACL, AllowZoneNameServersAndUseSpecifiedNetworkACL]
     updateNetworkACL:
         description:
-            - Comma separated ACL for update (Primary, Secondary, Forwarder, with certain update set)
+            - List of network ACL entries for update (Primary, Secondary, Forwarder, with certain update set)
         required: false
-        type: str
+        type: list
+        elements: str
     updateSecurityPolicies:
         description:
             - Pipe separated table of security policies (Primary, Forwarder only)
@@ -151,14 +156,16 @@ options:
         choices: [Deny, Allow, AllowOnlyZoneNameServers, UseSpecifiedNetworkACL, AllowZoneNameServersAndUseSpecifiedNetworkACL]
     zoneTransferNetworkACL:
         description:
-            - Comma separated ACL for zone transfer (Primary, Secondary, Forwarder, Catalog only, with certain zoneTransfer set).
+            - List of network ACL entries for zone transfer (Primary, Secondary, Forwarder, Catalog only, with certain zoneTransfer set)
         required: false
-        type: str
+        type: list
+        elements: str
     zoneTransferTsigKeyNames:
         description:
-            - Comma separated TSIG key names for zone transfer (Primary, Secondary, Forwarder, Catalog only)
+            - List of TSIG key names for zone transfer (Primary, Secondary, Forwarder, Catalog only)
         required: false
-        type: str
+        type: list
+        elements: str
 '''
 
 EXAMPLES = r'''
@@ -177,23 +184,32 @@ EXAMPLES = r'''
     api_token: "myapitoken"
     zone: "secure.example.com"
     queryAccess: UseSpecifiedNetworkACL
-    queryAccessNetworkACL: "192.168.1.0/24,10.0.0.0/8"
+    queryAccessNetworkACL:
+      - "192.168.1.0/24"
+      - "10.0.0.0/8"
     zoneTransfer: AllowOnlyZoneNameServers
-    zoneTransferTsigKeyNames: "key1.example.com,key2.example.com"
+    zoneTransferTsigKeyNames:
+      - "key1.example.com"
+      - "key2.example.com"
     update: UseSpecifiedNetworkACL
-    updateNetworkACL: "192.168.1.100/32"
+    updateNetworkACL:
+      - "192.168.1.100/32"
 
 - name: Set up secondary zone with custom primary servers
   technitium_dns_set_zone_options:
     api_url: "http://localhost"
     api_token: "myapitoken"
     zone: "secondary.example.com"
-    primaryNameServerAddresses: "192.168.1.10,192.168.1.11"
+    primaryNameServerAddresses:
+      - "192.168.1.10"
+      - "192.168.1.11"
     primaryZoneTransferProtocol: Tls
     primaryZoneTransferTsigKeyName: "transfer.key"
     validateZone: true
     notify: SpecifiedNameServers
-    notifyNameServers: "192.168.1.20,192.168.1.21"
+    notifyNameServers:
+      - "192.168.1.20"
+      - "192.168.1.21"
 
 - name: Configure catalog zone with notification settings
   technitium_dns_set_zone_options:
@@ -201,9 +217,12 @@ EXAMPLES = r'''
     api_token: "myapitoken"
     zone: "catalog.example.com"
     zoneTransfer: UseSpecifiedNetworkACL
-    zoneTransferNetworkACL: "192.168.2.0/24"
+    zoneTransferNetworkACL:
+      - "192.168.2.0/24"
     notify: SeparateNameServersForCatalogAndMemberZones
-    notifySecondaryCatalogsNameServers: "192.168.2.10,192.168.2.11"
+    notifySecondaryCatalogsNameServers:
+      - "192.168.2.10"
+      - "192.168.2.11"
 
 - name: Set update security policies for primary zone
   technitium_dns_set_zone_options:
@@ -211,7 +230,8 @@ EXAMPLES = r'''
     api_token: "myapitoken"
     zone: "dynamic.example.com"
     update: UseSpecifiedNetworkACL
-    updateNetworkACL: "192.168.3.0/24"
+    updateNetworkACL:
+      - "192.168.3.0/24"
     updateSecurityPolicies: "update.key|dynamic.example.com|A,AAAA|update.key|*.dynamic.example.com|ANY"
 
 - name: Configure zone as catalog member with overrides
@@ -297,7 +317,7 @@ class SetZoneOptionsModule(TechnitiumModule):
         notifyNameServers=dict(type='list', elements='str', required=False),
         notifySecondaryCatalogsNameServers=dict(type='list', elements='str', required=False),
         update=dict(type='str', required=False, choices=['Deny', 'Allow', 'AllowOnlyZoneNameServers', 'UseSpecifiedNetworkACL', 'AllowZoneNameServersAndUseSpecifiedNetworkACL']),
-        updateNetworkACL=dict(type='str', required=False),
+        updateNetworkACL=dict(type='list', elements='str', required=False),
         updateSecurityPolicies=dict(type='str', required=False)
     )
     module_kwargs = dict(
@@ -371,12 +391,10 @@ class SetZoneOptionsModule(TechnitiumModule):
             if value is not None:
                 if isinstance(value, bool):
                     value = str(value).lower()
-                # For list-like fields, always store as list for comparison
+                # For list-like fields, ensure they are lists
                 if key in list_like_fields:
-                    if isinstance(value, str):
-                        value = [x.strip() for x in value.split(",") if x.strip()]
-                    elif not isinstance(value, list):
-                        value = [str(value)]
+                    if not isinstance(value, list):
+                        self.fail_json(msg=f"Parameter '{key}' must be a list, got {type(value).__name__}")
                 # For updateSecurityPolicies, always store as list of dicts for comparison
                 if key == 'updateSecurityPolicies':
                     value = parse_update_security_policies(value)
@@ -398,6 +416,7 @@ class SetZoneOptionsModule(TechnitiumModule):
                         return []
                     if isinstance(val, list):
                         return [str(x) for x in val]
+                    # Current API values might still be strings - handle for comparison only
                     if isinstance(val, str):
                         return [x.strip() for x in val.split(",") if x.strip()]
                     return [str(val)]
@@ -431,12 +450,6 @@ class SetZoneOptionsModule(TechnitiumModule):
         if not diff:
             self.exit_json(changed=False, msg="Zone options already match desired state.")
 
-        # Debug: show diff, current, and desired if a change is detected
-        debug_info = {
-            'diff': diff,
-            'current': current,
-            'desired': desired
-        }
 
         # Check mode: if changes would be made, exit early and show diff
         if self.check_mode:
