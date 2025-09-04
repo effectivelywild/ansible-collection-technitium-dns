@@ -129,9 +129,24 @@ options:
         elements: str
     updateSecurityPolicies:
         description:
-            - Pipe separated table of security policies (Primary, Forwarder only)
+            - List of security policies for zone updates (Primary, Forwarder only)
         required: false
-        type: str
+        type: list
+        elements: dict
+        suboptions:
+            tsigKeyName:
+                description: TSIG key name for the policy
+                type: str
+                required: true
+            domain:
+                description: Domain pattern for the policy
+                type: str
+                required: true
+            allowedTypes:
+                description: List of allowed DNS record types
+                type: list
+                elements: str
+                required: true
     validate_certs:
         description:
             - Whether to validate SSL certificates when making API requests.
@@ -232,7 +247,16 @@ EXAMPLES = r'''
     update: UseSpecifiedNetworkACL
     updateNetworkACL:
       - "192.168.3.0/24"
-    updateSecurityPolicies: "update.key|dynamic.example.com|A,AAAA|update.key|*.dynamic.example.com|ANY"
+    updateSecurityPolicies:
+      - tsigKeyName: "update.key"
+        domain: "dynamic.example.com"
+        allowedTypes:
+          - "A"
+          - "AAAA"
+      - tsigKeyName: "update.key"
+        domain: "*.dynamic.example.com"
+        allowedTypes:
+          - "ANY"
 
 - name: Configure zone as catalog member with overrides
   technitium_dns_set_zone_options:
@@ -318,7 +342,16 @@ class SetZoneOptionsModule(TechnitiumModule):
         notifySecondaryCatalogsNameServers=dict(type='list', elements='str', required=False),
         update=dict(type='str', required=False, choices=['Deny', 'Allow', 'AllowOnlyZoneNameServers', 'UseSpecifiedNetworkACL', 'AllowZoneNameServersAndUseSpecifiedNetworkACL']),
         updateNetworkACL=dict(type='list', elements='str', required=False),
-        updateSecurityPolicies=dict(type='str', required=False)
+        updateSecurityPolicies=dict(
+            type='list', 
+            elements='dict', 
+            required=False,
+            options=dict(
+                tsigKeyName=dict(type='str', required=True),
+                domain=dict(type='str', required=True),
+                allowedTypes=dict(type='list', elements='str', required=True)
+            )
+        )
     )
     module_kwargs = dict(
         supports_check_mode=True
@@ -362,26 +395,6 @@ class SetZoneOptionsModule(TechnitiumModule):
             'updateNetworkACL'
         ]
 
-        def parse_update_security_policies(val):
-            # Accepts a list of pipe-separated strings or a single string, returns list of dicts
-            if val is None or val == "":
-                return []
-            if isinstance(val, str):
-                val = [val]
-            result = []
-            for item in val:
-                if isinstance(item, dict):
-                    result.append(item)
-                elif isinstance(item, str):
-                    parts = item.split("|")
-                    if len(parts) == 3:
-                        allowed_types = [t.strip() for t in parts[2].split(",") if t.strip()] if parts[2] else []
-                        result.append({
-                            'tsigKeyName': parts[0],
-                            'domain': parts[1],
-                            'allowedTypes': allowed_types
-                        })
-            return result
         for key in [
             'disabled', 'catalog', 'overrideCatalogQueryAccess', 'overrideCatalogZoneTransfer', 'overrideCatalogNotify',
             'primaryNameServerAddresses', 'primaryZoneTransferProtocol', 'primaryZoneTransferTsigKeyName', 'validateZone',
@@ -395,9 +408,10 @@ class SetZoneOptionsModule(TechnitiumModule):
                 if key in list_like_fields:
                     if not isinstance(value, list):
                         self.fail_json(msg=f"Parameter '{key}' must be a list, got {type(value).__name__}")
-                # For updateSecurityPolicies, always store as list of dicts for comparison
+                # For updateSecurityPolicies, validate it's already a proper list of dicts
                 if key == 'updateSecurityPolicies':
-                    value = parse_update_security_policies(value)
+                    if not isinstance(value, list):
+                        self.fail_json(msg=f"Parameter '{key}' must be a list of dict, got {type(value).__name__}")
                 desired[key] = value
 
         # 3. Compare current vs desired (normalize, build diff for idempotency)

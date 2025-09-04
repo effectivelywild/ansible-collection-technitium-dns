@@ -128,7 +128,11 @@
     updateNetworkACL:
       - "1.1.1.1"
       - "!2.2.2.2"
-    updateSecurityPolicies: "key|primary.{{ test_suffix }}|A"
+    updateSecurityPolicies:
+      - tsigKeyName: "key"
+        domain: "primary.{{ test_suffix }}"
+        allowedTypes:
+          - "A"
     queryAccess: "UseSpecifiedNetworkACL"
     queryAccessNetworkACL:
       - "1.1.1.0/24"
@@ -206,7 +210,11 @@
     updateNetworkACL:
       - "1.1.1.1"
       - "!2.2.2.2"
-    updateSecurityPolicies: "key|primary.{{ test_suffix }}|A"
+    updateSecurityPolicies:
+      - tsigKeyName: "key"
+        domain: "primary.{{ test_suffix }}"
+        allowedTypes:
+          - "A"
     queryAccess: "UseSpecifiedNetworkACL"
     queryAccessNetworkACL:
       - "1.1.1.0/24"
@@ -245,7 +253,11 @@
     updateNetworkACL:
       - "1.1.1.1"
       - "!2.2.2.2"
-    updateSecurityPolicies: "key|primary.{{ test_suffix }}|A"
+    updateSecurityPolicies:
+      - tsigKeyName: "key"
+        domain: "primary.{{ test_suffix }}"
+        allowedTypes:
+          - "A"
     queryAccess: "UseSpecifiedNetworkACL"
     queryAccessNetworkACL:
       - "1.1.1.0/24"
@@ -302,7 +314,11 @@
     updateNetworkACL:
       - "192.168.1.0/24"
       - "!172.2.2.0/24"
-    updateSecurityPolicies: "key|dnssec-primary.{{ test_suffix }}|A"
+    updateSecurityPolicies:
+      - tsigKeyName: "key"
+        domain: "dnssec-primary.{{ test_suffix }}"
+        allowedTypes:
+          - "A"
     queryAccess: "AllowZoneNameServersAndUseSpecifiedNetworkACL"
     queryAccessNetworkACL:
       - "192.168.1.0/24"
@@ -379,7 +395,11 @@
     updateNetworkACL:
       - "192.168.1.0/24"
       - "!172.2.2.0/24"
-    updateSecurityPolicies: "key|dnssec-primary.{{ test_suffix }}|A"
+    updateSecurityPolicies:
+      - tsigKeyName: "key"
+        domain: "dnssec-primary.{{ test_suffix }}"
+        allowedTypes:
+          - "A"
     queryAccess: "AllowZoneNameServersAndUseSpecifiedNetworkACL"
     queryAccessNetworkACL:
       - "192.168.1.0/24"
@@ -416,7 +436,11 @@
     updateNetworkACL:
       - "192.168.1.0/24"
       - "!172.2.2.0/24"
-    updateSecurityPolicies: "key|dnssec-primary.{{ test_suffix }}|A"
+    updateSecurityPolicies:
+      - tsigKeyName: "key"
+        domain: "dnssec-primary.{{ test_suffix }}"
+        allowedTypes:
+          - "A"
     queryAccess: "AllowZoneNameServersAndUseSpecifiedNetworkACL"
     queryAccessNetworkACL:
       - "192.168.1.0/24"
@@ -768,7 +792,13 @@
     updateNetworkACL:
       - "1.1.1.1"
       - "!2.2.2.2"
-    updateSecurityPolicies: "testkey|forwarder.{{ test_suffix }}|A,AAAA,MX"
+    updateSecurityPolicies:
+      - tsigKeyName: "testkey"
+        domain: "forwarder.{{ test_suffix }}"
+        allowedTypes:
+          - "A"
+          - "AAAA"
+          - "MX"
   register: set_forwarder_zone_options_results
 
 - name: "Assert change when setting zone options"
@@ -834,7 +864,13 @@
     updateNetworkACL:
       - "1.1.1.1"
       - "!2.2.2.2"
-    updateSecurityPolicies: "testkey|forwarder.{{ test_suffix }}|A,AAAA,MX"
+    updateSecurityPolicies:
+      - tsigKeyName: "testkey"
+        domain: "forwarder.{{ test_suffix }}"
+        allowedTypes:
+          - "A"
+          - "AAAA"
+          - "MX"
   register: set_forwarder_zone_options_results
 
 - name: Asset no change when setting zone options
@@ -866,7 +902,13 @@
     updateNetworkACL:
       - "1.1.1.1"
       - "!2.2.2.2"
-    updateSecurityPolicies: "testkey|forwarder.{{ test_suffix }}|A,AAAA,MX"
+    updateSecurityPolicies:
+      - tsigKeyName: "testkey"
+        domain: "forwarder.{{ test_suffix }}"
+        allowedTypes:
+          - "A"
+          - "AAAA"
+          - "MX"
   check_mode: true
   register: set_forwarder_zone_options_results
 
