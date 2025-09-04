@@ -64,6 +64,7 @@ options:
     appName:
         description:
             - Application name (APP only)
+            
         required: false
         type: str
     autoIpv4Hint:
