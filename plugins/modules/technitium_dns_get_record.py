@@ -22,7 +22,7 @@ seealso:
 options:
     api_url:
         description:
-            - Base URL for the Technitium DNS API (e.g., http://localhost)
+            - Base URL for the Technitium DNS API
         required: true
         type: str
     api_port:

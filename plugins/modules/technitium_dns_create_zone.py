@@ -9,37 +9,99 @@ DOCUMENTATION = r'''
 module: technitium_dns_create_zone
 short_description: Create a DNS zone in Technitium DNS server
 version_added: "0.0.1"
+author: Frank Muise (@effectivelywild)
 description:
-    - Create a DNS zone in Technitium DNS server using its API. Idempotent: will not create if already exists with same type.
+    - Create a DNS zone in Technitium DNS server using its API.
+seealso:
+  - module: effectivelywild.technitium_dns.technitium_dns_delete_zone
+    description: Deletes DNS Zones
+  - module: effectivelywild.technitium_dns.technitium_dns_sign_zone
+    description: Sign a zone with DNSSEC
+  - module: effectivelywild.technitium_dns.technitium_dns_get_zone_info
+    description: Get basic zone information
+  - module: effectivelywild.technitium_dns.technitium_dns_get_zone_options
+    description: Get all configured zone options
+  - module: effectivelywild.technitium_dns.technitium_dns_set_zone_options
+    description: Set all zone options
 options:
-    api_url:
+    api_port:
         description:
-            - Base URL for the Technitium DNS API (e.g., http://localhost)
-            - Do not include the port; use the 'port' parameter instead.
-        required: true
-        type: str
-    port:
-        description:
-            - Port for the Technitium DNS API. Defaults to 5380.
+            - Port for the Technitium DNS API. Defaults to 5380
         required: false
         type: int
         default: 5380
     api_token:
         description:
-            - API token for authenticating with the Technitium DNS API.
+            - API token for authenticating with the Technitium DNS API
         required: true
         type: str
-    validate_certs:
+    api_url:
         description:
-            - Whether to validate SSL certificates when making API requests.
-            - Set to false to disable SSL certificate validation (not recommended for production).
+            - Base URL for the Technitium DNS API
+        required: true
+        type: str
+    catalog:
+        description:
+            - The name of the catalog zone to become its member zone.
+        required: false
+        type: str
+    dnssecValidation:
+        description:
+            - Enable DNSSEC validation (Forwarder only)
+        required: false
+        type: bool
+    forwarder:
+        description:
+            - Address of DNS server to use as forwarder (Forwarder only)
+        required: false
+        type: str
+    initializeForwarder:
+        description:
+            - Initialize Conditional Forwarder zone with FWD record (Forwarder only)
         required: false
         type: bool
         default: true
-    zone:
+    primaryNameServerAddresses:
         description:
-            - The domain name for creating the new zone.
-        required: true
+            - Comma separated IPs or names of primary name server (Secondary, SecondaryForwarder, SecondaryCatalog, Stub)
+        required: false
+        type: str
+    protocol:
+        description:
+            - DNS transport protocol for Conditional Forwarder zone.
+        required: false
+        type: str
+        choices: [Udp, Tcp, Tls, Https, Quic]
+    proxyAddress:
+        description:
+            - Proxy server address (Forwarder only)
+        required: false
+        type: str
+    proxyPassword:
+        description:
+            - Proxy server password (Forwarder only)
+        required: false
+        type: str
+    proxyPort:
+        description:
+            - Proxy server port (Forwarder only)
+        required: false
+        type: int
+    proxyType:
+        description:
+            - Proxy type for conditional forwarding (Forwarder only)
+        required: false
+        type: str
+        choices: [NoProxy, DefaultProxy, Http, Socks5]
+    proxyUsername:
+        description:
+            - Proxy server username (Forwarder only)
+        required: false
+        type: str
+    tsigKeyName:
+        description:
+            - TSIG key name (Secondary, SecondaryForwarder, SecondaryCatalog)
+        required: false
         type: str
     type:
         description:
@@ -47,86 +109,34 @@ options:
         required: true
         type: str
         choices: [Primary, Secondary, Stub, Forwarder, SecondaryForwarder, Catalog, SecondaryCatalog]
-    catalog:
-        description:
-            - The name of the catalog zone to become its member zone.
-        required: false
-        type: str
     useSoaSerialDateScheme:
         description:
-            - Enable using date scheme for SOA serial (Primary, Forwarder, Catalog zones).
+            - Enable using date scheme for SOA serial (Primary, Forwarder, Catalog zones)
         required: false
         type: bool
         default: false
-    primaryNameServerAddresses:
+    validate_certs:
         description:
-            - Comma separated IPs or names of primary name server (Secondary, SecondaryForwarder, SecondaryCatalog, Stub).
-        required: false
-        type: str
-    zoneTransferProtocol:
-        description:
-            - Zone transfer protocol (Secondary, SecondaryForwarder, SecondaryCatalog).
-        required: false
-        type: str
-        choices: [Tcp, Tls, Quic]
-    tsigKeyName:
-        description:
-            - TSIG key name (Secondary, SecondaryForwarder, SecondaryCatalog).
-        required: false
-        type: str
-    validateZone:
-        description:
-            - Enable ZONEMD validation (Secondary only).
-        required: false
-        type: bool
-    initializeForwarder:
-        description:
-            - Initialize Conditional Forwarder zone with FWD record (Forwarder only).
+            - Whether to validate SSL certificates when making API requests
         required: false
         type: bool
         default: true
-    protocol:
+    validateZone:
         description:
-            - DNS transport protocol for Conditional Forwarder zone.
-        required: false
-        type: str
-        choices: [Udp, Tcp, Tls, Https, Quic]
-    forwarder:
-        description:
-            - Address of DNS server to use as forwarder (Forwarder only).
-        required: false
-        type: str
-    dnssecValidation:
-        description:
-            - Enable DNSSEC validation (Forwarder only).
+            - Enable ZONEMD validation (Secondary only)
         required: false
         type: bool
-    proxyType:
+    zone:
         description:
-            - Proxy type for conditional forwarding (Forwarder only).
+            - The domain name for creating the new zone
+        required: true
+        type: str
+    zoneTransferProtocol:
+        description:
+            - Zone transfer protocol (Secondary, SecondaryForwarder, SecondaryCatalog)
         required: false
         type: str
-        choices: [NoProxy, DefaultProxy, Http, Socks5]
-    proxyAddress:
-        description:
-            - Proxy server address (Forwarder only).
-        required: false
-        type: str
-    proxyPort:
-        description:
-            - Proxy server port (Forwarder only).
-        required: false
-        type: int
-    proxyUsername:
-        description:
-            - Proxy server username (Forwarder only).
-        required: false
-        type: str
-    proxyPassword:
-        description:
-            - Proxy server password (Forwarder only).
-        required: false
-        type: str
+        choices: [Tcp, Tls, Quic]
 '''
 
 EXAMPLES = r'''
@@ -146,6 +156,44 @@ EXAMPLES = r'''
     forwarder: "8.8.8.8"
     initializeForwarder: true
     protocol: "Udp"
+'''
+
+RETURN = r'''
+api_response:
+    description: Complete raw API response from Technitium DNS
+    type: dict
+    returned: always
+    contains:
+        response:
+            description: The core data payload from the API
+            type: dict
+            returned: always
+            contains:
+                domain:
+                    description: The domain name of the created zone
+                    type: str
+                    returned: always
+                    sample: "demo.test.local"
+        status:
+            description: API response status
+            type: str
+            returned: always
+            sample: "ok"
+changed:
+    description: Whether the module made changes to create a new zone
+    type: bool
+    returned: always
+    sample: true
+failed:
+    description: Whether the module failed to complete the zone creation
+    type: bool
+    returned: always
+    sample: false
+msg:
+    description: Human-readable message describing the zone creation result
+    type: str
+    returned: always
+    sample: "Zone 'demo.test.local' created."
 '''
 
 class CreateZoneModule(TechnitiumModule):

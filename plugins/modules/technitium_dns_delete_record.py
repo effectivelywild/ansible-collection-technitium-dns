@@ -59,8 +59,7 @@ options:
         type: str
     api_url:
         description:
-            - Base URL for the Technitium DNS API (e.g., http://localhost)
-            - Do not include the port; use the 'port' parameter instead
+            - Base URL for the Technitium DNS API
         required: true
         type: str
     appName:

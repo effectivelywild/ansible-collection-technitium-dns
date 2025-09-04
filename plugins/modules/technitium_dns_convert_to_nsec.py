@@ -23,8 +23,7 @@ seealso:
 options:
   api_url:
     description:
-      - Base URL for the Technitium DNS API (e.g., http://localhost:5380)
-    required: true
+      - Base URL for the Technitium DNS API
     type: str
   api_token:
     description:
