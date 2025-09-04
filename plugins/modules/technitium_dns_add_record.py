@@ -9,6 +9,9 @@ DOCUMENTATION = r'''
 module: technitium_dns_add_record
 short_description: Add a DNS record to a Technitium DNS zone
 version_added: "0.0.1"
+author: Frank Muise (@effectivelywild)
+requirements:
+  - requests
 description:
     - Add a DNS record to a Technitium DNS zone.
     - The module supports all DNS record types.

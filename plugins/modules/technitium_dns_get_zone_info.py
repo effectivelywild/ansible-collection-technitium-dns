@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # Ansible module to get zone data from Technitium DNS API using TechnitiumModule base class
 
-from ansible_collections.technitium.dns.plugins.module_utils.technitium import TechnitiumModule
+from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 DOCUMENTATION = r'''
 ---

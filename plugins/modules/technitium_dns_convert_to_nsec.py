@@ -2,17 +2,24 @@
 # -*- coding: utf-8 -*-
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
-from ansible_collections.technitium.dns.plugins.module_utils.technitium import TechnitiumModule
+from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_convert_to_nsec
-short_description: Convert a primary DNS zone from NSEC3 to NSEC using Technitium DNS API
-version_added: "1.0.0"
+short_description: Convert a primary DNS zone from NSEC3 to NSEC
+version_added: "0.0.1"
+author: Frank Muise (@effectivelywild)
+requirements:
+  - requests
 description:
   - Converts a primary DNS zone from NSEC3 to NSEC for proof of non-existence using the Technitium DNS API.
   - Only works on zones that are already signed with DNSSEC using NSEC3.
-  - Idempotency is achieved by checking if the zone is already using NSEC.
+seealso:
+  - module: effectivelywild.technitium_dns.technitium_dns_convert_to_nsec3
+    description: Convert signed zone from NSEC3 to NSEC
+  - module: effectivelywild.technitium_dns.technitium_dns_sign_zone
+    description: Sign a zone with DNSSEC
 options:
   api_url:
     description:
@@ -24,10 +31,15 @@ options:
       - API token for authentication
     required: true
     type: str
+  api_port:
+      description:
+          - Port for the Technitium DNS API. Defaults to 5380
+      required: false
+      type: int
+      default: 5380
   validate_certs:
     description:
       - Whether to validate SSL certificates when making API requests.
-      - Set to false to disable SSL certificate validation (not recommended for production).
     required: false
     type: bool
     default: true
@@ -36,26 +48,50 @@ options:
       - The name of the primary zone to convert to NSEC
     required: true
     type: str
-requirements:
-  - requests
-author:
-  - Your Name (@yourgithub)
 '''
 
 EXAMPLES = r'''
 - name: Convert a primary zone from NSEC3 to NSEC
   technitium_dns_convert_to_nsec:
-    api_url: "http://localhost:5380"
-    api_token: "{{ technitium_api_token }}"
+    api_url: "http://localhost"
+    api_token: "myapitoken"
     zone: "example.com"
 '''
 
 RETURN = r'''
-status:
-  description: API response status
-  returned: always
-  type: str
-  sample: ok
+api_response:
+    description: Complete raw API response from Technitium DNS
+    type: dict
+    returned: always
+    contains:
+        response:
+            description: The core data payload from the API (typically empty for conversion operations)
+            type: dict
+            returned: always
+            sample: {}
+        status:
+            description: API response status
+            type: str
+            returned: always
+            sample: "ok"
+
+changed:
+    description: Whether the module made changes to convert the zone from NSEC3 to NSEC
+    type: bool
+    returned: always
+    sample: true
+
+failed:
+    description: Whether the module failed to complete the conversion
+    type: bool
+    returned: always
+    sample: false
+
+msg:
+    description: Human-readable message describing the conversion result
+    type: str
+    returned: always
+    sample: "Zone 'dnssec-demo.test.local' converted from NSEC3 to NSEC."
 '''
 
 class ConvertToNsecModule(TechnitiumModule):

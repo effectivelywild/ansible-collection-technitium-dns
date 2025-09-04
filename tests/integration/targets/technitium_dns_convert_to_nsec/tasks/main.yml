@@ -121,6 +121,11 @@
     loop_var: zone_item
     label: "convert: {{ zone_item.zone }}"
 
+- name: Debug convert_to_nsec_results
+  ansible.builtin.debug:
+    var: convert_to_nsec_results
+  when: debug | default(false)
+
 - name: "Assert zones converted to NSEC"
   ansible.builtin.assert:
     that:

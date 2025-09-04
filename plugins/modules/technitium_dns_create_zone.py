@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # Ansible module to create zones in Technitium DNS using TechnitiumModule base class
 
-from ansible_collections.technitium.dns.plugins.module_utils.technitium import TechnitiumModule
+from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 DOCUMENTATION = r'''
 ---

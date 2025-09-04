@@ -1,0 +1,64 @@
+---
+- name: DNSSEC Zone Signing and Conversion Demo
+  hosts: localhost
+  gather_facts: false
+  vars_files:
+    - "{{ playbook_dir }}/../../../tests/integration/integration_config.yml"
+  vars:
+    # Configuration variables
+    dns_server_url: "http://localhost"
+    dns_server_port: 5380
+    api_token: "{{ technitium_api_token | default('your_api_token_here') }}"
+    test_zone_name: "dnssec-demo.test.local"
+    
+    # DNSSEC signing parameters
+    signing_algorithm: "ECDSA"
+    signing_curve: "P256"
+    dns_key_ttl: 86400
+    zsk_rollover_days: 30
+    
+    # NSEC3 parameters
+    nsec3_iterations: 0
+    nsec3_salt_length: 0
+
+  tasks:
+    - name: "Step 1: Create the test zone"
+      effectivelywild.technitium_dns.technitium_dns_create_zone:
+        api_url: "{{ technitium_api_url }}"
+        api_token: "{{ technitium_api_token }}"
+        api_port: "{{ technitium_api_port }}"
+        zone: "{{ test_zone_name }}"
+        type: "Primary"
+        useSoaSerialDateScheme: true
+        validate_certs: false
+      register: create_zone_result
+
+    - name: "Step 2: Sign the zone with NSEC3"
+      effectivelywild.technitium_dns.technitium_dns_sign_zone:
+        api_url: "{{ technitium_api_url }}"
+        api_token: "{{ technitium_api_token }}"
+        api_port: "{{ technitium_api_port }}"
+        zone: "{{ test_zone_name }}"
+        algorithm: "{{ signing_algorithm }}"
+        curve: "{{ signing_curve }}"
+        dnsKeyTtl: "{{ dns_key_ttl }}"
+        zskRolloverDays: "{{ zsk_rollover_days }}"
+        nxProof: "NSEC3"
+        iterations: "{{ nsec3_iterations }}"
+        saltLength: "{{ nsec3_salt_length }}"
+        validate_certs: false
+      register: sign_nsec3_result
+
+    - name: "Step 3: Convert zone from NSEC3 to NSEC"
+      effectivelywild.technitium_dns.technitium_dns_convert_to_nsec:
+        api_url: "{{ technitium_api_url }}"
+        api_token: "{{ technitium_api_token }}"
+        api_port: "{{ technitium_api_port }}"
+        zone: "{{ test_zone_name }}"
+        validate_certs: false
+      register: convert_to_nsec_result
+
+    - name: Debug convert_to_nsec_result
+      debug:
+        var: convert_to_nsec_result
+
