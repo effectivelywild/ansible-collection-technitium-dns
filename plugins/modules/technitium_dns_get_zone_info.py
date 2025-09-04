@@ -25,6 +25,8 @@ seealso:
     description: Get all configured zone options
   - module: effectivelywild.technitium_dns.technitium_dns_set_zone_options
     description: Set zone options
+  - module: effectivelywild.technitium_dns.technitium_dns_enable_zone
+    description: Enable a zone
   - module: effectivelywild.technitium_dns.technitium_dns_disable_zone
     description: Disable a zone
 options:

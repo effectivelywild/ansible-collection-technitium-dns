@@ -60,6 +60,17 @@
       debug:
         var: get_zones_info
 
+    - name: "Get zone options"
+      effectivelywild.technitium_dns.technitium_dns_get_zone_options:
+        api_url: "{{ technitium_api_url }}"
+        api_token: "{{ technitium_api_token }}"
+        api_port: "{{ technitium_api_port }}"
+        zone: "{{ test_zone_name }}"
+      register: get_zone_options
+
+    - name: debug get_zone_options
+      debug:
+        var: get_zone_options
 
     - name: "Sign the zone with NSEC3"
       effectivelywild.technitium_dns.technitium_dns_sign_zone:

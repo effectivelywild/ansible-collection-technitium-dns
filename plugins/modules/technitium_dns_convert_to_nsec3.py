@@ -21,15 +21,22 @@ seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_sign_zone
     description: Sign a zone with DNSSEC
 options:
-  api_url:
-    description:
-      - Base URL for the Technitium DNS API
-    type: str
+  api_port:
+      description:
+          - Port for the Technitium DNS API. Defaults to 5380
+      required: false
+      type: int
+      default: 5380
   api_token:
-    description:
-      - API token for authentication
-    required: true
-    type: str
+      description:
+          - API token for authenticating with the Technitium DNS API
+      required: true
+      type: str
+  api_url:
+      description:
+          - Base URL for the Technitium DNS API
+      required: true
+      type: str
   validate_certs:
     description:
       - Whether to validate SSL certificates when making API requests.

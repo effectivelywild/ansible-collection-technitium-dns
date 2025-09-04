@@ -47,7 +47,6 @@ options:
     validate_certs:
         description:
             - Whether to validate SSL certificates when making API requests.
-            - Set to false to disable SSL certificate validation (not recommended for production).
         required: false
         type: bool
         default: true
