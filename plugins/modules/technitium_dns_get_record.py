@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # Ansible module to get DNS records from Technitium DNS using TechnitiumModule base class
 
-from ansible_collections.technitium.dns.plugins.module_utils.technitium import TechnitiumModule
+from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 DOCUMENTATION = r'''
 ---
@@ -11,14 +11,18 @@ short_description: Get DNS records from a Technitium DNS zone
 version_added: "0.0.1"
 description:
     - Get DNS resource records from a Technitium DNS authoritative zone using its API.
+seealso:
+    - module: effectivelywild.technitium_dns.technitium_dns_add_record
+      description: Used to add DNS records
+    - module: effectivelywild.technitium_dns.technitium_dns_delete_record
+      description: Used to delete DNS record details
 options:
     api_url:
         description:
             - Base URL for the Technitium DNS API (e.g., http://localhost)
-            - Do not include the port; use the 'port' parameter instead.
         required: true
         type: str
-    port:
+    api_port:
         description:
             - Port for the Technitium DNS API. Defaults to 5380.
         required: false
@@ -32,7 +36,6 @@ options:
     validate_certs:
         description:
             - Whether to validate SSL certificates when making API requests.
-            - Set to false to disable SSL certificate validation (not recommended for production).
         required: false
         type: bool
         default: true
@@ -42,6 +45,7 @@ options:
             - The use of 'domain:' is also supported to align with API.
         required: true
         type: str
+        aliases: [domain]
     zone:
         description:
             - The authoritative zone name (optional, defaults to closest match).
@@ -78,6 +82,148 @@ EXAMPLES = r'''
     api_token: "myapitoken"
     port: 5380
     name: "example.com"
+'''
+
+RETURN = r'''
+records:
+    description: 
+        - List of DNS records (convenience extraction from api_response.response.records)
+        - See api_response.response.records for detailed field documentation
+    type: list
+    returned: always
+    sample: [
+        {
+            "disabled": false,
+            "dnssecStatus": "Unknown",
+            "name": "example.com",
+            "type": "A",
+            "ttl": 3600,
+            "rData": {
+                "ipAddress": "192.0.2.1"
+            }
+        }
+    ]
+
+api_response:
+    description: Complete raw API response from Technitium DNS
+    type: dict
+    returned: always
+    contains:
+        response:
+            description: The core data payload from the API
+            type: dict
+            contains:
+                records:
+                    description: Array of DNS record objects with complete details
+                    type: list
+                    contains:
+                        disabled:
+                            description: Whether the record is disabled
+                            type: bool
+                            returned: always
+                        dnssecStatus:
+                            description: DNSSEC status of the record
+                            type: str
+                            returned: always
+                        expiryTtl:
+                            description: Record expiration TTL in seconds
+                            type: int
+                            returned: always
+                        expiryTtlString:
+                            description: Record expiration TTL as human-readable string
+                            type: str
+                            returned: always
+                        lastModified:
+                            description: When the record was last modified
+                            type: str
+                            returned: always
+                        lastUsedOn:
+                            description: When the record was last used
+                            type: str
+                            returned: always
+                        name:
+                            description: Full domain name of the record
+                            type: str
+                            returned: always
+                        rData:
+                            description: Record-specific data (varies by record type)
+                            type: dict
+                            returned: always
+                            sample: {"ipAddress": "192.0.2.1"}
+                        ttl:
+                            description: Record TTL in seconds
+                            type: int
+                            returned: always
+                        ttlString:
+                            description: Record TTL as human-readable string
+                            type: str
+                            returned: always
+                        type:
+                            description: DNS record type
+                            type: str
+                            returned: always
+                zone:
+                    description: Information about the zone containing the records
+                    type: dict
+                    returned: always
+                    contains:
+                        catalog:
+                            description: Zone catalog information
+                            type: str
+                            returned: always
+                        disabled:
+                            description: Whether the zone is disabled
+                            type: bool
+                            returned: always
+                        dnssecStatus:
+                            description: DNSSEC status of the zone
+                            type: str
+                            returned: always
+                        internal:
+                            description: Whether the zone is internal
+                            type: bool
+                            returned: always
+                        lastModified:
+                            description: When the zone was last modified
+                            type: str
+                            returned: always
+                        name:
+                            description: Zone name
+                            type: str
+                            returned: always
+                        notifyFailed:
+                            description: Whether zone notification failed
+                            type: bool
+                            returned: always
+                        notifyFailedFor:
+                            description: List of hosts for which notification failed
+                            type: list
+                            returned: always
+                        soaSerial:
+                            description: SOA serial number of the zone
+                            type: int
+                            returned: always
+                        type:
+                            description: Zone type (e.g., Primary, Secondary)
+                            type: str
+                            returned: always
+        status:
+            description: API response status
+            type: str
+            returned: always
+            sample: "ok"
+
+changed:
+    description: Whether the module made changes (always false for get operations)
+    type: bool
+    returned: always
+    sample: false
+
+failed:
+    description: Whether the module failed
+    type: bool
+    returned: always
+    sample: false
 '''
 
 class GetRecordsModule(TechnitiumModule):

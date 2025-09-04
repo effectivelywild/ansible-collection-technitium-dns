@@ -17,8 +17,6 @@ description:
 seealso:
     - module: effectivelywild.technitium_dns.technitium_dns_delete_record
       description: Used to delete DNS records
-    - module: effectivelywild.technitium_dns.technitium_dns_update_record
-      description: Used to update DNS records
     - module: effectivelywild.technitium_dns.technitium_dns_get_record
       description: Used to get DNS record details
 options:
@@ -170,7 +168,6 @@ options:
     name:
         description:
             - The record name (e.g., test.example.com)
-            - The use of domain is also supported to align with API
         required: true
         type: str
     nameServer:
