@@ -25,8 +25,8 @@ seealso:
     description: Get all configured zone options
   - module: effectivelywild.technitium_dns.technitium_dns_set_zone_options
     description: Set zone options
-  - module: effectivelywild.technitium_dns.technitium_dns_disable_zone
-    description: Diables a zone
+  - module: effectivelywild.technitium_dns.technitium_dns_enable_zone
+    description: Enables a zone
 options:
     api_port:
         description:
@@ -47,7 +47,6 @@ options:
     validate_certs:
         description:
             - Whether to validate SSL certificates when making API requests.
-            - Set to false to disable SSL certificate validation (not recommended for production).
         required: false
         type: bool
         default: true
