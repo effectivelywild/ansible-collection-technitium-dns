@@ -2,32 +2,46 @@
 # -*- coding: utf-8 -*-
 # New Technitium DNS disable zone module using TechnitiumModule base class
 
-from ansible_collections.technitium.dns.plugins.module_utils.technitium import TechnitiumModule
+from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_disable_zone
 short_description: Disable a DNS zone in Technitium DNS server
 version_added: "0.0.1"
+author: Frank Muise (@effectivelywild)
 description:
-    - Disable an authoritative DNS zone in Technitium DNS server using its API.
-    - This will prevent the DNS server from responding to queries for this zone.
+    - Disable a DNS zone, this will prevent the DNS server from responding to queries for this zone.
+seealso:
+  - module: effectivelywild.technitium_dns.technitium_dns_create_zone
+    description: Creates DNS Zones
+  - module: effectivelywild.technitium_dns.technitium_dns_delete_zone
+    description: Deletes DNS Zones
+  - module: effectivelywild.technitium_dns.technitium_dns_sign_zone
+    description: Sign a zone with DNSSEC
+  - module: effectivelywild.technitium_dns.technitium_dns_get_zone_info
+    description: Get basic zone information
+  - module: effectivelywild.technitium_dns.technitium_dns_get_zone_options
+    description: Get all configured zone options
+  - module: effectivelywild.technitium_dns.technitium_dns_set_zone_options
+    description: Set zone options
+  - module: effectivelywild.technitium_dns.technitium_dns_disable_zone
+    description: Diables a zone
 options:
-    api_url:
-        description:
-            - Base URL for the Technitium DNS API (e.g., http://localhost)
-            - Do not include the port; use the 'port' parameter instead.
-        required: true
-        type: str
     api_port:
         description:
-            - Port for the Technitium DNS API. Defaults to 5380.
+            - Port for the Technitium DNS API. Defaults to 5380
         required: false
         type: int
         default: 5380
     api_token:
         description:
-            - API token for authenticating with the Technitium DNS API.
+            - API token for authenticating with the Technitium DNS API
+        required: true
+        type: str
+    api_url:
+        description:
+            - Base URL for the Technitium DNS API
         required: true
         type: str
     validate_certs:
@@ -50,6 +64,39 @@ EXAMPLES = r'''
     api_url: "http://localhost"
     api_token: "myapitoken"
     zone: "example.com"
+'''
+
+RETURN = r'''
+api_response:
+    description: Complete raw API response from Technitium DNS
+    type: dict
+    returned: always
+    contains:
+        response:
+            description: The core data payload from the API
+            type: dict
+            returned: always
+            sample: "{}"
+        status:
+            description: API response status
+            type: str
+            returned: always
+            sample: "ok"
+changed:
+    description: Whether the module made changes to disable the zone
+    type: bool
+    returned: always
+    sample: true
+failed:
+    description: Whether the module failed to disable the zone
+    type: bool
+    returned: always
+    sample: false
+msg:
+    description: Human-readable message describing the result of disabling the zone
+    type: str
+    returned: always
+    sample: "Zone 'demo.test.local' disabled."
 '''
 
 class DisableZoneModule(TechnitiumModule):

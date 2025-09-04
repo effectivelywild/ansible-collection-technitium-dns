@@ -22,7 +22,12 @@ seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_get_zone_options
     description: Get all configured zone options
   - module: effectivelywild.technitium_dns.technitium_dns_set_zone_options
-    description: Set all zone options
+    description: Set zone options
+  - module: effectivelywild.technitium_dns.technitium_dns_enabled_zone
+    description: Enables a zone
+  - module: effectivelywild.technitium_dns.technitium_dns_disable_zone
+    description: Diables a zone
+
 description:
     - Delete an authoritative DNS zone in Technitium DNS server using its API.
 options:

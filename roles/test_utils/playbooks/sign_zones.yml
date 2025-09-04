@@ -66,6 +66,30 @@
       debug:
         var: convert_to_nsec_result
 
+    - name: "Disable zone"
+      effectivelywild.technitium_dns.technitium_dns_disable_zone:
+        api_url: "{{ technitium_api_url }}"
+        api_token: "{{ technitium_api_token }}"
+        api_port: "{{ technitium_api_port }}"
+        zone: "{{ test_zone_name }}"
+      register: disable_zone
+
+    - name: Debug disable_zone
+      debug:
+        var: disable_zone
+
+    - name: "Disable zone"
+      effectivelywild.technitium_dns.technitium_dns_enable_zone:
+        api_url: "{{ technitium_api_url }}"
+        api_token: "{{ technitium_api_token }}"
+        api_port: "{{ technitium_api_port }}"
+        zone: "{{ test_zone_name }}"
+      register: enable_zone
+
+    - name: Debug enable_zone
+      debug:
+        var: enable_zone
+
     - name: "Delete zone"
       effectivelywild.technitium_dns.technitium_dns_delete_zone:
         api_url: "{{ technitium_api_url }}"
