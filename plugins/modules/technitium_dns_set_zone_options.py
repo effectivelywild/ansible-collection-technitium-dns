@@ -7,7 +7,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_set_zone_options
-short_description: Set DNS zone options on Technitium DNS server
+short_description: Set DNS zone options
 version_added: "0.0.1"
 description:
     - Set zone-specific options on a Technitium DNS server.

@@ -7,13 +7,13 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_sign_zone
-short_description: Sign a primary DNS zone with DNSSEC using Technitium DNS API
+short_description: Sign a DNS zone
 version_added: "0.0.1"
 author: Frank Muise (@effectivelywild)
 requirements:
   - requests
 description:
-  - Signs a primary DNS zone with DNSSEC using the Technitium DNS API.
+  - Signs a primary DNS zone using the Technitium DNS API.
   - Will not update DNSSEC properties once intially signed.
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_unsign_zone
@@ -169,11 +169,36 @@ EXAMPLES = r'''
 '''
 
 RETURN = r'''
-status:
-  description: API response status
-  returned: always
-  type: str
-  sample: ok
+api_response:
+    description: Complete raw API response from Technitium DNS
+    type: dict
+    returned: always
+    contains:
+        response:
+            description: The API response payload (empty dict for successful sign operations)
+            type: dict
+            returned: always
+            sample: "{}"
+        status:
+            description: API response status
+            type: str
+            returned: always
+            sample: "ok"
+changed:
+    description: Whether the module made changes
+    type: bool
+    returned: always
+    sample: true
+failed:
+    description: Whether the module failed
+    type: bool
+    returned: always
+    sample: false
+msg:
+    description: Human readable message describing the result
+    type: str
+    returned: always
+    sample: "Zone 'demo.test.local' signed."
 '''
 
 # Refactored to use TechnitiumModule base class

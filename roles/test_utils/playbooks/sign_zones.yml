@@ -103,6 +103,10 @@
         validate_certs: false
       register: sign_nsec3_result
 
+    - name: Debug sign_nsec3_result
+      debug:
+        var: sign_nsec3_result
+
     - name: "Convert zone from NSEC3 to NSEC"
       effectivelywild.technitium_dns.technitium_dns_convert_to_nsec:
         api_url: "{{ technitium_api_url }}"

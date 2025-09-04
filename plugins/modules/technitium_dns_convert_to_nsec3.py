@@ -7,7 +7,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_convert_to_nsec3
-short_description: Convert a primary DNS zone from NSEC to NSEC3
+short_description: Convert a signed DNS zone from NSEC to NSEC3
 version_added: "0.0.1"
 author: Frank Muise (@effectivelywild)
 requirements:

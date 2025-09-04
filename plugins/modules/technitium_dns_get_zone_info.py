@@ -7,7 +7,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_get_zone_info
-short_description: Get DNS zone(s) from Technitium DNS server
+short_description: Get DNS zone(s)
 version_added: "0.0.1"
 description:
     - Retrieve all DNS zones, or filter by zone type and/or name, from a Technitium DNS server.

@@ -7,7 +7,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_enable_zone
-short_description: Enable a DNS zone in Technitium DNS server
+short_description: Enable a DNS zone
 version_added: "0.0.1"
 author: Frank Muise (@effectivelywild)
 description:

@@ -7,7 +7,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_delete_record
-short_description: Delete a DNS record from a Technitium DNS zone
+short_description: Delete a DNS record
 version_added: "0.0.1"
 description:
     - Delete a a DNS record to a Technitium DNS zone.

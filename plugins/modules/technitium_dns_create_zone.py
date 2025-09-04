@@ -7,7 +7,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_create_zone
-short_description: Create a DNS zone in Technitium DNS server
+short_description: Create a DNS zone
 version_added: "0.0.1"
 author: Frank Muise (@effectivelywild)
 description:
@@ -23,7 +23,7 @@ seealso:
     description: Get all configured zone options
   - module: effectivelywild.technitium_dns.technitium_dns_set_zone_options
     description: Set all zone options
-  - module: effectivelywild.technitium_dns.technitium_dns_enabled_zone
+  - module: effectivelywild.technitium_dns.technitium_dns_enable_zone
     description: Enables a zone
   - module: effectivelywild.technitium_dns.technitium_dns_disable_zone
     description: Diables a zone
