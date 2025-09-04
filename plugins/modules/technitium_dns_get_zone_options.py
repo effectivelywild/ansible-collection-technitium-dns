@@ -243,9 +243,6 @@ class GetZoneOptionsModule(TechnitiumModule):
         options = data.get('response', {})
         self.exit_json(changed=False, options=options)
 
-def main():
-    module = GetZoneOptionsModule()
-    module()
-
 if __name__ == '__main__':
-    main()
+    module = GetZoneOptionsModule()
+    module.run()

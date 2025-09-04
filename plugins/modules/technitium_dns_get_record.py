@@ -273,9 +273,8 @@ class GetRecordsModule(TechnitiumModule):
         
         self.exit_json(changed=False, records=records, api_response=data)
 
-def main():
-    module = GetRecordsModule()
-    module()
 
 if __name__ == '__main__':
-    main()
+    module = GetRecordsModule()
+    module.run()
+

@@ -60,6 +60,21 @@
       debug:
         var: get_zones_info
 
+    - name: "Set zone options"
+      effectivelywild.technitium_dns.technitium_dns_set_zone_options:
+        api_url: "{{ technitium_api_url }}"
+        api_token: "{{ technitium_api_token }}"
+        api_port: "{{ technitium_api_port }}"
+        zone: "{{ test_zone_name }}"
+        zoneTransfer: Allow
+        notify: ZoneNameServers
+        zoneTransferNetworkACL: "192.168.2.0/24"
+      register: set_zone_options
+
+    - name: debug set_zone_options
+      debug:
+        var: set_zone_options
+
     - name: "Get zone options"
       effectivelywild.technitium_dns.technitium_dns_get_zone_options:
         api_url: "{{ technitium_api_url }}"

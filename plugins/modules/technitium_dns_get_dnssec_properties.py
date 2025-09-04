@@ -97,9 +97,7 @@ class GetDnssecPropertiesModule(TechnitiumModule):
         # Return the DNSSEC properties (read-only operation, never changed=True)
         self.exit_json(changed=False, dnssec_properties=dnssec_properties)
 
-def main():
-    module = GetDnssecPropertiesModule()
-    module()
 
 if __name__ == '__main__':
-    main()
+    module = GetDnssecPropertiesModule()
+    module.run()

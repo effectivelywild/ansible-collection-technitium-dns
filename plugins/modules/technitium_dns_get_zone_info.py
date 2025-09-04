@@ -209,9 +209,7 @@ class GetZoneInfoModule(TechnitiumModule):
             # Return all zones (optionally filtered by type)
             self.exit_json(changed=False, zones=zones)
 
-def main():
-    module = GetZoneInfoModule()
-    module()
 
 if __name__ == '__main__':
-    main()
+    module = GetZoneInfoModule()
+    module.run()

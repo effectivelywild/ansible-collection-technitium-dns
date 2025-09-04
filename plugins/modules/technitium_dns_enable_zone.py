@@ -151,9 +151,7 @@ class EnableZoneModule(TechnitiumModule):
         # Return success - zone was enabled
         self.exit_json(changed=True, msg=f"Zone '{zone}' enabled.", api_response=data)
 
-def main():
-    module = EnableZoneModule()
-    module()
 
 if __name__ == '__main__':
-    main()
+    module = EnableZoneModule()
+    module.run()

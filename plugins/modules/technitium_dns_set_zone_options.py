@@ -10,14 +10,23 @@ module: technitium_dns_set_zone_options
 short_description: Set DNS zone options on Technitium DNS server
 version_added: "0.0.1"
 description:
-    - Set zone-specific options on a Technitium DNS server using its API.
+    - Set zone-specific options on a Technitium DNS server.
+author:
+    - Frank Muise (@effectivelywild)
+seealso:
+  - module: effectivelywild.technitium_dns.technitium_dns_create_zone
+    description: Creates DNS Zones
+  - module: effectivelywild.technitium_dns.technitium_dns_delete_zone
+    description: Deletes DNS Zones
+  - module: effectivelywild.technitium_dns.technitium_dns_sign_zone
+    description: Sign a zone with DNSSEC
+  - module: effectivelywild.technitium_dns.technitium_dns_get_zone_options
+    description: Get zone options
+  - module: effectivelywild.technitium_dns.technitium_dns_enable_zone
+    description: Enable a zone
+  - module: effectivelywild.technitium_dns.technitium_dns_disable_zone
+    description: Disable a zone
 options:
-    api_url:
-        description:
-            - Base URL for the Technitium DNS API (e.g., http://localhost)
-            - Do not include the port; use the 'port' parameter instead.
-        required: true
-        type: str
     api_port:
         description:
             - Port for the Technitium DNS API. Defaults to 5380.
@@ -26,130 +35,134 @@ options:
         default: 5380
     api_token:
         description:
-            - API token for authenticating with the Technitium DNS API.
+            - API token for authenticating with the Technitium DNS API
         required: true
         type: str
-    validate_certs:
+    api_url:
         description:
-            - Whether to validate SSL certificates when making API requests.
-            - Set to false to disable SSL certificate validation (not recommended for production).
-        required: false
-        type: bool
-        default: true
-    zone:
-        description:
-            - The domain name of the zone to set options for.
+            - Base URL for the Technitium DNS API
         required: true
+        type: str
+    catalog:
+        description:
+            - Catalog zone name to register as its member zone (Primary, Stub, Forwarder only)
+        required: false
         type: str
     disabled:
         description:
-            - Sets if the zone is enabled or disabled.
+            - Sets if the zone is enabled or disabled
         required: false
         type: bool
-    catalog:
-        description:
-            - Catalog zone name to register as its member zone (Primary, Stub, Forwarder only).
-        required: false
-        type: str
-    overrideCatalogQueryAccess:
-        description:
-            - Override Query Access option in the Catalog zone (Primary, Stub, Forwarder only).
-        required: false
-        type: bool
-    overrideCatalogZoneTransfer:
-        description:
-            - Override Zone Transfer option in the Catalog zone (Primary, Forwarder only).
-        required: false
-        type: bool
-    overrideCatalogNotify:
-        description:
-            - Override Notify option in the Catalog zone (Primary, Forwarder only).
-        required: false
-        type: bool
-    primaryNameServerAddresses:
-        description:
-            - Comma separated IPs or names of the primary name server (Secondary, SecondaryForwarder, SecondaryCatalog, Stub).
-        required: false
-        type: str
-    primaryZoneTransferProtocol:
-        description:
-            - Zone transfer protocol (Secondary, SecondaryForwarder, SecondaryCatalog). [Tcp, Tls, Quic]
-        required: false
-        type: str
-        choices: [Tcp, Tls, Quic]
-    primaryZoneTransferTsigKeyName:
-        description:
-            - TSIG key name for zone transfer (Secondary, SecondaryForwarder, SecondaryCatalog).
-        required: false
-        type: str
-    validateZone:
-        description:
-            - Enable ZONEMD validation (Secondary only).
-        required: false
-        type: bool
-    queryAccess:
-        description:
-            - Query access policy. [Deny, Allow, AllowOnlyPrivateNetworks, AllowOnlyZoneNameServers, UseSpecifiedNetworkACL, AllowZoneNameServersAndUseSpecifiedNetworkACL]
-        required: false
-        type: str
-        choices: [Deny, Allow, AllowOnlyPrivateNetworks, AllowOnlyZoneNameServers, UseSpecifiedNetworkACL, AllowZoneNameServersAndUseSpecifiedNetworkACL]
-    queryAccessNetworkACL:
-        description:
-            - Comma separated ACL for query access (not SecondaryCatalog, only with certain queryAccess).
-        required: false
-        type: str
-    zoneTransfer:
-        description:
-            - Zone transfer policy (Primary, Secondary only). [Deny, Allow, AllowOnlyZoneNameServers, UseSpecifiedNetworkACL, AllowZoneNameServersAndUseSpecifiedNetworkACL]
-        required: false
-        type: str
-        choices: [Deny, Allow, AllowOnlyZoneNameServers, UseSpecifiedNetworkACL, AllowZoneNameServersAndUseSpecifiedNetworkACL]
-    zoneTransferNetworkACL:
-        description:
-            - Comma separated ACL for zone transfer (Primary, Secondary, Forwarder, Catalog only, with certain zoneTransfer).
-        required: false
-        type: str
-    zoneTransferTsigKeyNames:
-        description:
-            - Comma separated TSIG key names for zone transfer (Primary, Secondary, Forwarder, Catalog).
-        required: false
-        type: str
     notify:
         description:
-            - Notify policy. [None, ZoneNameServers, SpecifiedNameServers, BothZoneAndSpecifiedNameServers, SeparateNameServersForCatalogAndMemberZones]
+            - Notify policy
         required: false
         type: str
         choices: [None, ZoneNameServers, SpecifiedNameServers, BothZoneAndSpecifiedNameServers, SeparateNameServersForCatalogAndMemberZones]
     notifyNameServers:
         description:
-            - Comma separated IPs to notify (Primary, Secondary, Forwarder, Catalog).
+            - Comma separated IPs to notify (Primary, Secondary, Forwarder, Catalog only)
         required: false
         type: str
     notifySecondaryCatalogsNameServers:
         description:
-            - Comma separated IPs to notify for catalog updates (Catalog only).
+            - Comma separated IPs to notify for catalog updates (Catalog only)
+        required: false
+        type: str
+    overrideCatalogNotify:
+        description:
+            - Override Notify option in the Catalog zone (Primary, Forwarder only)
+        required: false
+        type: bool
+    overrideCatalogQueryAccess:
+        description:
+            - Override Query Access option in the Catalog zone (Primary, Stub, Forwarder only)
+        required: false
+        type: bool
+    overrideCatalogZoneTransfer:
+        description:
+            - Override Zone Transfer option in the Catalog zone (Primary, Forwarder only)
+        required: false
+        type: bool
+    primaryNameServerAddresses:
+        description:
+            - Comma separated IPs or names of the primary name server (Secondary, SecondaryForwarder, SecondaryCatalog, Stub only)
+        required: false
+        type: str
+    primaryZoneTransferProtocol:
+        description:
+            - Zone transfer protocol (Secondary, SecondaryForwarder, SecondaryCatalog only)
+        required: false
+        type: str
+        choices: [Tcp, Tls, Quic]
+    primaryZoneTransferTsigKeyName:
+        description:
+            - TSIG key name for zone transfer (Secondary, SecondaryForwarder, SecondaryCatalog only)
+        required: false
+        type: str
+    queryAccess:
+        description:
+            - Query access policy
+        required: false
+        type: str
+        choices: [Deny, Allow, AllowOnlyPrivateNetworks, AllowOnlyZoneNameServers, UseSpecifiedNetworkACL, AllowZoneNameServersAndUseSpecifiedNetworkACL]
+    queryAccessNetworkACL:
+        description:
+            - Comma separated ACL for query access (not SecondaryCatalog, only with certain queryAccess set)
         required: false
         type: str
     update:
         description:
-            - Allow dynamic updates (Primary, Secondary, Forwarder). [Deny, Allow, AllowOnlyZoneNameServers, UseSpecifiedNetworkACL, AllowZoneNameServersAndUseSpecifiedNetworkACL]
+            - Allow dynamic updates
         required: false
         type: str
         choices: [Deny, Allow, AllowOnlyZoneNameServers, UseSpecifiedNetworkACL, AllowZoneNameServersAndUseSpecifiedNetworkACL]
     updateNetworkACL:
         description:
-            - Comma separated ACL for update (Primary, Secondary, Forwarder, with certain update).
+            - Comma separated ACL for update (Primary, Secondary, Forwarder, with certain update set)
         required: false
         type: str
     updateSecurityPolicies:
         description:
-            - Pipe separated table of security policies (Primary, Forwarder only).
+            - Pipe separated table of security policies (Primary, Forwarder only)
+        required: false
+        type: str
+    validate_certs:
+        description:
+            - Whether to validate SSL certificates when making API requests.
+        required: false
+        type: bool
+        default: true
+    validateZone:
+        description:
+            - Enable ZONEMD validation (Secondary only).
+        required: false
+        type: bool
+    zone:
+        description:
+            - The domain name of the zone to set options for.
+        required: true
+        type: str
+    zoneTransfer:
+        description:
+            - Zone transfer policy (Primary, Secondary only)
+        required: false
+        type: str
+        choices: [Deny, Allow, AllowOnlyZoneNameServers, UseSpecifiedNetworkACL, AllowZoneNameServersAndUseSpecifiedNetworkACL]
+    zoneTransferNetworkACL:
+        description:
+            - Comma separated ACL for zone transfer (Primary, Secondary, Forwarder, Catalog only, with certain zoneTransfer set).
+        required: false
+        type: str
+    zoneTransferTsigKeyNames:
+        description:
+            - Comma separated TSIG key names for zone transfer (Primary, Secondary, Forwarder, Catalog only)
         required: false
         type: str
 '''
 
 EXAMPLES = r'''
-- name: Set options for example.com zone
+- name: Set basic options for primary zone
   technitium_dns_set_zone_options:
     api_url: "http://localhost"
     api_token: "myapitoken"
@@ -157,10 +170,109 @@ EXAMPLES = r'''
     disabled: false
     zoneTransfer: Allow
     notify: ZoneNameServers
-  register: result
 
-- debug:
-    var: result
+- name: Configure primary zone with restricted access and TSIG keys
+  technitium_dns_set_zone_options:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    zone: "secure.example.com"
+    queryAccess: UseSpecifiedNetworkACL
+    queryAccessNetworkACL: "192.168.1.0/24,10.0.0.0/8"
+    zoneTransfer: AllowOnlyZoneNameServers
+    zoneTransferTsigKeyNames: "key1.example.com,key2.example.com"
+    update: UseSpecifiedNetworkACL
+    updateNetworkACL: "192.168.1.100/32"
+
+- name: Set up secondary zone with custom primary servers
+  technitium_dns_set_zone_options:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    zone: "secondary.example.com"
+    primaryNameServerAddresses: "192.168.1.10,192.168.1.11"
+    primaryZoneTransferProtocol: Tls
+    primaryZoneTransferTsigKeyName: "transfer.key"
+    validateZone: true
+    notify: SpecifiedNameServers
+    notifyNameServers: "192.168.1.20,192.168.1.21"
+
+- name: Configure catalog zone with notification settings
+  technitium_dns_set_zone_options:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    zone: "catalog.example.com"
+    zoneTransfer: UseSpecifiedNetworkACL
+    zoneTransferNetworkACL: "192.168.2.0/24"
+    notify: SeparateNameServersForCatalogAndMemberZones
+    notifySecondaryCatalogsNameServers: "192.168.2.10,192.168.2.11"
+
+- name: Set update security policies for primary zone
+  technitium_dns_set_zone_options:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    zone: "dynamic.example.com"
+    update: UseSpecifiedNetworkACL
+    updateNetworkACL: "192.168.3.0/24"
+    updateSecurityPolicies: "update.key|dynamic.example.com|A,AAAA|update.key|*.dynamic.example.com|ANY"
+
+- name: Configure zone as catalog member with overrides
+  technitium_dns_set_zone_options:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    zone: "member.example.com"
+    catalog: "catalog.example.com"
+    overrideCatalogQueryAccess: true
+    overrideCatalogZoneTransfer: true
+    queryAccess: AllowOnlyPrivateNetworks
+    zoneTransfer: Deny
+'''
+
+RETURN = r'''
+api_response:
+    description: Complete raw API response from Technitium DNS
+    type: dict
+    returned: always
+    contains:
+        response:
+            description: The API response payload (empty dict for successful set operations)
+            type: dict
+            returned: always
+            sample: "{}"
+        status:
+            description: API response status
+            type: str
+            returned: always
+            sample: "ok"
+changed:
+    description: Whether the module made changes
+    type: bool
+    returned: always
+    sample: true
+diff:
+    description: Dictionary showing what changed, with current and desired values
+    type: dict
+    returned: when changes are made
+    sample: {
+        "zoneTransfer": {
+            "current": "AllowOnlyZoneNameServers",
+            "desired": "Allow"
+        },
+        "zoneTransferNetworkACL": {
+            "current": [],
+            "desired": [
+                "192.168.2.0/24"
+            ]
+        }
+    }
+failed:
+    description: Whether the module failed
+    type: bool
+    returned: always
+    sample: false
+msg:
+    description: Human readable message describing the result
+    type: str
+    returned: always
+    sample: "Zone options set successfully."
 '''
 
 class SetZoneOptionsModule(TechnitiumModule):
@@ -332,7 +444,6 @@ class SetZoneOptionsModule(TechnitiumModule):
                 changed=True,
                 msg="(check mode) Zone options would be updated.",
                 diff=diff,
-                debug=debug_info,
                 api_response={"status": "ok", "check_mode": True, "zone": zone}
             )
 
@@ -368,13 +479,9 @@ class SetZoneOptionsModule(TechnitiumModule):
             changed=True,
             msg="Zone options set successfully.",
             diff=diff,
-            debug=debug_info,
             api_response=data
         )
 
-def main():
-    module = SetZoneOptionsModule()
-    module()
-
 if __name__ == '__main__':
-    main()
+    module = SetZoneOptionsModule()
+    module.run()
