@@ -10,68 +10,58 @@ module: technitium_dns_get_zone_info
 short_description: Get DNS zone(s) from Technitium DNS server
 version_added: "0.0.1"
 description:
-    - Retrieve all DNS zones, or filter by zone type and/or name, from a Technitium DNS server using its API.
+    - Retrieve all DNS zones, or filter by zone type and/or name, from a Technitium DNS server.
     - Returns a subset of zone information compared to `technitium_dns_get_zone_options`
 author:
     - Frank Muise (@effectivelywild)
+seealso:
+  - module: effectivelywild.technitium_dns.technitium_dns_create_zone
+    description: Creates DNS Zones
+  - module: effectivelywild.technitium_dns.technitium_dns_delete_zone
+    description: Deletes DNS Zones
+  - module: effectivelywild.technitium_dns.technitium_dns_sign_zone
+    description: Sign a zone with DNSSEC
+  - module: effectivelywild.technitium_dns.technitium_dns_get_zone_options
+    description: Get all configured zone options
+  - module: effectivelywild.technitium_dns.technitium_dns_set_zone_options
+    description: Set zone options
+  - module: effectivelywild.technitium_dns.technitium_dns_disable_zone
+    description: Disable a zone
 options:
-    api_url:
-        description:
-            - Base URL for the Technitium DNS API (e.g., http://localhost)
-            - Do not include the port; use the 'port' parameter instead.
-        required: true
-        type: str
     api_port:
         description:
-            - Port for the Technitium DNS API. Defaults to 5380.
+            - Port for the Technitium DNS API. Defaults to 5380
         required: false
         type: int
         default: 5380
     api_token:
         description:
-            - API token for authenticating with the Technitium DNS API.
+            - API token for authenticating with the Technitium DNS API
+        required: true
+        type: str
+    api_url:
+        description:
+            - Base URL for the Technitium DNS API
         required: true
         type: str
     validate_certs:
         description:
             - Whether to validate SSL certificates when making API requests.
-            - Set to false to disable SSL certificate validation (not recommended for production).
         required: false
         type: bool
         default: true
     zone:
         description:
-            - (Optional) The DNS zone to retrieve information for. If not specified, all zones are returned.
+            - The DNS zone to retrieve information for. If not specified, all zones are returned.
         required: false
         type: str
     zone_type:
         description:
-            - (Optional) Filter zones by type (e.g., Primary, Forwarder, Secondary, Catalog, etc). If not specified, all zones are returned.
+            - Filter zones by type.
         required: false
         type: str
         choices: [Primary, Forwarder, SecondaryForwarder, Stub, Secondary, Catalog, SecondaryCatalog, SecondaryROOT]
-notes:
-    - Example of data returned from a unsigned Primary zone:
-
-        `"primary_zone_result": {
-            "changed": false,
-            "failed": false,
-            "zone": {
-                "catalog": null,
-                "disabled": false,
-                "dnssecStatus": "Unsigned",
-                "internal": false,
-                "lastModified": "2025-08-23T16:44:21.1647605Z",
-                "name": "primary.example.com",
-                "notifyFailed": false,
-                "notifyFailedFor": [],
-                "soaSerial": 1,
-                "type": "Primary"
-            }
-        }`
-
 '''
-
 
 EXAMPLES = r'''
 - name: Get all zones from Technitium DNS
@@ -94,16 +84,88 @@ EXAMPLES = r'''
 - debug:
     var: result.zones
 
-- name: Get a specific Forwarder zone from Technitium DNS
+- name: Get a specific zone from Technitium DNS
   technitium_dns_get_zone_info:
     api_url: "http://localhost"
     api_token: "myapitoken"
     zone: "example.com"
-    zone_type: Forwarder
   register: result
 
 - debug:
     var: result.zone
+'''
+
+RETURN = r'''
+zone:
+    description: Zone information when requesting a specific zone
+    type: dict
+    returned: when zone parameter is provided
+    contains:
+        catalog:
+            description: Catalog zone association (null if not part of catalog)
+            type: str
+            returned: always
+            sample: null
+        disabled:
+            description: Whether the zone is disabled
+            type: bool
+            returned: always
+            sample: false
+        dnssecStatus:
+            description: DNSSEC status of the zone
+            type: str
+            returned: always
+            sample: "Unsigned"
+        internal:
+            description: Whether the zone is internal
+            type: bool
+            returned: always
+            sample: false
+        lastModified:
+            description: When the zone was last modified (ISO 8601 format)
+            type: str
+            returned: always
+            sample: "2025-09-04T17:26:31.5111735Z"
+        name:
+            description: Zone name/domain
+            type: str
+            returned: always
+            sample: "demo.test.local"
+        notifyFailed:
+            description: Whether zone notification failed
+            type: bool
+            returned: always
+            sample: false
+        notifyFailedFor:
+            description: List of hosts for which notification failed
+            type: list
+            returned: always
+            sample: []
+        soaSerial:
+            description: SOA serial number of the zone
+            type: int
+            returned: always
+            sample: 2025090400
+        type:
+            description: Zone type
+            type: str
+            returned: always
+            sample: "Primary"
+
+zones:
+    description: List of zones when requesting all zones or filtering by type, returns same values as zone, see above for details.
+    type: list
+    returned: when zone parameter is not provided
+changed:
+    description: Whether the module made changes (always false for get operations)
+    type: bool
+    returned: always
+    sample: false
+failed:
+    description: Whether the module failed
+    type: bool
+    returned: always
+    sample: false
 '''
 
 

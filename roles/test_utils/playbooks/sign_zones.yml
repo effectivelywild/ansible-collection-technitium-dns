@@ -37,6 +37,30 @@
       debug:
         var: create_zone_result
 
+    - name: "Get zone info"
+      effectivelywild.technitium_dns.technitium_dns_get_zone_info:
+        api_url: "{{ technitium_api_url }}"
+        api_token: "{{ technitium_api_token }}"
+        api_port: "{{ technitium_api_port }}"
+        zone: "{{ test_zone_name }}"
+      register: get_zone_info
+
+    - name: debug get_zone_info
+      debug:
+        var: get_zone_info
+
+    - name: "Get zones info"
+      effectivelywild.technitium_dns.technitium_dns_get_zone_info:
+        api_url: "{{ technitium_api_url }}"
+        api_token: "{{ technitium_api_token }}"
+        api_port: "{{ technitium_api_port }}"
+      register: get_zones_info
+
+    - name: debug get_zone_info
+      debug:
+        var: get_zones_info
+
+
     - name: "Sign the zone with NSEC3"
       effectivelywild.technitium_dns.technitium_dns_sign_zone:
         api_url: "{{ technitium_api_url }}"
