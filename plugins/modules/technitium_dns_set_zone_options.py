@@ -357,6 +357,48 @@ class SetZoneOptionsModule(TechnitiumModule):
         supports_check_mode=True
     )
 
+    def _normalize_value(self, key, value):
+        """Normalize a value for comparison purposes."""
+        list_like_fields = [
+            'queryAccessNetworkACL', 'primaryNameServerAddresses', 'zoneTransferNetworkACL',
+            'zoneTransferTsigKeyNames', 'notifyNameServers', 'notifySecondaryCatalogsNameServers',
+            'updateNetworkACL'
+        ]
+        
+        # Handle None/empty values
+        if value in [None, "", []]:
+            return [] if key in list_like_fields or key == 'updateSecurityPolicies' else None
+            
+        # Normalize booleans to lowercase strings
+        if isinstance(value, bool):
+            return str(value).lower()
+            
+        # Normalize list-like fields
+        if key in list_like_fields:
+            if isinstance(value, list):
+                return sorted([str(x) for x in value])
+            elif isinstance(value, str):
+                return sorted([x.strip() for x in value.split(",") if x.strip()])
+            else:
+                return sorted([str(value)])
+                
+        # Normalize updateSecurityPolicies
+        if key == 'updateSecurityPolicies':
+            if not isinstance(value, list):
+                return []
+            normalized_policies = []
+            for policy in value:
+                if isinstance(policy, dict):
+                    normalized_policy = dict(policy)
+                    if 'allowedTypes' in normalized_policy and isinstance(normalized_policy['allowedTypes'], list):
+                        normalized_policy['allowedTypes'] = sorted(normalized_policy['allowedTypes'])
+                    normalized_policies.append(normalized_policy)
+                else:
+                    normalized_policies.append(policy)
+            return sorted(normalized_policies, key=lambda x: (x.get('tsigKeyName', ''), x.get('domain', '')))
+            
+        return value
+
     def run(self):
         params = self.params
         zone = params['zone']
@@ -387,7 +429,7 @@ class SetZoneOptionsModule(TechnitiumModule):
                 if params[param] is not None and param not in allowed_params[zone_type]:
                     self.fail_json(msg=f"Parameter '{param}' is not supported for zone type '{zone_type}'.")
 
-        # 2. Build desired state dict (for comparison, keep lists as lists)
+        # 2. Build desired state dict and validate user inputs
         desired = {}
         list_like_fields = [
             'queryAccessNetworkACL', 'primaryNameServerAddresses', 'zoneTransferNetworkACL',
@@ -402,64 +444,25 @@ class SetZoneOptionsModule(TechnitiumModule):
             'notify', 'notifyNameServers', 'notifySecondaryCatalogsNameServers', 'update', 'updateNetworkACL', 'updateSecurityPolicies']:
             value = params.get(key)
             if value is not None:
-                if isinstance(value, bool):
-                    value = str(value).lower()
-                # For list-like fields, ensure they are lists
+                # Validate input types before storing
                 if key in list_like_fields:
                     if not isinstance(value, list):
                         self.fail_json(msg=f"Parameter '{key}' must be a list, got {type(value).__name__}")
-                # For updateSecurityPolicies, validate it's already a proper list of dicts
                 if key == 'updateSecurityPolicies':
                     if not isinstance(value, list):
                         self.fail_json(msg=f"Parameter '{key}' must be a list of dict, got {type(value).__name__}")
+                # Store raw value - normalization happens during comparison
                 desired[key] = value
 
-        # 3. Compare current vs desired (normalize, build diff for idempotency)
+        # 3. Compare current vs desired using normalization helper
         diff = {}
         for k, v in desired.items():
             current_val = current.get(k)
-            # Normalize booleans to string for comparison
-            if isinstance(current_val, bool):
-                current_val = str(current_val).lower()
-            if isinstance(v, bool):
-                v = str(v).lower()
-            # Compare list-like fields as sorted lists
-            if k in list_like_fields:
-                def to_list(val):
-                    if val is None or val == "":
-                        return []
-                    if isinstance(val, list):
-                        return [str(x) for x in val]
-                    # Current API values might still be strings - handle for comparison only
-                    if isinstance(val, str):
-                        return [x.strip() for x in val.split(",") if x.strip()]
-                    return [str(val)]
-                current_list = sorted(to_list(current_val))
-                desired_list = sorted(to_list(v))
-                if current_list != desired_list:
-                    diff[k] = {'current': current_list, 'desired': desired_list}
-                continue
-            # Special handling for updateSecurityPolicies: compare as list of dicts
-            if k == 'updateSecurityPolicies':
-                def canonicalize_policy(policy):
-                    # Sort allowedTypes for comparison
-                    if isinstance(policy, dict):
-                        c = dict(policy)
-                        if 'allowedTypes' in c and isinstance(c['allowedTypes'], list):
-                            c['allowedTypes'] = sorted(c['allowedTypes'])
-                        return c
-                    return policy
-                current_policies = [canonicalize_policy(x) for x in (current_val or [])]
-                desired_policies = [canonicalize_policy(x) for x in (v or [])]
-                if sorted(current_policies, key=lambda x: (x.get('tsigKeyName'), x.get('domain'))) != \
-                   sorted(desired_policies, key=lambda x: (x.get('tsigKeyName'), x.get('domain'))):
-                    diff[k] = {'current': current_policies, 'desired': desired_policies}
-                continue
-            # Treat None, empty string, and empty list as equivalent for unset fields
-            if current_val in [None, "", []] and v in [None, "", []]:
-                continue
-            if current_val != v:
-                diff[k] = {'current': current_val, 'desired': v}
+            normalized_current = self._normalize_value(k, current_val)
+            normalized_desired = self._normalize_value(k, v)
+            
+            if normalized_current != normalized_desired:
+                diff[k] = {'current': normalized_current, 'desired': normalized_desired}
 
         if not diff:
             self.exit_json(changed=False, msg="Zone options already match desired state.")
