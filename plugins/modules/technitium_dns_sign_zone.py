@@ -8,26 +8,104 @@ DOCUMENTATION = r'''
 ---
 module: technitium_dns_sign_zone
 short_description: Sign a primary DNS zone with DNSSEC using Technitium DNS API
-version_added: "1.0.0"
+version_added: "0.0.1"
+author: Frank Muise (@effectivelywild)
+requirements:
+  - requests
 description:
   - Signs a primary DNS zone with DNSSEC using the Technitium DNS API.
   - Will not update DNSSEC properties once intially signed.
-  - Idempotency achieved by checking if the zone is already signed, not that all parameters match.
+seealso:
+  - module: effectivelywild.technitium_dns.technitium_dns_unsign_zone
+    description: Unsign a zone with DNSSEC
+  - module: effectivelywild.technitium_dns.technitium_dns_convert_to_nsec
+    description: Convert signed zone from NSEC to NSEC3
+  - module: effectivelywild.technitium_dns.technitium_dns_convert_to_nsec3
+    description: Convert signed zone from NSEC3 to NSEC
+  - module: effectivelywild.technitium_dns.technitium_dns_get_dnssec_properties
+    description: Get dnssec properties for a zone
 options:
-  api_url:
+  algorithm:
     description:
-      - Base URL for the Technitium DNS API (e.g., http://localhost:5380)
+      - The algorithm to use for signing
     required: true
     type: str
+    choices: [RSA, ECDSA, EDDSA]
+  api_port:
+      description:
+          - Port for the Technitium DNS API. Defaults to 5380
+      required: false
+      type: int
+      default: 5380
   api_token:
     description:
       - API token for authentication
     required: true
     type: str
+  api_url:
+    description:
+      - Base URL for the Technitium DNS API
+    required: true
+    type: str
+  curve:
+    description:
+      - The name of the curve to be used when using V(ECDSA) or V(EDDSA) O(algorithm)
+      - Use V(P256) or  V(P384) for V(ECDSA) O(algorithm)
+      - Use V(ED25519) or V(ED448) for V(EDDSA) O(algorithm)
+    required: false
+    type: str
+    choices: [P256, P384, ED25519, ED448]
+  dnsKeyTtl:
+    description:
+      - TTL for DNSKEY records
+    default: 86400
+    required: false
+    type: int
+  hashAlgorithm:
+    description:
+      - The hash algorithm to be used when using V(RSA) O(algorithm)
+    required: false
+    type: str
+    choices: [MD5, SHA1, SHA256, SHA512]
+  iterations:
+    description:
+      - NSEC3 iterations
+    default: 0
+    required: false
+    type: int
+  kskKeySize:
+    description:
+      - The size of the Key Signing Key (KSK) in bits to be used when using V(RSA) O(algorithm)
+    required: false
+    type: int
+  nxProof:
+    description:
+      - Proof of non-existence
+    required: false
+    default: NSEC
+    type: str
+    choices: [NSEC, NSEC3]
+  pemKskPrivateKey:
+    description:
+      - PEM private key for KSK
+      - When this parameter is specified, the private key specified is used instead of automatically generating it.
+    required: false
+    type: str
+  pemZskPrivateKey:
+    description:
+      - PEM private key for ZSK
+      - When this parameter is specified, the private key specified is used instead of automatically generating it.
+    required: false
+    type: str
+  saltLength:
+    description:
+      - NSEC3 salt length
+    default: 0
+    required: false
+    type: int
   validate_certs:
     description:
       - Whether to validate SSL certificates when making API requests.
-      - Set to false to disable SSL certificate validation (not recommended for production).
     required: false
     type: bool
     default: true
@@ -36,74 +114,17 @@ options:
       - The name of the primary zone to sign
     required: true
     type: str
-  algorithm:
-    description:
-      - The algorithm to use for signing (RSA, ECDSA, EDDSA)
-    required: true
-    type: str
-    choices: [RSA, ECDSA, EDDSA]
-  pemKskPrivateKey:
-    description:
-      - PEM private key for KSK (optional)
-    required: false
-    type: str
-  pemZskPrivateKey:
-    description:
-      - PEM private key for ZSK (optional)
-    required: false
-    type: str
-  hashAlgorithm:
-    description:
-      - Hash algorithm for RSA (optional)
-    required: false
-    type: str
-    choices: [MD5, SHA1, SHA256, SHA512]
-  kskKeySize:
-    description:
-      - KSK key size for RSA (optional)
-    required: false
-    type: int
   zskKeySize:
     description:
-      - ZSK key size for RSA (optional)
-    required: false
-    type: int
-  curve:
-    description:
-      - Curve for ECDSA/EDDSA (optional)
-    required: false
-    type: str
-    choices: [P256, P384, ED25519, ED448]
-  dnsKeyTtl:
-    description:
-      - TTL for DNSKEY records (optional)
+      - The size of the Zone Signing Key (ZSK) in bits to be used when using V(RSA) O(algorithm)
     required: false
     type: int
   zskRolloverDays:
     description:
-      - ZSK rollover frequency in days (optional)
+      - ZSK rollover frequency in days
+    default: 30
     required: false
     type: int
-  nxProof:
-    description:
-      - Proof of non-existence (NSEC, NSEC3)
-    required: false
-    type: str
-    choices: [NSEC, NSEC3]
-  iterations:
-    description:
-      - NSEC3 iterations (optional)
-    required: false
-    type: int
-  saltLength:
-    description:
-      - NSEC3 salt length (optional)
-    required: false
-    type: int
-requirements:
-  - requests
-author:
-  - Your Name (@yourgithub)
 '''
 
 EXAMPLES = r'''
@@ -119,6 +140,32 @@ EXAMPLES = r'''
     nxProof: "NSEC3"
     iterations: 0
     saltLength: 0
+
+- name: Sign a zone with RSA algorithm and custom key sizes
+  technitium_dns_sign_zone:
+    api_url: "http://localhost:5380"
+    api_token: "{{ technitium_api_token }}"
+    zone: "secure.example.com"
+    algorithm: "RSA"
+    hashAlgorithm: "SHA256"
+    kskKeySize: 2048
+    zskKeySize: 1024
+    dnsKeyTtl: 3600
+    zskRolloverDays: 90
+    nxProof: "NSEC"
+
+- name: Sign a zone with EDDSA and custom NSEC3 parameters
+  technitium_dns_sign_zone:
+    api_url: "http://localhost:5380"
+    api_token: "{{ technitium_api_token }}"
+    zone: "modern.example.com"
+    algorithm: "EDDSA"
+    curve: "ED25519"
+    dnsKeyTtl: 172800
+    zskRolloverDays: 60
+    nxProof: "NSEC3"
+    iterations: 10
+    saltLength: 8
 '''
 
 RETURN = r'''

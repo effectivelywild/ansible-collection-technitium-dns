@@ -20,6 +20,10 @@ seealso:
     description: Convert signed zone from NSEC to NSEC3
   - module: effectivelywild.technitium_dns.technitium_dns_sign_zone
     description: Sign a zone with DNSSEC
+  - module: effectivelywild.technitium_dns.technitium_dns_unsign_zone
+    description: Unsign a zone with DNSSEC
+  - module: effectivelywild.technitium_dns.technitium_dns_get_dnssec_properties
+    description: Get dnssec properties for a zone
 options:
   api_port:
       description:
