@@ -107,6 +107,18 @@
       debug:
         var: sign_nsec3_result
 
+    - name: Get DNSSEC Properties
+      technitium_dns_get_dnssec_properties:
+        api_url: "{{ technitium_api_url }}"
+        api_token: "{{ technitium_api_token }}"
+        api_port: "{{ technitium_api_port }}"
+        zone: "{{ test_zone_name }}"
+      register: dnssec_properties
+
+    - name: Debug dnssec_properties
+      debug:
+        var: dnssec_properties
+
     - name: "Convert zone from NSEC3 to NSEC"
       effectivelywild.technitium_dns.technitium_dns_convert_to_nsec:
         api_url: "{{ technitium_api_url }}"
