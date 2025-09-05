@@ -94,14 +94,15 @@ EXAMPLES = r'''
   register: result
 
 - debug:
-    var: result.zone
+    var: result.zones
 '''
 
 RETURN = r'''
-zone:
-    description: Zone information when requesting a specific zone
-    type: dict
-    returned: when zone parameter is provided
+zones:
+    description: List of zones (always returned as a list, even for single zone requests)
+    type: list
+    returned: always
+    elements: dict
     contains:
         catalog:
             description: Catalog zone association (null if not part of catalog)
@@ -153,11 +154,6 @@ zone:
             type: str
             returned: always
             sample: "Primary"
-
-zones:
-    description: List of zones when requesting all zones or filtering by type, returns same values as zone, see above for details.
-    type: list
-    returned: when zone parameter is not provided
 changed:
     description: Whether the module made changes (always false for get operations)
     type: bool
@@ -175,7 +171,7 @@ class GetZoneInfoModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
         zone=dict(type='str', required=False),
-        zone_type=dict(type='str', required=False, choices=['Primary', 'Forwarder', 'SecondaryForwarder', 'Stub', 'Secondary', 'Catalog', 'SecondaryCatalog'])
+        zone_type=dict(type='str', required=False, choices=['Primary', 'Forwarder', 'SecondaryForwarder', 'Stub', 'Secondary', 'Catalog', 'SecondaryCatalog', 'SecondaryROOT'])
     )
     module_kwargs = dict(
         supports_check_mode=True
@@ -203,8 +199,8 @@ class GetZoneInfoModule(TechnitiumModule):
             # Find the specific zone in the filtered list
             zone = next((z for z in zones if z.get('name') == zone_name), None)
             if zone is None:
-                self.fail_json(msg=f"Zone '{zone_name}' not found", api_response={'status': 'error', 'msg': f"Zone '{zone_name}' not found"})
-            self.exit_json(changed=False, zone=zone)
+                self.fail_json(msg=f"Zone '{zone_name}' not found")
+            self.exit_json(changed=False, zones=[zone])
         else:
             # Return all zones (optionally filtered by type)
             self.exit_json(changed=False, zones=zones)

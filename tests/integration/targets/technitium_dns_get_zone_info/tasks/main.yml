@@ -87,7 +87,7 @@
 
 # Phase 3: Individual Zone Info Retrieval Testing
 - name: "Get zone information for each individual test zone"
-  technitium.dns.technitium_dns_get_zone_info:
+  technitium_dns_get_zone_info:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port }}"
@@ -107,17 +107,18 @@
 - name: "Assert zone info retrieval succeeded"
   assert:
     that:
-      - zone_result.zone is defined
-      - zone_result.zone.name == zone_result.zone_item.zone
-      - zone_result.zone.type == zone_result.zone_item.type
+      - zone_result.zones is defined
+      - zone_result.zones | length == 1
+      - zone_result.zones[0].name == zone_result.zone_item.zone
+      - zone_result.zones[0].type == zone_result.zone_item.type
     quiet: true
   loop: "{{ individual_zone_results.results }}"
   loop_control:
     loop_var: zone_result
-    label: "{{ zone_result.zone.name }} ({{ zone_result.zone.type }})"
+    label: "{{ zone_result.zones[0].name }} ({{ zone_result.zones[0].type }})"
 
 - name: "Get all Primary zones using zone_type filter"
-  technitium.dns.technitium_dns_get_zone_info:
+  technitium_dns_get_zone_info:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port }}"
@@ -141,7 +142,7 @@
     label: "{{ zone_result.name }} ({{ zone_result.type }})"
 
 - name: "Get all Forwarder zones using zone_type filter"
-  technitium.dns.technitium_dns_get_zone_info:
+  technitium_dns_get_zone_info:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port }}"
@@ -165,7 +166,7 @@
     label: "{{ zone_result.name }} ({{ zone_result.type }})"
 
 - name: "Get all Secondary zones using zone_type filter"
-  technitium.dns.technitium_dns_get_zone_info:
+  technitium_dns_get_zone_info:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port }}"
@@ -189,7 +190,7 @@
     label: "{{ zone_result.name }} ({{ zone_result.type }})"
 
 - name: "Get all Stub zones using zone_type filter"
-  technitium.dns.technitium_dns_get_zone_info:
+  technitium_dns_get_zone_info:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port }}"
@@ -213,7 +214,7 @@
     label: "{{ zone_result.name }} ({{ zone_result.type }})"
 
 - name: "Get all Catalog zones using zone_type filter"
-  technitium.dns.technitium_dns_get_zone_info:
+  technitium_dns_get_zone_info:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port }}"
@@ -237,7 +238,7 @@
     label: "{{ zone_result.name }} ({{ zone_result.type }})"
 
 - name: "Get all SecondaryForwarder zones using zone_type filter"
-  technitium.dns.technitium_dns_get_zone_info:
+  technitium_dns_get_zone_info:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port }}"
@@ -261,7 +262,7 @@
     label: "{{ zone_result.name }} ({{ zone_result.type }})"
 
 - name: "Get all SecondaryCatalog zones using zone_type filter"
-  technitium.dns.technitium_dns_get_zone_info:
+  technitium_dns_get_zone_info:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port }}"
@@ -285,7 +286,7 @@
     label: "{{ zone_result.name }} ({{ zone_result.type }})"
 
 - name: "Test getting all zones (no filters)"
-  technitium.dns.technitium_dns_get_zone_info:
+  technitium_dns_get_zone_info:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port }}"
@@ -318,7 +319,7 @@
   when: debug | default(false)
 
 - name: "Verify zone info retrieval for signed zones"
-  technitium.dns.technitium_dns_get_zone_info:
+  technitium_dns_get_zone_info:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port }}"
@@ -338,17 +339,19 @@
 - name: "Verify DNSSEC zones show correct signing status"
   assert:
     that:
-      - dnssec_zone_result.zone.dnssecStatus == dnssec_zone_result.dnssec_zone.dnssecStatus
-      - dnssec_zone_result.zone.type == 'Primary'
+      - dnssec_zone_result.zones is defined
+      - dnssec_zone_result.zones | length == 1
+      - dnssec_zone_result.zones[0].dnssecStatus == dnssec_zone_result.dnssec_zone.dnssecStatus
+      - dnssec_zone_result.zones[0].type == 'Primary'
     quiet: true
   loop: "{{ dnssec_zone_results.results }}"
   loop_control:
     loop_var: dnssec_zone_result
-    label: "{{ dnssec_zone_result.zone.name }}"
+    label: "{{ dnssec_zone_result.zones[0].name }}"
 
 # Phase 4: Failure Testing
 - name: "Test zone info retrieval for non-existent zones"
-  technitium.dns.technitium_dns_get_zone_info:
+  technitium_dns_get_zone_info:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port }}"
@@ -363,7 +366,7 @@
       - nonexistent_zone_results is failed
 
 - name: "Test invalid API token"
-  technitium.dns.technitium_dns_get_zone_info:
+  technitium_dns_get_zone_info:
     api_url: "{{ technitium_api_url }}"
     api_token: "invalid_token_12345"
     api_port: "{{ technitium_api_port }}"
