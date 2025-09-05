@@ -8,7 +8,7 @@ DOCUMENTATION = r'''
 ---
 module: technitium_dns_add_record
 short_description: Add a DNS record
-version_added: "0.0.1"
+version_added: "0.1.0"
 author: Frank Muise (@effectivelywild)
 requirements:
   - requests

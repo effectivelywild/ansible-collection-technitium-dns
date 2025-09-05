@@ -8,7 +8,7 @@ DOCUMENTATION = r'''
 ---
 module: technitium_dns_convert_to_nsec3
 short_description: Convert a signed DNS zone from NSEC to NSEC3
-version_added: "0.0.1"
+version_added: "0.1.0"
 author: Frank Muise (@effectivelywild)
 requirements:
   - requests

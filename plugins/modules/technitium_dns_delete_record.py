@@ -8,7 +8,7 @@ DOCUMENTATION = r'''
 ---
 module: technitium_dns_delete_record
 short_description: Delete a DNS record
-version_added: "0.0.1"
+version_added: "0.1.0"
 description:
     - Delete a a DNS record to a Technitium DNS zone.
     - You must include the record parameters when deleting a record.

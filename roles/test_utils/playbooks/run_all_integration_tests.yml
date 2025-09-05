@@ -64,8 +64,14 @@
 - name: Include technitium_dns_convert_nsec
   ansible.builtin.import_playbook: run_dns_convert_to_nsec_integration_test.yml
 
+- name: Cleanup
+  ansible.builtin.import_playbook: delete_all_zones.yml
+
 - name: Include technitium_dns_convert_nsec3
   ansible.builtin.import_playbook: run_dns_convert_to_nsec3_integration_test.yml
+
+- name: Cleanup
+  ansible.builtin.import_playbook: delete_all_zones.yml
 
 - name: Include technitium_dns_enable_zone
   ansible.builtin.import_playbook: run_dns_enable_zone_integration_test.yml
@@ -78,3 +84,6 @@
 
 - name: Cleanup
   ansible.builtin.import_playbook: delete_all_zones.yml
+
+- name: Include run_dns_get_dnssec_properties_integration_test
+  ansible.builtin.import_playbook: run_dns_get_dnssec_properties_integration_test.yml

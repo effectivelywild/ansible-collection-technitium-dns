@@ -8,7 +8,7 @@ DOCUMENTATION = r'''
 ---
 module: technitium_dns_disable_zone
 short_description: Disable a DNS zone
-version_added: "0.0.1"
+version_added: "0.1.0"
 author: Frank Muise (@effectivelywild)
 description:
     - Disable a DNS zone, this will prevent the DNS server from responding to queries for this zone.

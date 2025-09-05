@@ -8,7 +8,7 @@ DOCUMENTATION = r'''
 ---
 module: technitium_dns_get_dnssec_properties
 short_description: Get DNSSEC properties for a primary zone
-version_added: "0.0.1"
+version_added: "0.1.0"
 author: Frank Muise (@effectivelywild)
 description:
     - Retrieve DNSSEC properties for a signed zone.

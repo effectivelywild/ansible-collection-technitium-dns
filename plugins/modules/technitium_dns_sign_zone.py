@@ -8,7 +8,7 @@ DOCUMENTATION = r'''
 ---
 module: technitium_dns_sign_zone
 short_description: Sign a DNS zone
-version_added: "0.0.1"
+version_added: "0.1.0"
 author: Frank Muise (@effectivelywild)
 requirements:
   - requests

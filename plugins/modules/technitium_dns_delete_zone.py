@@ -8,7 +8,7 @@ DOCUMENTATION = r'''
 ---
 module: technitium_dns_delete_zone
 short_description: Delete a DNS zone
-version_added: "0.0.1"
+version_added: "0.1.0"
 author: Frank Muise (@effectivelywild)
 description:
     - Delete a DNS zone in Technitium DNS server using its API.
