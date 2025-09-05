@@ -1,9 +1,7 @@
 ---
 name: Test Ansible Collection
 
-# When should this run?
-on:
-  push:                    # Every time you push code
+on:                    
   pull_request:           # Every time someone makes a PR
   workflow_dispatch:      # Manual trigger button in GitHub
 
