@@ -1,0 +1,70 @@
+---
+name: Test Single Module
+
+# This only runs when you manually trigger it
+on:
+  workflow_dispatch:
+    inputs:
+      module_name:
+        description: 'Which module to test?'
+        required: true
+        type: choice
+        options:
+          - technitium_dns_create_zone
+          - technitium_dns_add_record
+          - technitium_dns_delete_record
+          - technitium_dns_get_record
+          - technitium_dns_update_record
+          - technitium_dns_delete_zone
+          - technitium_dns_get_zone_info
+
+jobs:
+  test-single:
+    runs-on: ubuntu-latest
+    
+    steps:
+    # Same setup as main test
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+    
+    - name: Install dependencies
+      run: pip install ansible docker requests urllib3
+    
+    - name: Build and install collection
+      run: |
+        ansible-galaxy collection build .
+        ansible-galaxy collection install effectivelywild-technitium_dns-*.tar.gz
+    
+    - name: Start test servers and get API tokens
+      run: |
+        cd ~/.ansible/collections/ansible_collections/effectivelywild/technitium_dns
+        ansible-playbook -i tests/integration/inventory \
+          roles/test_utils/playbooks/run_setup_testing_env.yml -v
+        sleep 30
+        ls -la /tmp/technitium*_token || echo "Token files not found"
+    
+    # Test just the one module you selected
+    - name: Test ${{ inputs.module_name }}
+      run: |
+        cd ~/.ansible/collections/ansible_collections/effectivelywild/technitium_dns
+        
+        # Use the generated API token
+        export TECHNITIUM_API_TOKEN=$(cat /tmp/technitium01_token)
+        export TECHNITIUM_API_URL="http://localhost"
+        export TECHNITIUM_API_PORT="5381"
+        export VALIDATE_CERTS="false"
+        export DEBUG="true"
+        export TESTING_SUFFIX="testing.local"
+        
+        MODULE_NAME=$(echo "${{ inputs.module_name }}" | sed 's/technitium_dns_//')
+        ansible-playbook -i tests/integration/inventory \
+          roles/test_utils/playbooks/run_dns_${MODULE_NAME}_integration_test.yml -vv
+    
+    - name: Clean up
+      if: always()
+      run: |
+        docker stop technitium01 technitium02 || true
+        docker rm technitium01 technitium02 || true
+        docker volume rm technitium01-config technitium02-config || true

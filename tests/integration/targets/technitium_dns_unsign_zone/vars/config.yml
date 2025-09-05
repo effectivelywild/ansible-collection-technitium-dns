@@ -1,5 +1,2 @@
 # Test configuration for technitium_dns_unsign_zone integration tests
 ---
-
-# Test Environment Configuration
-test_suffix: "unsignzonetest.example.com"

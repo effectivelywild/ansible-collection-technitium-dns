@@ -3,15 +3,15 @@
 # Test zones for NSEC3 to NSEC conversion testing
 convert_to_nsec_test_zones:
   - name: "nsec3-source-zone"
-    zone: "nsec3-source.{{ test_suffix }}"
+    zone: "nsec3-source.{{ testing_suffix }}"
     initial_proof: "NSEC3"
     
   - name: "nsec3-second-zone"
-    zone: "nsec3-second.{{ test_suffix }}"
+    zone: "nsec3-second.{{ testing_suffix }}"
     initial_proof: "NSEC3"
     
   - name: "nsec3-idempotent-zone"
-    zone: "nsec3-idempotent.{{ test_suffix }}"
+    zone: "nsec3-idempotent.{{ testing_suffix }}"
     initial_proof: "NSEC3"
 
 # Parameters for initially signing zones

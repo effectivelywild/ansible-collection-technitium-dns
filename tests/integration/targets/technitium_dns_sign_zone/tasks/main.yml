@@ -391,7 +391,7 @@
     api_token: "BADTOKEN"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
-    zone: "dnssec01.{{ test_suffix }}"
+    zone: "dnssec01.{{ testing_suffix }}"
     algorithm: "RSA"
     hashAlgorithm: "SHA256"
   register: fail_bad_token
@@ -409,7 +409,7 @@
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
-    zone: dnssec999.{{ test_suffix }}
+    zone: dnssec999.{{ testing_suffix }}
     algorithm: RSA
     hashAlgorithm: SHA256
     kskKeySize: 2048

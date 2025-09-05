@@ -24,65 +24,65 @@
     var: zone_creation_results
   when: debug | default(false)
 
-# - name: "Include guideline A record integration test"
-#   ansible.builtin.include_tasks: test_add_a_records.yml
+- name: "Include guideline A record integration test"
+  ansible.builtin.include_tasks: test_add_a_records.yml
 
-# - name: "Include guideline AAAA record integration test"
-#   ansible.builtin.include_tasks: test_add_aaaa_records.yml
+- name: "Include guideline AAAA record integration test"
+  ansible.builtin.include_tasks: test_add_aaaa_records.yml
 
-# - name: "Include guideline ANAME record integration test"
-#   ansible.builtin.include_tasks: test_add_aname_records.yml
+- name: "Include guideline ANAME record integration test"
+  ansible.builtin.include_tasks: test_add_aname_records.yml
 
-# - name: "Include guideline APP record integration test"
-#   ansible.builtin.include_tasks: test_add_app_records.yml
+- name: "Include guideline APP record integration test"
+  ansible.builtin.include_tasks: test_add_app_records.yml
 
-# - name: "Include guideline CAA record integration test"
-#   ansible.builtin.include_tasks: test_add_caa_records.yml
+- name: "Include guideline CAA record integration test"
+  ansible.builtin.include_tasks: test_add_caa_records.yml
 
-# - name: "Include guideline CNAME record integration test"
-#   ansible.builtin.include_tasks: test_add_cname_records.yml
+- name: "Include guideline CNAME record integration test"
+  ansible.builtin.include_tasks: test_add_cname_records.yml
 
-# - name: "Include guideline DNAME record integration test"
-#   ansible.builtin.include_tasks: test_add_dname_records.yml
+- name: "Include guideline DNAME record integration test"
+  ansible.builtin.include_tasks: test_add_dname_records.yml
 
-# - name: "Include guideline DS record integration test"
-#   ansible.builtin.include_tasks: test_add_ds_records.yml
+- name: "Include guideline DS record integration test"
+  ansible.builtin.include_tasks: test_add_ds_records.yml
 
-# - name: "Include guideline FWD record integration test"
-#   ansible.builtin.include_tasks: test_add_fwd_records.yml
+- name: "Include guideline FWD record integration test"
+  ansible.builtin.include_tasks: test_add_fwd_records.yml
 
-# - name: "Include guideline HTTPS record integration test"
-#   ansible.builtin.include_tasks: test_add_https_records.yml
+- name: "Include guideline HTTPS record integration test"
+  ansible.builtin.include_tasks: test_add_https_records.yml
 
-# - name: "Include guideline MX record integration test"
-#   ansible.builtin.include_tasks: test_add_mx_records.yml
+- name: "Include guideline MX record integration test"
+  ansible.builtin.include_tasks: test_add_mx_records.yml
 
-# - name: "Include guideline NS record integration test"
-#   ansible.builtin.include_tasks: test_add_ns_records.yml
+- name: "Include guideline NS record integration test"
+  ansible.builtin.include_tasks: test_add_ns_records.yml
 
-# - name: "Include guideline NAPTR record integration test"
-#   ansible.builtin.include_tasks: test_add_naptr_records.yml
+- name: "Include guideline NAPTR record integration test"
+  ansible.builtin.include_tasks: test_add_naptr_records.yml
 
-# - name: "Include guideline PTR record integration test"
-#   ansible.builtin.include_tasks: test_add_ptr_records.yml
+- name: "Include guideline PTR record integration test"
+  ansible.builtin.include_tasks: test_add_ptr_records.yml
 
 - name: "Include guideline SRV record integration test"
   ansible.builtin.include_tasks: test_add_srv_records.yml
 
-# - name: "Include guideline SSHFP record integration test"
-#   ansible.builtin.include_tasks: test_add_sshfp_records.yml
+- name: "Include guideline SSHFP record integration test"
+  ansible.builtin.include_tasks: test_add_sshfp_records.yml
 
-# - name: "Include guideline SVCB record integration test"
-#   ansible.builtin.include_tasks: test_add_svcb_records.yml
+- name: "Include guideline SVCB record integration test"
+  ansible.builtin.include_tasks: test_add_svcb_records.yml
 
-# - name: "Include guideline TLSA record integration test"
-#   ansible.builtin.include_tasks: test_add_tlsa_records.yml
+- name: "Include guideline TLSA record integration test"
+  ansible.builtin.include_tasks: test_add_tlsa_records.yml
 
-# - name: "Include guideline TXT record integration test"
-#   ansible.builtin.include_tasks: test_add_txt_records.yml
+- name: "Include guideline TXT record integration test"
+  ansible.builtin.include_tasks: test_add_txt_records.yml
 
-# - name: "Include guideline UNKNOWN record integration test"
-#   ansible.builtin.include_tasks: test_add_unknown_records.yml
+- name: "Include guideline UNKNOWN record integration test"
+  ansible.builtin.include_tasks: test_add_unknown_records.yml
 
-# - name: "Include guideline URI record integration test"
-#   ansible.builtin.include_tasks: test_add_uri_records.yml
+- name: "Include guideline URI record integration test"
+  ansible.builtin.include_tasks: test_add_uri_records.yml

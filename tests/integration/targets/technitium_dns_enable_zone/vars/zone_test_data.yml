@@ -5,26 +5,26 @@
 # Zones to create for enable/disable testing
 zones_to_create:
   # Primary zones
-  - zone: "primary-basic.{{ test_suffix }}"
+  - zone: "primary-basic.{{ testing_suffix }}"
     type: "Primary"
     test_scenario: "basic_primary"
     dnssecStatus: "Unsigned"
     
-  - zone: "primary-soa.{{ test_suffix }}"
+  - zone: "primary-soa.{{ testing_suffix }}"
     type: "Primary"
     useSoaSerialDateScheme: true
     test_scenario: "primary_with_soa_scheme"
     dnssecStatus: "Unsigned"
 
   # Forwarder zones
-  - zone: "forwarder-basic.{{ test_suffix }}"
+  - zone: "forwarder-basic.{{ testing_suffix }}"
     type: "Forwarder"
     forwarder: "8.8.8.8"
     protocol: "Udp"
     initializeForwarder: true
     test_scenario: "basic_forwarder"
 
-  - zone: "forwarder-dnssec.{{ test_suffix }}"
+  - zone: "forwarder-dnssec.{{ testing_suffix }}"
     type: "Forwarder"
     forwarder: "8.8.8.8"
     protocol: "Tcp"
@@ -32,20 +32,20 @@ zones_to_create:
     test_scenario: "forwarder_with_dnssec"
 
   # Catalog zones
-  - zone: "catalog-basic.{{ test_suffix }}"
+  - zone: "catalog-basic.{{ testing_suffix }}"
     type: "Catalog"
     useSoaSerialDateScheme: true
     test_scenario: "basic_catalog"
 
   # Secondary zones
-  - zone: "secondary.{{ test_suffix }}"
+  - zone: "secondary.{{ testing_suffix }}"
     type: "Secondary"
     primaryNameServerAddresses: ["{{ notify_name_server }}"]
     zoneTransferProtocol: "Tcp"
     test_scenario: "basic_secondary"
     dnssecStatus: "Unsigned"
 
-  - zone: "stub.{{ test_suffix }}"
+  - zone: "stub.{{ testing_suffix }}"
     type: "Stub"
     primaryNameServerAddresses: ["{{ notify_name_server }}"]
     test_scenario: "basic_stub"
@@ -56,6 +56,6 @@ invalid_enable_scenarios:
   - zone: ""  # Empty zone name
     test_scenario: "empty_zone_name"
     expected_error: "zone"
-  - zone: "nonexistent-zone.{{ test_suffix }}"
+  - zone: "nonexistent-zone.{{ testing_suffix }}"
     test_scenario: "nonexistent_zone" 
     expected_error: "does not exist"

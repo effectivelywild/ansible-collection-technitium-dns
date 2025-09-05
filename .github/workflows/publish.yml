@@ -1,0 +1,71 @@
+---
+name: Publish to Ansible Galaxy
+
+# Only runs when you create a GitHub release
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    
+    steps:
+    # 1. Get the code
+    - name: Download code
+      uses: actions/checkout@v4
+    
+    # 2. Set up Python
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+    
+    # 3. Install Ansible
+    - name: Install Ansible
+      run: |
+        pip install ansible
+    
+    # 4. Update version in galaxy.yml to match the release tag
+    - name: Update version in galaxy.yml
+      run: |
+        # Get version from GitHub release tag (removes 'v' prefix if present)
+        VERSION=${GITHUB_REF_NAME#v}
+        echo "Publishing version: $VERSION"
+        
+        # Update galaxy.yml with the release version
+        sed -i "s/version: .*/version: $VERSION/" galaxy.yml
+        
+        # Show what we changed
+        echo "Updated galaxy.yml:"
+        grep "version:" galaxy.yml
+    
+    # 5. Build the collection
+    - name: Build collection
+      run: |
+        ansible-galaxy collection build . --force
+        ls -la *.tar.gz
+    
+    # 6. Publish to Galaxy (only if API key is available)
+    - name: Publish to Ansible Galaxy
+      env:
+        GALAXY_API_KEY: ${{ secrets.GALAXY_API_KEY }}
+      run: |
+        if [ -n "$GALAXY_API_KEY" ]; then
+          echo "Publishing to Ansible Galaxy..."
+          ansible-galaxy collection publish *.tar.gz --api-key "$GALAXY_API_KEY"
+          echo "✅ Published successfully!"
+        else
+          echo "⚠️  GALAXY_API_KEY not set - skipping Galaxy publish"
+          echo "To enable publishing:"
+          echo "1. Get API key from https://galaxy.ansible.com/me/preferences"
+          echo "2. Add it as 'GALAXY_API_KEY' repository secret"
+        fi
+    
+    # 7. Upload the built collection as a GitHub artifact
+    - name: Upload collection artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ansible-collection-${{ github.ref_name }}
+        path: "*.tar.gz"
+        retention-days: 90

@@ -9,3 +9,6 @@ notify_name_server: "{{ lookup('env', 'NOTIFY_NAME_SERVER') }}"
 
 # Debugging options
 debug: "{{ lookup('env', 'DEBUG') | default('false') | bool }}"
+
+# Testing domain
+testing_suffix: "{{ lookup('env', 'TESTING_SUFFIX') | default('example.com') }}"

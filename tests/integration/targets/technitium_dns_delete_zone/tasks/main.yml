@@ -239,7 +239,7 @@
 
 # Phase 6: Negative tests
 - name: "Test deletion with empty zone name"
-  technitium.dns.technitium_dns_delete_zone:
+  technitium_dns_delete_zone:
     api_url: "{{ technitium_api_url | default('http://localhost') }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
@@ -254,12 +254,12 @@
       - empty_zone_deletion_result.failed
 
 - name: "Test deletion with invalid API credentials"
-  technitium.dns.technitium_dns_delete_zone:
+  technitium_dns_delete_zone:
     api_url: "{{ technitium_api_url | default('http://localhost') }}"
     api_token: "invalid-token-12345"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
-    zone: "test-invalid-auth.{{ test_suffix }}"
+    zone: "test-invalid-auth.{{ testing_suffix }}"
   register: invalid_auth_result
   ignore_errors: true
 

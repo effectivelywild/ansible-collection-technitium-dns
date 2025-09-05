@@ -3,15 +3,15 @@
 # Test zones for DNSSEC properties testing
 dnssec_properties_test_zones:
   - name: "nsec-signed-zone"
-    zone: "nsec-signed.{{ test_suffix }}"
+    zone: "nsec-signed.{{ testing_suffix }}"
     sign_with: "NSEC"
     
   - name: "nsec3-signed-zone"
-    zone: "nsec3-signed.{{ test_suffix }}"
+    zone: "nsec3-signed.{{ testing_suffix }}"
     sign_with: "NSEC3"
     
   - name: "unsigned-zone"
-    zone: "unsigned.{{ test_suffix }}"
+    zone: "unsigned.{{ testing_suffix }}"
     sign_with: null
 
 # Parameters for signing zones

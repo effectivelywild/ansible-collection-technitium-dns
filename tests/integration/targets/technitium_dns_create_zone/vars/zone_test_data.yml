@@ -4,26 +4,26 @@
 
 zones_to_create:
   # Primary zones
-  - zone: "primary-basic.{{ test_suffix }}"
+  - zone: "primary-basic.{{ testing_suffix }}"
     type: "Primary"
     test_scenario: "basic_primary"
     dnssecStatus: "Unsigned"
     
-  - zone: "primary-soa.{{ test_suffix }}"
+  - zone: "primary-soa.{{ testing_suffix }}"
     type: "Primary"
     useSoaSerialDateScheme: true
     test_scenario: "primary_with_soa_scheme"
     dnssecStatus: "Unsigned"
 
   # Forwarder zones
-  - zone: "forwarder-basic.{{ test_suffix }}"
+  - zone: "forwarder-basic.{{ testing_suffix }}"
     type: "Forwarder"
     forwarder: "8.8.8.8"
     protocol: "Udp"
     initializeForwarder: true
     test_scenario: "basic_forwarder"
 
-  - zone: "forwarder-dnssec.{{ test_suffix }}"
+  - zone: "forwarder-dnssec.{{ testing_suffix }}"
     type: "Forwarder"
     forwarder: "8.8.8.8"
     protocol: "Tcp"
@@ -31,13 +31,13 @@ zones_to_create:
     test_scenario: "forwarder_with_dnssec"
 
   # Catalog zones
-  - zone: "catalog-basic.{{ test_suffix }}"
+  - zone: "catalog-basic.{{ testing_suffix }}"
     type: "Catalog"
     useSoaSerialDateScheme: true
     test_scenario: "basic_catalog"
 
   # DNSSEC-enabled zones
-  - zone: "dnssec-nsec.{{ test_suffix }}"
+  - zone: "dnssec-nsec.{{ testing_suffix }}"
     type: "Primary"
     dnssec: true
     dnssec_algorithm: "RSA"
@@ -49,7 +49,7 @@ zones_to_create:
     test_scenario: "dnssec_nsec"
     description: "DNSSEC-enabled primary zone with NSEC for creation testing"
 
-  - zone: "dnssec-nsec3.{{ test_suffix }}"
+  - zone: "dnssec-nsec3.{{ testing_suffix }}"
     type: "Primary"
     dnssec: true
     dnssec_algorithm: "RSA"
@@ -64,26 +64,26 @@ zones_to_create:
     description: "DNSSEC-enabled primary zone with NSEC3 for creation testing"
 
   # Secondary zones
-  - zone: "secondary.{{ test_suffix }}"
+  - zone: "secondary.{{ testing_suffix }}"
     type: "Secondary"
     primaryNameServerAddresses: ["{{ notify_name_server }}"]
     zoneTransferProtocol: "Tcp"
     test_scenario: "basic_secondary"
     dnssecStatus: "Unsigned"
 
-  - zone: "stub.{{ test_suffix }}"
+  - zone: "stub.{{ testing_suffix }}"
     type: "Stub"
     primaryNameServerAddresses: ["{{ notify_name_server }}"]
     test_scenario: "basic_stub"
 
-  - zone: "secfwd-basic.{{ test_suffix }}"
+  - zone: "secfwd-basic.{{ testing_suffix }}"
     type: "SecondaryForwarder"
     primaryNameServerAddresses: ["8.8.8.8"]
     zoneTransferProtocol: "Tcp"
     test_scenario: "basic_secondary_forwarder"
     ignore_errors: true
 
-  - zone: "seccat-basic.{{ test_suffix }}"
+  - zone: "seccat-basic.{{ testing_suffix }}"
     type: "SecondaryCatalog"
     primaryNameServerAddresses: ["8.8.8.8"]
     zoneTransferProtocol: "Tcp"
@@ -98,12 +98,12 @@ failure_test_zones:
     test_scenario: "empty_zone_name"
     expected_error: "zone"
 
-  - zone: "valid-zone.{{ test_suffix }}"
+  - zone: "valid-zone.{{ testing_suffix }}"
     type: "InvalidType"
     test_scenario: "invalid_zone_type"
     expected_error: "must be one of"
 
-  - zone: "missing-forwarder.{{ test_suffix }}"
+  - zone: "missing-forwarder.{{ testing_suffix }}"
     type: "Forwarder"
     # Missing required forwarder parameter
     test_scenario: "missing_forwarder_param"

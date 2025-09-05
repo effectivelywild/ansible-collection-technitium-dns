@@ -149,7 +149,7 @@
 # Phase 4 - Verify parameters match
 # Parameters are spread across multiple tasks
 - name: "Get zone information for created zones"
-  technitium.dns.technitium_dns_get_zone_info:
+  technitium_dns_get_zone_info:
     api_url: "{{ technitium_api_url | default('http://localhost') }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
@@ -162,7 +162,7 @@
     label: "{{ zone_item.zone }}"
 
 - name: "Get zone options for created zones"
-  technitium.dns.technitium_dns_get_zone_options:
+  technitium_dns_get_zone_options:
     api_url: "{{ technitium_api_url | default('http://localhost') }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
@@ -175,7 +175,7 @@
     label: "{{ zone_item.zone }}"
 
 - name: "Get FWD records to assert FWD options"
-  technitium.dns.technitium_dns_get_record:
+  technitium_dns_get_record:
     api_url: "{{ technitium_api_url | default('http://localhost') }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
@@ -207,9 +207,10 @@
 - name: "Assert zones have correct name and type"
   assert:
     that:
-      - zone_info_item.zone is defined
-      - zone_info_item.zone.name == zone_info_item.zone_item.zone 
-      - zone_info_item.zone.type == zone_info_item.zone_item.type 
+      - zone_info_item.zones is defined
+      - zone_info_item.zones | length == 1
+      - zone_info_item.zones[0].name == zone_info_item.zone_item.zone 
+      - zone_info_item.zones[0].type == zone_info_item.zone_item.type 
     quiet: true
   loop: "{{ zone_info_results.results }}"
   loop_control:
@@ -331,7 +332,7 @@
 
 # Phase 6: Test Failure Cases
 - name: "Test creation with empty zone name"
-  technitium.dns.technitium_dns_create_zone:
+  technitium_dns_create_zone:
     api_url: "{{ technitium_api_url | default('http://localhost') }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
@@ -349,12 +350,12 @@
     fail_msg: "Empty zone name should have failed validation"
 
 - name: "Test creation with invalid zone type"
-  technitium.dns.technitium_dns_create_zone:
+  technitium_dns_create_zone:
     api_url: "{{ technitium_api_url | default('http://localhost') }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
-    zone: "invalid-type.{{ test_suffix }}"
+    zone: "invalid-type.{{ testing_suffix }}"
     type: "InvalidType"
   register: invalid_type_result
   ignore_errors: true
@@ -367,12 +368,12 @@
     fail_msg: "Invalid zone type should have failed validation"
 
 - name: "Test Forwarder zone without required forwarder parameter"
-  technitium.dns.technitium_dns_create_zone:
+  technitium_dns_create_zone:
     api_url: "{{ technitium_api_url | default('http://localhost') }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
-    zone: "missing-forwarder.{{ test_suffix }}"
+    zone: "missing-forwarder.{{ testing_suffix }}"
     type: "Forwarder"
   register: missing_forwarder_result
   ignore_errors: true
@@ -385,12 +386,12 @@
     fail_msg: "Missing forwarder parameter should have failed"
 
 - name: "Test Primary zone without unsupported parameter"
-  technitium.dns.technitium_dns_create_zone:
+  technitium_dns_create_zone:
     api_url: "{{ technitium_api_url | default('http://localhost') }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
-    zone: "missing-forwarder.{{ test_suffix }}"
+    zone: "missing-forwarder.{{ testing_suffix }}"
     type: "Primary"
     primaryNameServerAddresses: "8.8.8.8"
   register: invalid_parameter_result

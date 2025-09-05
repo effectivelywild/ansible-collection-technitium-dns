@@ -2,52 +2,56 @@
 # test data for technitium_dns_get_zone_info integration tests
 zones_to_create:
   # Catalog zones
-  - zone: "catalog.{{ test_suffix }}"
+  - zone: "catalog.{{ testing_suffix }}"
     type: "Catalog"
     test_scenario: "basic_catalog"
 
   # Primary zones
-  - zone: "primary.{{ test_suffix }}"
+  - zone: "primary.{{ testing_suffix }}"
     type: "Primary"
     test_scenario: "basic_primary"
     dnssecStatus: "Unsigned"
 
   # Forwarder zones
-  - zone: "forwarder.{{ test_suffix }}"
+  - zone: "forwarder.{{ testing_suffix }}"
     type: "Forwarder"
     forwarder: "8.8.8.8"
     protocol: "Tcp"
     test_scenario: "basic_forwarder"
     
   # Secondary zones
-  - zone: "secondary.{{ test_suffix }}"
+  - zone: "secondary.{{ testing_suffix }}"
     type: "Secondary"
     zoneTransferProtocol: "Tcp"
     test_scenario: "basic_secondary"
-    primaryNameServerAddresses: ["{{ notify_name_server }}"]
+    primaryNameServerAddresses:
+      - "{{ notify_name_server }}"
 
   # Stub zones
-  - zone: "stub.{{ test_suffix }}"
+  - zone: "stub.{{ testing_suffix }}"
     type: "Stub"
-    primaryNameServerAddresses: ["{{ notify_name_server }}"]
+    primaryNameServerAddresses:
+      - "{{ notify_name_server }}"
     test_scenario: "basic_stub"
 
   # Secondary Forwarder zones
-  - zone: "secondary-forwarder.{{ test_suffix }}"
+  - zone: "secondary-forwarder.{{ testing_suffix }}"
     type: "SecondaryForwarder"
-    primaryNameServerAddresses: ["8.8.8.8"]
+    primaryNameServerAddresses:
+      - "8.8.8.8"
     zoneTransferProtocol: "Tcp"
     test_scenario: "basic_secondary_forwarder"
 
   # Secondary Catalog zones
-  - zone: "secondary-catalog.{{ test_suffix }}"
+  - zone: "secondary-catalog.{{ testing_suffix }}"
     type: "SecondaryCatalog"
-    primaryNameServerAddresses: ["8.8.8.8"]
+    primaryNameServerAddresses:
+      - "8.8.8.8"
     zoneTransferProtocol: "Tcp"
     test_scenario: "basic_secondary_catalog"
 
   # DNSSEC-enabled zones
-  - zone: "dnssec-primary.{{ test_suffix }}"
+  - zone: "dnssec-primary.{{ testing_suffix }}"
     type: "Primary"
     dnssec: true
     dnssec_algorithm: "RSA"

@@ -8,3 +8,9 @@ dns_servers_to_create:
     https_port: 53442
 
 dns_server_admin_password: "topsecret"
+
+zones_to_create:
+  - name: secondary.{{ lookup('env', 'TESTING_SUFFIX') }}
+    type: Primary
+  - name: stub.{{ lookup('env', 'TESTING_SUFFIX') }}
+    type: Primary

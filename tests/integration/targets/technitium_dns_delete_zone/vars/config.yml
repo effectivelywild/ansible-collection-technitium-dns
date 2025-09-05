@@ -1,5 +1,2 @@
 ---
 # Test configuration for technitium_dns_delete_zone module
-
-# Test environment settings  
-test_suffix: "deletezonetest.example.com"

@@ -356,7 +356,7 @@
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port }}"
     validate_certs: "{{ validate_certs }}"
-    zone: thiszone.doesnotexist.{{ test_suffix }}
+    zone: thiszone.doesnotexist.{{ testing_suffix }}
   register: nonexistent_zone_results
   ignore_errors: true
 

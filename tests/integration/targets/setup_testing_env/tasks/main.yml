@@ -42,6 +42,14 @@
   ansible.builtin.debug:
     var: technitium_tokens
 
+- name: Export tokens for use in GitHub Actions
+  include_tasks: export_tokens.yml
+
+- name: Create DNS zones of technitium01 for zone transfers
+  ansible.builtin.uri:
+    url: "http://localhost:{{ dns_servers.technitium01.http_port }}/api/zones/create?token={{ technitium_tokens.technitium01.token }}&zone={{ item.name }}&type={{ item.type }}"
+  loop: "{{ zones_to_create }}"
+
 - name: Update zone options to allow zone transfers
   ansible.builtin.uri:
     url: "http://localhost:{{ dns_servers.technitium01.http_port }}/api/zones/options/set?token={{ technitium_tokens.technitium01.token }}&zone={{ item.name }}&zoneTransfer=Allow"

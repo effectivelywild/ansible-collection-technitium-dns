@@ -3,13 +3,13 @@
 # Test zones for unsigning DNSSEC
 unsign_test_zones:
   - name: "test-zone-01"
-    zone: "unsign01.{{ test_suffix }}"
+    zone: "unsign01.{{ testing_suffix }}"
     
   - name: "test-zone-02"
-    zone: "unsign02.{{ test_suffix }}"
+    zone: "unsign02.{{ testing_suffix }}"
     
   - name: "test-zone-03"
-    zone: "unsign03.{{ test_suffix }}"
+    zone: "unsign03.{{ testing_suffix }}"
 
 # Parameters for initially signing zones
 sign_parameters:

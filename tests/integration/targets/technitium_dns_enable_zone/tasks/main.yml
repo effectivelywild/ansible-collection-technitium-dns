@@ -227,7 +227,7 @@
 
 # Phase 7: Negative tests
 - name: "Test enable with empty zone name"
-  technitium.dns.technitium_dns_enable_zone:
+  technitium_dns_enable_zone:
     api_url: "{{ technitium_api_url | default('http://localhost') }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
@@ -242,12 +242,12 @@
       - empty_zone_enable_result.failed
 
 - name: "Test enable with nonexistent zone"
-  technitium.dns.technitium_dns_enable_zone:
+  technitium_dns_enable_zone:
     api_url: "{{ technitium_api_url | default('http://localhost') }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
-    zone: "nonexistent-zone.{{ test_suffix }}"
+    zone: "nonexistent-zone.{{ testing_suffix }}"
   register: nonexistent_zone_enable_result
   ignore_errors: true
 
@@ -257,12 +257,12 @@
       - nonexistent_zone_enable_result.failed
 
 - name: "Test enable with invalid API credentials"
-  technitium.dns.technitium_dns_enable_zone:
+  technitium_dns_enable_zone:
     api_url: "{{ technitium_api_url | default('http://localhost') }}"
     api_token: "invalid-token-12345"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
-    zone: "test-invalid-auth.{{ test_suffix }}"
+    zone: "test-invalid-auth.{{ testing_suffix }}"
   register: invalid_auth_result
   ignore_errors: true
 

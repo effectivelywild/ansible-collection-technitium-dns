@@ -4,6 +4,9 @@
 # All tests use the consistent pattern of separate plays with direct task inclusion
 
 # Initial setup and cleanup
+- name: Cleanup
+  ansible.builtin.import_playbook: delete_all_zones.yml
+  
 - name: Include technitium_dns_add_record
   ansible.builtin.import_playbook: run_dns_add_record_integration_test.yml
 
@@ -59,7 +62,10 @@
   ansible.builtin.import_playbook: delete_all_zones.yml
 
 - name: Include technitium_dns_convert_nsec
-  ansible.builtin.import_playbook: run_dns_convert_nsec_integration_test.yml
+  ansible.builtin.import_playbook: run_dns_convert_to_nsec_integration_test.yml
+
+- name: Include technitium_dns_convert_nsec3
+  ansible.builtin.import_playbook: run_dns_convert_to_nsec3_integration_test.yml
 
 - name: Include technitium_dns_enable_zone
   ansible.builtin.import_playbook: run_dns_enable_zone_integration_test.yml
@@ -72,6 +78,3 @@
 
 - name: Cleanup
   ansible.builtin.import_playbook: delete_all_zones.yml
-
-- name: Run technitium_dns_update_record integration tests
-  ansible.builtin.import_playbook:: run_dns_update_record_integration_test.yml

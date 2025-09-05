@@ -4,7 +4,7 @@
 dnssec_test_matrix:
   # RSA Algorithm Tests - SHA256/SHA512 only, valid key sizes
   - name: "RSA-SHA256-2048-1024-NSEC"
-    zone: "dnssec01.{{ test_suffix }}"
+    zone: "dnssec01.{{ testing_suffix }}"
     algorithm: "RSA"
     hashAlgorithm: "SHA256"
     kskKeySize: 2048
@@ -12,7 +12,7 @@ dnssec_test_matrix:
     nxProof: "NSEC"
     
   - name: "RSA-SHA256-2048-1024-NSEC3"
-    zone: "dnssec02.{{ test_suffix }}"
+    zone: "dnssec02.{{ testing_suffix }}"
     algorithm: "RSA"
     hashAlgorithm: "SHA256"
     kskKeySize: 2048
@@ -22,7 +22,7 @@ dnssec_test_matrix:
     saltLength: 8
     
   - name: "RSA-SHA256-4096-2048-NSEC"
-    zone: "dnssec03.{{ test_suffix }}"
+    zone: "dnssec03.{{ testing_suffix }}"
     algorithm: "RSA"
     hashAlgorithm: "SHA256"
     kskKeySize: 4096
@@ -30,7 +30,7 @@ dnssec_test_matrix:
     nxProof: "NSEC"
     
   - name: "RSA-SHA512-4096-4096-NSEC3"
-    zone: "dnssec04.{{ test_suffix }}"
+    zone: "dnssec04.{{ testing_suffix }}"
     algorithm: "RSA"
     hashAlgorithm: "SHA512"
     kskKeySize: 4096
@@ -40,7 +40,7 @@ dnssec_test_matrix:
     saltLength: 16
     
   - name: "RSA-SHA512-2048-2048-NSEC"
-    zone: "dnssec05.{{ test_suffix }}"
+    zone: "dnssec05.{{ testing_suffix }}"
     algorithm: "RSA"
     hashAlgorithm: "SHA512"
     kskKeySize: 2048
@@ -49,13 +49,13 @@ dnssec_test_matrix:
     
   # ECDSA Algorithm Tests
   - name: "ECDSA-P256-NSEC"
-    zone: "dnssec06.{{ test_suffix }}"
+    zone: "dnssec06.{{ testing_suffix }}"
     algorithm: "ECDSA"
     curve: "P256"
     nxProof: "NSEC"
     
   - name: "ECDSA-P384-NSEC3"
-    zone: "dnssec07.{{ test_suffix }}"
+    zone: "dnssec07.{{ testing_suffix }}"
     algorithm: "ECDSA"
     curve: "P384"
     nxProof: "NSEC3"
@@ -63,7 +63,7 @@ dnssec_test_matrix:
     saltLength: 0
     
   - name: "ECDSA-P256-NSEC3"
-    zone: "dnssec08.{{ test_suffix }}"
+    zone: "dnssec08.{{ testing_suffix }}"
     algorithm: "ECDSA"
     curve: "P256"
     nxProof: "NSEC3"
@@ -72,13 +72,13 @@ dnssec_test_matrix:
     
   # EDDSA Algorithm Tests
   - name: "EDDSA-ED25519-NSEC"
-    zone: "dnssec09.{{ test_suffix }}"
+    zone: "dnssec09.{{ testing_suffix }}"
     algorithm: "EDDSA"
     curve: "ED25519"
     nxProof: "NSEC"
     
   - name: "EDDSA-ED448-NSEC3"
-    zone: "dnssec10.{{ test_suffix }}"
+    zone: "dnssec10.{{ testing_suffix }}"
     algorithm: "EDDSA"
     curve: "ED448"
     nxProof: "NSEC3"
@@ -86,7 +86,7 @@ dnssec_test_matrix:
     saltLength: 8
 
   - name: "RSA-disabled-rollover"
-    zone: "dnssec11.{{ test_suffix }}"
+    zone: "dnssec11.{{ testing_suffix }}"
     algorithm: "RSA"
     hashAlgorithm: "SHA256"
     kskKeySize: 2048
@@ -95,7 +95,7 @@ dnssec_test_matrix:
     nxProof: "NSEC"
     
   - name: "RSA-custom-ttl"
-    zone: "dnssec12.{{ test_suffix }}"
+    zone: "dnssec12.{{ testing_suffix }}"
     algorithm: "RSA"
     hashAlgorithm: "SHA256"
     kskKeySize: 2048
@@ -105,7 +105,7 @@ dnssec_test_matrix:
     nxProof: "NSEC"
     
   - name: "RSA-NSEC3-no-iterations"
-    zone: "dnssec13.{{ test_suffix }}"
+    zone: "dnssec13.{{ testing_suffix }}"
     algorithm: "RSA"
     hashAlgorithm: "SHA512"
     kskKeySize: 3072

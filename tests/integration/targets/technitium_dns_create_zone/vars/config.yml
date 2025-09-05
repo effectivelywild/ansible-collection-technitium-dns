@@ -2,4 +2,3 @@
 # Test configuration for technitium_dns_create_zone module
 
 # Test environment settings  
-test_suffix: "createzonetest.example.com"

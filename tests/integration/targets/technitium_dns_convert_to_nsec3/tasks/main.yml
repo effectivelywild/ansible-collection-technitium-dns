@@ -206,7 +206,7 @@
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
-    zone: "nonexistent999.{{ test_suffix }}"
+    zone: "nonexistent999.{{ testing_suffix }}"
   ignore_errors: true
   register: nonexistent_zone_convert_result
 
@@ -227,7 +227,7 @@
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
-    zone: "unsigned999.{{ test_suffix }}"
+    zone: "unsigned999.{{ testing_suffix }}"
     type: Primary
   register: unsigned_zone_creation
 
@@ -237,7 +237,7 @@
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
-    zone: "unsigned999.{{ test_suffix }}"
+    zone: "unsigned999.{{ testing_suffix }}"
   ignore_errors: true
   register: unsigned_zone_convert_result
 
