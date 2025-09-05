@@ -9,7 +9,6 @@ license_file: LICENSE
 tags:
   - technitium
   - dns
-  - dns-server
 repository: https://github.com/effectivelywild/ansible-collection-technitium-dns
 documentation: https://devopsarr.github.io/ansible-doc/collections/effectivelywild/technitium-dns/
 homepage: https://github.com/effectivelywild/ansible-collection-technitium-dns

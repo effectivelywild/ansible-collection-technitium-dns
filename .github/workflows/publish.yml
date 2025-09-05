@@ -30,21 +30,49 @@ jobs:
     - name: Update version in galaxy.yml
       run: |
         # Get version from GitHub release tag (removes 'v' prefix if present)
-        VERSION=${GITHUB_REF_NAME#v}
+        VERSION=$(echo "${{ vars.GITHUB_REF_NAME }}" | sed 's/^v//')
+                
         echo "Publishing version: $VERSION"
         
-        # Update galaxy.yml with the release version
-        sed -i "s/version: .*/version: $VERSION/" galaxy.yml
+        # Update galaxy.yml with the release version (escape special chars)
+        sed -i "s/version:.*/version: $VERSION/" galaxy.yml
         
         # Show what we changed
         echo "Updated galaxy.yml:"
         grep "version:" galaxy.yml
+        
+        # Store version and expected filename
+        echo "VERSION=$VERSION" >> $GITHUB_ENV
+        echo "COLLECTION_FILE=effectivelywild-technitium_dns-$VERSION.tar.gz" >> $GITHUB_ENV
     
     # 5. Build the collection
     - name: Build collection
       run: |
         ansible-galaxy collection build . --force
-        ls -la *.tar.gz
+        
+        # List all files to debug
+        echo "Files created:"
+        ls -la *.tar.gz || echo "No .tar.gz files found"
+        
+        # Verify our expected file exists
+        if [ -f "$COLLECTION_FILE" ]; then
+          echo "✅ Expected collection file found: $COLLECTION_FILE"
+        else
+          echo "❌ Expected file not found: $COLLECTION_FILE"
+          echo "Available files:"
+          ls -la *.tar.gz 2>/dev/null || echo "No .tar.gz files found"
+          
+          # Try to find any .tar.gz file as fallback
+          FALLBACK_FILE=$(find . -maxdepth 1 -name "*.tar.gz" -type f | head -1)
+          if [ -n "$FALLBACK_FILE" ]; then
+            FALLBACK_FILE=$(basename "$FALLBACK_FILE")
+            echo "Using fallback file: $FALLBACK_FILE"
+            echo "COLLECTION_FILE=$FALLBACK_FILE" >> $GITHUB_ENV
+          else
+            echo "❌ No .tar.gz files found at all!"
+            exit 1
+          fi
+        fi
     
     # 6. Publish to Galaxy (only if API key is available)
     - name: Publish to Ansible Galaxy
@@ -53,7 +81,8 @@ jobs:
       run: |
         if [ -n "$GALAXY_API_KEY" ]; then
           echo "Publishing to Ansible Galaxy..."
-          ansible-galaxy collection publish *.tar.gz --api-key "$GALAXY_API_KEY"
+          echo "Using collection file: $COLLECTION_FILE"
+          ansible-galaxy collection publish "$COLLECTION_FILE" --api-key "$GALAXY_API_KEY"
           echo "✅ Published successfully!"
         else
           echo "⚠️  GALAXY_API_KEY not set - skipping Galaxy publish"
@@ -64,8 +93,8 @@ jobs:
     
     # 7. Upload the built collection as a GitHub artifact
     - name: Upload collection artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: ansible-collection-${{ github.ref_name }}
-        path: "*.tar.gz"
+        path: ${{ env.COLLECTION_FILE }}
         retention-days: 90

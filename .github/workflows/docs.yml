@@ -1,0 +1,111 @@
+---
+name: Build and Deploy Documentation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Required for GitHub Pages deployment
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install Ansible and documentation tools
+      run: |
+        pip install ansible
+        pip install antsibull-docs
+        pip install sphinx-rtd-theme
+
+    - name: Build collection for documentation
+      run: |
+        ansible-galaxy collection build . --force
+        ansible-galaxy collection install effectivelywild-technitium_dns-*.tar.gz
+
+    - name: Create requirements.yml for documentation
+      run: |
+        cat > requirements.yml << EOF
+        ---
+        collections:
+          - name: effectivelywild.technitium_dns
+            source: ~/.ansible/collections/
+        EOF
+
+    - name: Install collection dependencies
+      run: |
+        ansible-galaxy install -r requirements.yml || echo "No additional requirements needed"
+
+    - name: Generate documentation
+      run: |
+        mkdir -p docs/build
+        
+        # Generate Sphinx documentation for the collection
+        antsibull-docs sphinx-init \
+          --use-current \
+          --dest-dir ./docs/build \
+          effectivelywild.technitium_dns
+        
+        cd docs/build
+        
+        # Install Python requirements for documentation
+        if [ -f requirements.txt ]; then
+          pip install -r requirements.txt
+        fi
+        
+        # Build the documentation
+        chmod +x build.sh
+        ./build.sh
+
+    - name: Setup Pages
+      if: github.ref == 'refs/heads/main'
+      uses: actions/configure-pages@v4
+
+    - name: Upload documentation artifact
+      if: github.ref == 'refs/heads/main'
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: './docs/build/_build/html'
+
+    - name: Upload docs as regular artifact (for PRs)
+      if: github.ref != 'refs/heads/main'
+      uses: actions/upload-artifact@v4
+      with:
+        name: documentation-preview
+        path: './docs/build/_build/html'
+        retention-days: 7
+
+  deploy-docs:
+    # Only deploy on main branch pushes
+    if: github.ref == 'refs/heads/main'
+    needs: build-docs
+    runs-on: ubuntu-latest
+    
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
