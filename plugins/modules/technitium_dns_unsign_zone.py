@@ -128,9 +128,6 @@ class UnsignZoneModule(TechnitiumModule):
         
         self.exit_json(changed=True, msg=f"Zone '{zone}' unsigned.", api_response=data)
 
-def main():
-    module = UnsignZoneModule()
-    module()
-
 if __name__ == '__main__':
-    main()
+    module = UnsignZoneModule()
+    module.run()

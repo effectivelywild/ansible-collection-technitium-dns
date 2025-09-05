@@ -258,9 +258,6 @@ class SignZoneModule(TechnitiumModule):
         self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)
       self.exit_json(changed=True, msg=f"Zone '{zone}' signed.", api_response=data)
 
-def main():
-    module = SignZoneModule()
-    module()
-
 if __name__ == '__main__':
-    main()
+    module = SignZoneModule()
+    module.run()

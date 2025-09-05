@@ -216,30 +216,19 @@ class GetZoneOptionsModule(TechnitiumModule):
     def run(self):
         params = self.params
         zone = params['zone']
-        include_catalog = params['includeAvailableCatalogZoneNames']
-        include_tsig = params['includeAvailableTsigKeyNames']
-
-        # First validate the zone exists, then get options with additional parameters if needed
-        if include_catalog or include_tsig:
-            query = {'zone': zone}
-            if include_catalog:
-                query['includeAvailableCatalogZoneNames'] = 'true'
-            if include_tsig:
-                query['includeAvailableTsigKeyNames'] = 'true'
-            data = self.request('/api/zones/options/get', params=query)
-            # Validate zone exists using the response
-            error_msg = data.get('errorMessage')
-            if error_msg and 'No such zone was found' in error_msg:
-                self.fail_json(msg=f"Zone '{zone}' does not exist: {error_msg}")
-            if data.get('status') != 'ok':
-                error_msg = data.get('errorMessage') or data.get('message') or "Unknown error"
-                self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)
-        else:
-            # Use base class validation for simple case
-            data = self.validate_zone_exists(zone)
-            if data.get('status') != 'ok':
-                error_msg = data.get('errorMessage') or 'Unknown error'
-                self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)
+        
+        query = {'zone': zone}
+        if params['includeAvailableCatalogZoneNames']:
+            query['includeAvailableCatalogZoneNames'] = True
+        if params['includeAvailableTsigKeyNames']:
+            query['includeAvailableTsigKeyNames'] = True
+        
+        data = self.request('/api/zones/options/get', params=query)
+        
+        if data.get('status') != 'ok':
+            error_msg = data.get('errorMessage') or data.get('message') or "Unknown error"
+            self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)
+        
         options = data.get('response', {})
         self.exit_json(changed=False, options=options)
 

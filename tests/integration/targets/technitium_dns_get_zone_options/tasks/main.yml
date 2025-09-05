@@ -88,20 +88,32 @@
 # Phase 3: Set zone options
 # Primary Zone
 - name: "Set zone options for primary.{{ test_suffix }}"
-  technitium.dns.technitium_dns_set_zone_options:
+  technitium_dns_set_zone_options:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "primary.{{ test_suffix }}"
     update: UseSpecifiedNetworkACL
-    updateNetworkACL: "1.1.1.1,!2.2.2.2"
-    updateSecurityPolicies: "key|primary.{{ test_suffix }}|A"
+    updateNetworkACL: 
+      - "1.1.1.1"
+      - "!2.2.2.2"
+    updateSecurityPolicies:
+      - tsigKeyName: "key"
+        domain: "primary.{{ test_suffix }}"
+        allowedTypes:
+          - "A"
     queryAccess: "UseSpecifiedNetworkACL"
-    queryAccessNetworkACL: "1.1.1.0/24,1.1.2.0/24"
+    queryAccessNetworkACL: 
+      - "1.1.1.0/24"
+      - "1.1.2.0/24"
     zoneTransfer: "UseSpecifiedNetworkACL"
-    zoneTransferNetworkACL: "1.1.1.1,!2.2.2.2"
-    zoneTransferTsigKeyNames: "key1,key2"
+    zoneTransferNetworkACL: 
+      - "1.1.1.1"
+      - "!2.2.2.2"
+    zoneTransferTsigKeyNames: 
+      - "key1"
+      - "key2"
     notify: "SpecifiedNameServers"
     notifyNameServers: "{{ notify_name_server }}"
     catalog: "catalog.{{ test_suffix }}"
@@ -112,7 +124,7 @@
   register: set_primary_zone_options_results
 
 - name: "Get zone options for primary.{{ test_suffix }}"
-  technitium.dns.technitium_dns_get_zone_options:
+  technitium_dns_get_zone_options:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
@@ -144,7 +156,7 @@
       - get_primary_zone_options_results.options.zoneTransferNetworkACL == ["1.1.1.1", "!2.2.2.2"]
       - get_primary_zone_options_results.options.zoneTransferTsigKeyNames == ["key1", "key2"]
       - get_primary_zone_options_results.options.notify == "SpecifiedNameServers"
-      - get_primary_zone_options_results.options.notifyNameServers == ["{{ notify_name_server }}"]
+      - get_primary_zone_options_results.options.notifyNameServers == [ notify_name_server ]
       - get_primary_zone_options_results.options.overrideCatalogQueryAccess == true
       - get_primary_zone_options_results.options.overrideCatalogZoneTransfer == false
       - get_primary_zone_options_results.options.overrideCatalogNotify == true
@@ -152,20 +164,32 @@
 
 # Primary DNSSEC Enabled Zone
 - name: "Set zone options for dnssec-primary.{{ test_suffix }}"
-  technitium.dns.technitium_dns_set_zone_options:
+  technitium_dns_set_zone_options:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "dnssec-primary.{{ test_suffix }}"
     update: AllowZoneNameServersAndUseSpecifiedNetworkACL
-    updateNetworkACL: "192.168.1.0/24,!172.2.2.0/24"
-    updateSecurityPolicies: "key|dnssec-primary.{{ test_suffix }}|A"
+    updateNetworkACL: 
+      - "192.168.1.0/24"
+      - "!172.2.2.0/24"
+    updateSecurityPolicies: 
+      - tsigKeyName: "key"
+        domain: "dnssec-primary.{{ test_suffix }}"
+        allowedTypes: 
+         - "A"
     queryAccess: "AllowZoneNameServersAndUseSpecifiedNetworkACL"
-    queryAccessNetworkACL: "192.168.1.0/24,!172.2.2.0/24"
+    queryAccessNetworkACL: 
+      - "192.168.1.0/24"
+      - "!172.2.2.0/24"
     zoneTransfer: "AllowZoneNameServersAndUseSpecifiedNetworkACL"
-    zoneTransferNetworkACL: "192.168.1.0/24,!172.2.2.0/24"
-    zoneTransferTsigKeyNames: "key1,key2"
+    zoneTransferNetworkACL: 
+      - "192.168.1.0/24"
+      - "!172.2.2.0/24"
+    zoneTransferTsigKeyNames: 
+      - "key1"
+      - "key2"
     notify: "BothZoneAndSpecifiedNameServers"
     notifyNameServers: "{{ notify_name_server }}"
     catalog: "catalog.{{ test_suffix }}"
@@ -176,7 +200,7 @@
   register: set_dnssec_primary_zone_options_results
 
 - name: "Get zone options for dnssec-primary.{{ test_suffix }}"
-  technitium.dns.technitium_dns_get_zone_options:
+  technitium_dns_get_zone_options:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
@@ -208,7 +232,7 @@
       - get_dnssec_primary_zone_options_results.options.zoneTransferNetworkACL == ["192.168.1.0/24", "!172.2.2.0/24"]
       - get_dnssec_primary_zone_options_results.options.zoneTransferTsigKeyNames == ["key1", "key2"]
       - get_dnssec_primary_zone_options_results.options.notify == "BothZoneAndSpecifiedNameServers"
-      - get_dnssec_primary_zone_options_results.options.notifyNameServers == ["{{ notify_name_server }}"]
+      - get_dnssec_primary_zone_options_results.options.notifyNameServers == [ notify_name_server ]
       - get_dnssec_primary_zone_options_results.options.overrideCatalogQueryAccess == true
       - get_dnssec_primary_zone_options_results.options.overrideCatalogZoneTransfer == false
       - get_dnssec_primary_zone_options_results.options.overrideCatalogNotify == true
@@ -216,30 +240,40 @@
 
 # Secondary Zone
 - name: "Set zone options for secondary.{{ test_suffix }}"
-  technitium.dns.technitium_dns_set_zone_options:
+  technitium_dns_set_zone_options:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "secondary.{{ test_suffix }}"
     zoneTransfer: "UseSpecifiedNetworkACL"
-    zoneTransferNetworkACL: "1.1.1.1,!2.2.2.2"
-    zoneTransferTsigKeyNames: "key1,key2"
+    zoneTransferNetworkACL: 
+      - "1.1.1.1"
+      - "!2.2.2.2"
+    zoneTransferTsigKeyNames: 
+      - "key1"
+      - "key2"
     notify: "SpecifiedNameServers"
-    notifyNameServers: "{{ notify_name_server }}"
+    notifyNameServers: 
+      - "{{ notify_name_server }}"
     queryAccess: "UseSpecifiedNetworkACL"
-    queryAccessNetworkACL: "1.2.3.0/24,6.7.8.0/24"
+    queryAccessNetworkACL: 
+      - "1.2.3.0/24"
+      - "6.7.8.0/24"
     disabled: false
-    primaryNameServerAddresses: "{{ notify_name_server }}"
+    primaryNameServerAddresses:
+      - "{{ notify_name_server }}"
     primaryZoneTransferProtocol: "Tcp"
     primaryZoneTransferTsigKeyName: "key"
     validateZone: true
     update: UseSpecifiedNetworkACL
-    updateNetworkACL: "10.11.21.1,!5.2.9.243"
+    updateNetworkACL: 
+      - "10.11.21.1"
+      - "!5.2.9.243"
   register: set_secondary_zone_options_results
 
 - name: "Get zone options for secondary.{{ test_suffix }}"
-  technitium.dns.technitium_dns_get_zone_options:
+  technitium_dns_get_zone_options:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
@@ -264,11 +298,11 @@
       - get_secondary_zone_options_results.options.zoneTransferNetworkACL == ["1.1.1.1", "!2.2.2.2"]
       - get_secondary_zone_options_results.options.zoneTransferTsigKeyNames == ["key1", "key2"]
       - get_secondary_zone_options_results.options.notify == "SpecifiedNameServers"
-      - get_secondary_zone_options_results.options.notifyNameServers == ["{{ notify_name_server }}"]
+      - get_secondary_zone_options_results.options.notifyNameServers == [ notify_name_server ]
       - get_secondary_zone_options_results.options.queryAccess == "UseSpecifiedNetworkACL"
       - get_secondary_zone_options_results.options.queryAccessNetworkACL == ["1.2.3.0/24", "6.7.8.0/24"]
       - get_secondary_zone_options_results.options.disabled == false
-      - get_secondary_zone_options_results.options.primaryNameServerAddresses == ["{{ notify_name_server }}"]
+      - get_secondary_zone_options_results.options.primaryNameServerAddresses == [ notify_name_server ]
       - get_secondary_zone_options_results.options.primaryZoneTransferProtocol == "Tcp"
       - get_secondary_zone_options_results.options.primaryZoneTransferTsigKeyName == "key"
       - get_secondary_zone_options_results.options.validateZone == true
@@ -277,14 +311,16 @@
 
 # Stub Zone
 - name: "Set zone options for stub.{{ test_suffix }}"
-  technitium.dns.technitium_dns_set_zone_options:
+  technitium_dns_set_zone_options:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "stub.{{ test_suffix }}"
     queryAccess: "UseSpecifiedNetworkACL"
-    queryAccessNetworkACL: "1.8.1.0/24,1.1.22.0/24"
+    queryAccessNetworkACL: 
+      - "1.8.1.0/24"
+      - "1.1.22.0/24"
     disabled: false
     catalog: "catalog.{{ test_suffix }}"
     primaryNameServerAddresses: "{{ notify_name_server }}"
@@ -292,7 +328,7 @@
   register: set_stub_zone_options_results
 
 - name: "Get zone options for stub.{{ test_suffix }}"
-  technitium.dns.technitium_dns_get_zone_options:
+  technitium_dns_get_zone_options:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
@@ -318,11 +354,11 @@
       - get_stub_zone_options_results.options.disabled == false
       - get_stub_zone_options_results.options.catalog == "catalog.{{ test_suffix }}"
       - get_stub_zone_options_results.options.overrideCatalogQueryAccess == true
-      - get_stub_zone_options_results.options.primaryNameServerAddresses == ["{{ notify_name_server }}"]
+      - get_stub_zone_options_results.options.primaryNameServerAddresses == [ notify_name_server ]
 
 # Forwarder Zone
 - name: "Set zone options for forwarder.{{ test_suffix }}"
-  technitium.dns.technitium_dns_set_zone_options:
+  technitium_dns_set_zone_options:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
@@ -332,18 +368,20 @@
     catalog: "catalog.{{ test_suffix }}"
     overrideCatalogQueryAccess: true
     overrideCatalogNotify: true
-    zoneTransfer: "UseSpecifiedNetworkACL"
-    zoneTransferNetworkACL: "10.11.12.13,!2.2.2.0/24"
-    zoneTransferTsigKeyNames: "key1,key2"
     notify: "SpecifiedNameServers"
     notifyNameServers: "{{ notify_name_server }}"
     update: "UseSpecifiedNetworkACL"
-    updateNetworkACL: "1.1.1.1,!2.2.2.2"
-    updateSecurityPolicies: "testkey|forwarder.{{ test_suffix }}|A,AAAA,MX"
+    updateNetworkACL: 
+      - "1.1.1.1"
+      - "!2.2.2.2"
+    updateSecurityPolicies: 
+      - allowedTypes: ["A", "AAAA", "MX"]
+        domain: "forwarder.{{ test_suffix }}"
+        tsigKeyName: "testkey"
   register: set_forwarder_zone_options_results
 
 - name: "Get zone options for forwarder.{{ test_suffix }}"
-  technitium.dns.technitium_dns_get_zone_options:
+  technitium_dns_get_zone_options:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
@@ -363,12 +401,10 @@
 - name: "Assert retrieved forwarder zone options match set options"
   ansible.builtin.assert:
     that:
+    
       - get_forwarder_zone_options_results.options.name == expected_forwarder_zone_name
-      - get_forwarder_zone_options_results.options.zoneTransfer == "UseSpecifiedNetworkACL"
-      - get_forwarder_zone_options_results.options.zoneTransferNetworkACL == ["10.11.12.13", "!2.2.2.0/24"]
-      - get_forwarder_zone_options_results.options.zoneTransferTsigKeyNames == ["key1", "key2"]
       - get_forwarder_zone_options_results.options.notify == "SpecifiedNameServers"
-      - get_forwarder_zone_options_results.options.notifyNameServers == ["{{ notify_name_server }}"]
+      - get_forwarder_zone_options_results.options.notifyNameServers == [ notify_name_server ]
       - get_forwarder_zone_options_results.options['update'] == "UseSpecifiedNetworkACL"
       - get_forwarder_zone_options_results.options.updateNetworkACL == ["1.1.1.1", "!2.2.2.2"]
       - get_forwarder_zone_options_results.options.updateSecurityPolicies[0].allowedTypes == ["A", "AAAA", "MX"]
@@ -377,7 +413,7 @@
 
 # Catalog Zone
 - name: "Set zone options for catalog.{{ test_suffix }}"
-  technitium.dns.technitium_dns_set_zone_options:
+  technitium_dns_set_zone_options:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
@@ -385,17 +421,23 @@
     zone: "catalog.{{ test_suffix }}"
     disabled: false
     queryAccess: "UseSpecifiedNetworkACL"
-    queryAccessNetworkACL: "100.99.88.13,!2.2.22.0/24"
+    queryAccessNetworkACL: 
+      - "100.99.88.13"
+      - "!2.2.22.0/24"
     zoneTransfer: "UseSpecifiedNetworkACL"
-    zoneTransferNetworkACL: "100.99.88.13,!2.2.22.0/24"
-    zoneTransferTsigKeyNames: "key1,key2"
+    zoneTransferNetworkACL: 
+      - "100.99.88.13"
+      - "!2.2.22.0/24"
+    zoneTransferTsigKeyNames: 
+      - "key1"
+      - "key2"
     notify: "SpecifiedNameServers"
     notifyNameServers: "{{ notify_name_server }}"
     notifySecondaryCatalogsNameServers: "{{ notify_name_server }}"
   register: set_catalog_zone_options_results
 
 - name: "Get zone options for catalog.{{ test_suffix }}"
-  technitium.dns.technitium_dns_get_zone_options:
+  technitium_dns_get_zone_options:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
@@ -422,28 +464,31 @@
       - get_catalog_zone_options_results.options.zoneTransferNetworkACL == ["100.99.88.13", "!2.2.22.0/24"]
       - get_catalog_zone_options_results.options.zoneTransferTsigKeyNames == ["key1", "key2"]
       - get_catalog_zone_options_results.options.notify == "SpecifiedNameServers"
-      - get_catalog_zone_options_results.options.notifyNameServers == ["{{ notify_name_server }}"]
-      - get_catalog_zone_options_results.options.notifySecondaryCatalogsNameServers == ["{{ notify_name_server }}"]
+      - get_catalog_zone_options_results.options.notifyNameServers == [ notify_name_server ]
+      - get_catalog_zone_options_results.options.notifySecondaryCatalogsNameServers == [ notify_name_server ]
       - get_catalog_zone_options_results.options.disabled == false
 
 # Secondary Forwarder
 - name: "Set zone options for secondary-forwarder.{{ test_suffix }}"
-  technitium.dns.technitium_dns_set_zone_options:
+  technitium_dns_set_zone_options:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "secondary-forwarder.{{ test_suffix }}"
     disabled: false
-    primaryNameServerAddresses: "192.168.28.5"
+    primaryNameServerAddresses: 
+      - "192.168.28.5"
     primaryZoneTransferProtocol: "Tls"
     primaryZoneTransferTsigKeyName: "sec_key"
     queryAccess: "UseSpecifiedNetworkACL"
-    queryAccessNetworkACL: "192.168.88.13,!10.1.0.0/16"
+    queryAccessNetworkACL: 
+      - "192.168.88.13"
+      - "!10.1.0.0/16"
   register: set_secondary_forwarder_zone_options_results
 
 - name: "Get zone options for secondary-forwarder.{{ test_suffix }}"
-  technitium.dns.technitium_dns_get_zone_options:
+  technitium_dns_get_zone_options:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
@@ -473,14 +518,15 @@
 
 # Secondary Catalog
 - name: "Set zone options for secondary-catalog.{{ test_suffix }}"
-  technitium.dns.technitium_dns_set_zone_options:
+  technitium_dns_set_zone_options:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "secondary-catalog.{{ test_suffix }}"
     disabled: false
-    primaryNameServerAddresses: "192.168.29.5"
+    primaryNameServerAddresses: 
+      - "192.168.29.5"
     primaryZoneTransferProtocol: "Quic"
     primaryZoneTransferTsigKeyName: "sec_key_1"
   register: set_secondary_catalog_zone_options_results
@@ -492,7 +538,7 @@
     quiet: true
 
 - name: "Get zone options for secondary-catalog.{{ test_suffix }}"
-  technitium.dns.technitium_dns_get_zone_options:
+  technitium_dns_get_zone_options:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
@@ -520,7 +566,7 @@
 
 # Failure tests
 - name: "Failure Test: Set zone options with invalid API token"
-  technitium.dns.technitium_dns_set_zone_options:
+  technitium_dns_set_zone_options:
     api_url: "{{ technitium_api_url }}"
     api_token: BADTOKEN
     api_port: "{{ technitium_api_port | default(5380) | int }}"
@@ -536,7 +582,7 @@
       - "'Invalid token' in (fail_bad_token.msg)"
 
 - name: "Failure Test: Get zone options for non-existent zone"
-  technitium.dns.technitium_dns_get_zone_options:
+  technitium_dns_get_zone_options:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
@@ -552,7 +598,7 @@
       - "'No such zone was found' in (fail_bad_zone.msg)"
 
 - name: "Failure Test: Invalid parameter option"
-  technitium.dns.technitium_dns_get_zone_options:
+  technitium_dns_get_zone_options:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
@@ -568,13 +614,14 @@
       - invalid_param_1.failed
 
 - name: "Failure Test: Invalid parameter option"
-  technitium.dns.technitium_dns_get_zone_options:
+  technitium_dns_get_zone_options:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: forwarder.{{ test_suffix }}
-    primaryNameServerAddresses: "8.8.8.8"
+    primaryNameServerAddresses: 
+      - "8.8.8.8"
   register: invalid_param_2
   ignore_errors: true
 
