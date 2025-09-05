@@ -18,8 +18,6 @@ description:
 seealso:
     - module: effectivelywild.technitium_dns.technitium_dns_add_record
       description: Used to add DNS records
-    - module: effectivelywild.technitium_dns.technitium_dns_update_record
-      description: Used to update DNS records
     - module: effectivelywild.technitium_dns.technitium_dns_get_record
       description: Used to get DNS record details
 options:
