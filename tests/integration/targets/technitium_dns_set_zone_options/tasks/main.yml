@@ -779,13 +779,6 @@
     catalog: "catalog.{{ test_suffix }}"
     overrideCatalogQueryAccess: true
     overrideCatalogNotify: true
-    zoneTransfer: "UseSpecifiedNetworkACL"
-    zoneTransferNetworkACL:
-      - "10.11.12.13"
-      - "!2.2.2.0/24"
-    zoneTransferTsigKeyNames:
-      - "key1"
-      - "key2"
     notify: "SpecifiedNameServers"
     notifyNameServers: "{{ notify_name_server }}"
     update: "UseSpecifiedNetworkACL"
@@ -829,9 +822,6 @@
   ansible.builtin.assert:
     that:
       - get_forwarder_zone_options_results.options.name == expected_forwarder_zone_name
-      - get_forwarder_zone_options_results.options.zoneTransfer == "UseSpecifiedNetworkACL"
-      - get_forwarder_zone_options_results.options.zoneTransferNetworkACL == ["10.11.12.13", "!2.2.2.0/24"]
-      - get_forwarder_zone_options_results.options.zoneTransferTsigKeyNames == ["key1", "key2"]
       - get_forwarder_zone_options_results.options.notify == "SpecifiedNameServers"
       - get_forwarder_zone_options_results.options.notifyNameServers == [ notify_name_server ]
       - get_forwarder_zone_options_results.options['update'] == "UseSpecifiedNetworkACL"
@@ -851,13 +841,6 @@
     catalog: "catalog.{{ test_suffix }}"
     overrideCatalogQueryAccess: true
     overrideCatalogNotify: true
-    zoneTransfer: "UseSpecifiedNetworkACL"
-    zoneTransferNetworkACL:
-      - "10.11.12.13"
-      - "!2.2.2.0/24"
-    zoneTransferTsigKeyNames:
-      - "key1"
-      - "key2"
     notify: "SpecifiedNameServers"
     notifyNameServers: "{{ notify_name_server }}"
     update: "UseSpecifiedNetworkACL"
@@ -889,13 +872,6 @@
     catalog: "catalog.{{ test_suffix }}"
     overrideCatalogQueryAccess: true
     overrideCatalogNotify: true
-    zoneTransfer: "UseSpecifiedNetworkACL"
-    zoneTransferNetworkACL:
-      - "10.11.12.13"
-      - "!2.2.2.0/24"
-    zoneTransferTsigKeyNames:
-      - "key1"
-      - "key2"
     notify: "SpecifiedNameServers"
     notifyNameServers: "{{ notify_name_server }}"
     update: "UseSpecifiedNetworkACL"
@@ -1311,7 +1287,7 @@
       - fail_bad_zone.failed
       - "'No such zone was found' in (fail_bad_zone.msg)"
 
-- name: "Failure Test: Invalid parameter option"
+- name: "Failure Test: Invalid parameter option - 1"
   technitium_dns_set_zone_options:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"
@@ -1327,7 +1303,7 @@
     that:
       - invalid_param_1.failed
 
-- name: "Failure Test: Invalid parameter option"
+- name: "Failure Test: Invalid parameter option - 2"
   technitium_dns_set_zone_options:
     api_url: "{{ technitium_api_url }}"
     api_token: "{{ technitium_api_token }}"

@@ -415,7 +415,7 @@ class SetZoneOptionsModule(TechnitiumModule):
         allowed_params = {
             'Primary': set(['disabled','catalog','overrideCatalogQueryAccess','overrideCatalogZoneTransfer','overrideCatalogNotify','queryAccess','queryAccessNetworkACL','zoneTransfer','zoneTransferNetworkACL','zoneTransferTsigKeyNames','notify','notifyNameServers','update','updateNetworkACL','updateSecurityPolicies']),
             'Stub': set(['disabled','catalog','overrideCatalogQueryAccess','primaryNameServerAddresses','validateZone','queryAccess','queryAccessNetworkACL']),
-            'Forwarder': set(['disabled','catalog','overrideCatalogQueryAccess','overrideCatalogZoneTransfer','overrideCatalogNotify','zoneTransfer','zoneTransferNetworkACL','zoneTransferTsigKeyNames','notify','notifyNameServers','update','updateNetworkACL','updateSecurityPolicies']),
+            'Forwarder': set(['disabled','catalog','overrideCatalogQueryAccess','overrideCatalogZoneTransfer','overrideCatalogNotify','notify','notifyNameServers','update','updateNetworkACL','updateSecurityPolicies']),
             'Secondary': set(['disabled','primaryNameServerAddresses','primaryZoneTransferProtocol','primaryZoneTransferTsigKeyName','validateZone','zoneTransfer','zoneTransferNetworkACL','zoneTransferTsigKeyNames','notify','notifyNameServers','update','updateNetworkACL','queryAccess','queryAccessNetworkACL']),
             'SecondaryForwarder': set(['disabled','primaryNameServerAddresses','primaryZoneTransferProtocol','primaryZoneTransferTsigKeyName','zoneTransfer','zoneTransferNetworkACL','zoneTransferTsigKeyNames','notify','notifyNameServers','queryAccess','queryAccessNetworkACL']),
             'SecondaryCatalog': set(['disabled','primaryNameServerAddresses','primaryZoneTransferProtocol','primaryZoneTransferTsigKeyName','zoneTransfer','zoneTransferNetworkACL','zoneTransferTsigKeyNames','notify','notifyNameServers']),
@@ -427,7 +427,14 @@ class SetZoneOptionsModule(TechnitiumModule):
                 if param in ['api_url','api_port','api_token','zone','validate_certs']:
                     continue
                 if params[param] is not None and param not in allowed_params[zone_type]:
-                    self.fail_json(msg=f"Parameter '{param}' is not supported for zone type '{zone_type}'.")
+                    # Show what user attempted to configure for debugging
+                    attempted_config = {k: v for k, v in params.items() if v is not None and k not in ['api_url','api_port','api_token','validate_certs','zone']}
+                    self.fail_json(
+                        msg=f"Parameter '{param}' is not supported for zone type '{zone_type}'.",
+                        attempted_changes=attempted_config,
+                        zone_type=zone_type,
+                        supported_params=sorted(list(allowed_params[zone_type]))
+                    )
 
         # 2. Build desired state dict and validate user inputs
         desired = {}
@@ -497,14 +504,12 @@ class SetZoneOptionsModule(TechnitiumModule):
             else:
                 set_query[k] = v
         data = self.request('/api/zones/options/set', params=set_query)
-        error_msg = data.get('errorMessage')
-        if error_msg and 'No such zone was found' in error_msg:
-            # Remove stackTrace if present
-            clean_response = dict(data)
-            clean_response.pop('stackTrace', None)
-            self.fail_json(msg=f"Zone '{zone}' does not exist: {error_msg}", api_response=clean_response)
         if data.get('status') != 'ok':
-            self.fail_json(msg=f"Technitium API error: {error_msg or 'Unknown error'}", api_response=data)
+            error_msg = data.get('errorMessage') or 'Unknown error'
+            self.fail_json(
+                msg=f"Technitium API error: {error_msg}", 
+                api_response=data
+            )
         self.exit_json(
             changed=True,
             msg="Zone options set successfully.",
