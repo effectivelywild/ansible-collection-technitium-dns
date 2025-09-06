@@ -45,6 +45,7 @@ jobs:
 
     - uses: codecov/codecov-action@v5
       with:
+        token: ${{ secrets.CODECOV_TOKEN }}
         fail_ci_if_error: false
 
     #   # Clean up (always runs, even if tests fail)
