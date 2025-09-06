@@ -1,14 +1,14 @@
 # Zone names for authoritative tests (must exist on authoritative_nameservers)
-technitium_api_url: "{{ lookup('env', 'TECHNITIUM_API_URL') }}"
-technitium_api_token: "{{ lookup('env', 'TECHNITIUM_API_TOKEN') }}"
-technitium_api_port: "{{ lookup('env', 'TECHNITIUM_API_PORT') | int }}"
-validate_certs: "{{ lookup('env', 'VALIDATE_CERTS') | default('false') | bool }}"
+technitium_api_url: http://localhost
+technitium_api_token: 6a8d400b5c58b6f9621c84e79ecabd5c7f272e5232b98b9bff488be9629867be
+technitium_api_port: 5382
+validate_certs: false
 
 # Notify Name Server, used for Zone testing
-notify_name_server: "{{ lookup('env', 'NOTIFY_NAME_SERVER') }}"
+notify_name_server: 172.17.0.2
 
 # Debugging options
-debug: "{{ lookup('env', 'DEBUG') | default('false') | bool }}"
+debug: false
 
 # Testing domain
-testing_suffix: "{{ lookup('env', 'TESTING_SUFFIX') | default('example.com') }}"
+testing_suffix: example.com

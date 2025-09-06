@@ -1,0 +1,51 @@
+---
+name: CI
+
+on:                    
+  pull_request:           # Every time someone makes a PR
+  workflow_dispatch:      # Manual trigger button in GitHub
+
+jobs:
+  sanity:
+    name: Sanity Check
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        ansible:
+          - stable-2.18
+          # - stable-2.17
+          # - stable-2.16
+          # - devel
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install ansible-base (${{ matrix.ansible }})
+      run: pip install https://github.com/ansible/ansible/archive/${{ matrix.ansible }}.tar.gz --disable-pip-version-check
+
+    - name: Install dependencies
+      run: pip install -r ./tests/requirements.txt
+
+    - name: Run sanity tests
+      run: ansible-test sanity --docker -v --color --coverage --exclude .github/
+
+    - name: Generate coverage report
+      run: ansible-test coverage xml -v --requirements --group-by command --group-by version
+
+    - uses: codecov/codecov-action@v5
+      with:
+        fail_ci_if_error: false
+
+    #   # Clean up (always runs, even if tests fail)
+    # - name: Clean up containers
+    #   if: always()
+    #   run: |
+    #     docker stop technitium01 technitium02 || true
+    #     docker rm technitium01 technitium02 || true
+    #     docker volume rm technitium01-config technitium02-config || true
