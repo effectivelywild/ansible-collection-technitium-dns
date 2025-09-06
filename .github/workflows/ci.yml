@@ -80,7 +80,7 @@ jobs:
 
       - name: Install python dependencies
         run: pip install -r requirements.txt --upgrade-strategy eager --disable-pip-version-check
-        working-directory: ./ansible_collections/effectivelywild/technitium_dns
+        working-directory: ansible_collections/effectivelywild/technitium_dns
         
       - name: Setup testing environment
         run: ansible-playbook roles/test_utils/playbooks/run_setup_testing_env.yml
