@@ -134,36 +134,36 @@ jobs:
       - name: Setup testing environment
         run: ansible-playbook roles/test_utils/playbooks/run_setup_testing_env.yml
 
-      # - name: Get Technitium server values
-      #   id: get_server_values
-      #   run: |
-      #     # Read token from the exported file
-      #     API_TOKEN=$(cat "${TOKEN_FILE}")
-      #     echo "api_token=$API_TOKEN" >> $GITHUB_OUTPUT
+      - name: Get Technitium server values
+        id: get_server_values
+        run: |
+          # Read token from the exported file
+          API_TOKEN=$(cat "${TOKEN_FILE}")
+          echo "api_token=$API_TOKEN" >> $GITHUB_OUTPUT
 
-      #     # Get container IP for notify_name_server using dynamic container name
-      #     CONTAINER_NAME="technitium01${CONTAINER_SUFFIX}"
-      #     CONTAINER_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$CONTAINER_NAME")
-      #     echo "technitium01_ip=$CONTAINER_IP" >> $GITHUB_OUTPUT
+          # Get container IP for notify_name_server using dynamic container name
+          CONTAINER_NAME="technitium01${CONTAINER_SUFFIX}"
+          CONTAINER_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$CONTAINER_NAME")
+          echo "technitium01_ip=$CONTAINER_IP" >> $GITHUB_OUTPUT
 
-      # - name: Create integration config
-      #   run: |
-      #     cat > tests/integration/integration_config.yml << EOF
-      #     technitium_api_url: http://localhost
-      #     technitium_api_token: ${{ steps.get_server_values.outputs.api_token }}
-      #     technitium_api_port: ${HTTP_PORT_2}
-      #     validate_certs: false
+      - name: Create integration config
+        run: |
+          cat > tests/integration/integration_config.yml << EOF
+          technitium_api_url: http://localhost
+          technitium_api_token: ${{ steps.get_server_values.outputs.api_token }}
+          technitium_api_port: ${HTTP_PORT_2}
+          validate_certs: false
 
-      #     # Notify Name Server (technitium01), used for Zone testing
-      #     notify_name_server: ${{ steps.get_server_values.outputs.technitium01_ip }}
+          # Notify Name Server (technitium01), used for Zone testing
+          notify_name_server: ${{ steps.get_server_values.outputs.technitium01_ip }}
 
-      #     # Debugging options
-      #     debug: false
+          # Debugging options
+          debug: false
 
-      #     # Testing domain - unique per job to avoid conflicts
-      #     testing_suffix: ${TESTING_SUFFIX}
-      #     EOF
-      #     cat tests/integration/integration_config.yml
+          # Testing domain - unique per job to avoid conflicts
+          testing_suffix: ${TESTING_SUFFIX}
+          EOF
+          cat tests/integration/integration_config.yml
 
       # - name: Run integration test
       #   run: ansible-test integration --color --retry-on-error --continue-on-error --diff --python ${{ matrix.python }} --coverage --requirements
