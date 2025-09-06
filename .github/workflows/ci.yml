@@ -36,7 +36,7 @@ jobs:
 
     - name: Run sanity tests
       run: |
-        ansible-test sanity --docker -v --color --coverage --exclude .github/ 
+        ansible-test sanity --docker -v --color --coverage --exclude .github/ \
         --python 3.8 --python 3.9 --python 3.10 --python 3.11 --python 3.12
       working-directory: ansible_collections/effectivelywild/technitium_dns
 
