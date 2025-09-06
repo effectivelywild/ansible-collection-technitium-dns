@@ -75,9 +75,21 @@ jobs:
         with:
           path: ansible_collections/effectivelywild/technitium_dns
 
+      - name: Install ansible-base (${{ matrix.ansible }})
+        run: pip install https://github.com/ansible/ansible/archive/${{ matrix.ansible }}.tar.gz --disable-pip-version-check
+
+      - name: Install python dependencies
+        run: pip install -r requirements.txt --upgrade-strategy eager --disable-pip-version-check
+        working-directory: ./ansible_collections/effectivelywild/technitium_dns
+        
       - name: Setup testing environment
         run: ansible-playbook roles/test_utils/playbooks/run_setup_testing_env.yml
         working-directory: ansible_collections/effectivelywild/technitium_dns
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
 
       - name: Get Technitium server values
         id: get_server_values
@@ -108,18 +120,6 @@ jobs:
           testing_suffix: example.com
           EOF
         working-directory: ansible_collections/effectivelywild/technitium_dns
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python }}
-
-      - name: Install ansible-base (${{ matrix.ansible }})
-        run: pip install https://github.com/ansible/ansible/archive/${{ matrix.ansible }}.tar.gz --disable-pip-version-check
-
-      - name: Install python dependencies
-        run: pip install -r requirements.txt --upgrade-strategy eager --disable-pip-version-check
-        working-directory: ./ansible_collections/effectivelywild/technitium_dns
 
       - name: Run integration test
         run: ansible-test integration -v --color --retry-on-error --continue-on-error --diff --python ${{ matrix.python }} --coverage --requirements
