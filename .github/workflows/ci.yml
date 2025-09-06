@@ -75,7 +75,7 @@ jobs:
 
       - name: Setup testing environment
         run: ansible-playbook roles/test_utils/playbooks/run_setup_testing_env.yml
-        working-directory: ./ansible_collections/effectivelywild/technitium_dns
+        working-directory: ansible_collections/effectivelywild/technitium_dns
 
       - name: Get Technitium server values
         id: get_server_values
@@ -105,7 +105,7 @@ jobs:
           # Testing domain
           testing_suffix: example.com
           EOF
-        working-directory: ./ansible_collections/effectivelywild/technitium_dns
+        working-directory: ansible_collections/effectivelywild/technitium_dns
 
       - name: Set up Python
         uses: actions/setup-python@v5
