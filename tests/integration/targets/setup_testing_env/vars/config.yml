@@ -1,16 +1,16 @@
 ---
 dns_servers_to_create:
-  - name: technitium01
-    http_port: 5381
-    https_port: 53441
-  - name: technitium02
-    http_port: 5382
-    https_port: 53442
+  - name: "technitium01{{ lookup('env', 'CONTAINER_SUFFIX') | default('') }}"
+    http_port: "{{ lookup('env', 'HTTP_PORT_1') | default('5381') }}"
+    https_port: "{{ lookup('env', 'HTTPS_PORT_1') | default('53441') }}"
+  - name: "technitium02{{ lookup('env', 'CONTAINER_SUFFIX') | default('') }}"
+    http_port: "{{ lookup('env', 'HTTP_PORT_2') | default('5382') }}"
+    https_port: "{{ lookup('env', 'HTTPS_PORT_2') | default('53442') }}"
 
 dns_server_admin_password: "topsecret"
 
 zones_to_create:
-  - name: secondary.{{ lookup('env', 'TESTING_SUFFIX') }}
+  - name: secondary.{{ lookup('env', 'TESTING_SUFFIX') | default('example.com') }}
     type: Primary
-  - name: stub.{{ lookup('env', 'TESTING_SUFFIX') }}
+  - name: stub.{{ lookup('env', 'TESTING_SUFFIX') | default('example.com') }}
     type: Primary

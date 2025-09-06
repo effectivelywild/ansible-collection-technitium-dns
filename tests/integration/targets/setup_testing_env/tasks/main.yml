@@ -45,12 +45,16 @@
 - name: Export tokens for use in GitHub Actions
   include_tasks: export_tokens.yml
 
+- name: Set dynamic container names for zone operations
+  set_fact:
+    technitium01_name: "technitium01{{ lookup('env', 'CONTAINER_SUFFIX') | default('') }}"
+    
 - name: Create DNS zones of technitium01 for zone transfers
   ansible.builtin.uri:
-    url: "http://localhost:{{ dns_servers.technitium01.http_port }}/api/zones/create?token={{ technitium_tokens.technitium01.token }}&zone={{ item.name }}&type={{ item.type }}"
+    url: "http://localhost:{{ dns_servers[technitium01_name].http_port }}/api/zones/create?token={{ technitium_tokens[technitium01_name].token }}&zone={{ item.name }}&type={{ item.type }}"
   loop: "{{ zones_to_create }}"
 
 - name: Update zone options to allow zone transfers
   ansible.builtin.uri:
-    url: "http://localhost:{{ dns_servers.technitium01.http_port }}/api/zones/options/set?token={{ technitium_tokens.technitium01.token }}&zone={{ item.name }}&zoneTransfer=Allow"
+    url: "http://localhost:{{ dns_servers[technitium01_name].http_port }}/api/zones/options/set?token={{ technitium_tokens[technitium01_name].token }}&zone={{ item.name }}&zoneTransfer=Allow"
   loop: "{{ zones_to_create }}"
