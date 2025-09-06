@@ -109,30 +109,30 @@ jobs:
       - name: Install python dependencies
         run: pip install -r tests/requirements.txt --upgrade-strategy eager --disable-pip-version-check
 
-      # - name: Set unique identifiers for parallel jobs
-      #   run: |
-      #     # Create unique identifiers to avoid conflicts between parallel jobs
-      #     JOB_ID="${{ matrix.ansible }}-py${{ matrix.python }}"
-      #     SAFE_JOB_ID=$(echo "$JOB_ID" | sed 's/[^a-zA-Z0-9]//g')
-      #     RUN_ID="${{ github.run_id }}"
+      - name: Set unique identifiers for parallel jobs
+        run: |
+          # Create unique identifiers to avoid conflicts between parallel jobs
+          JOB_ID="${{ matrix.ansible }}-py${{ matrix.python }}"
+          SAFE_JOB_ID=$(echo "$JOB_ID" | sed 's/[^a-zA-Z0-9]//g')
+          RUN_ID="${{ github.run_id }}"
           
-      #     echo "JOB_ID=${SAFE_JOB_ID}" >> $GITHUB_ENV
-      #     echo "TESTING_SUFFIX=${SAFE_JOB_ID}-${RUN_ID}.test" >> $GITHUB_ENV
-      #     echo "CONTAINER_SUFFIX=-${SAFE_JOB_ID}-${RUN_ID}" >> $GITHUB_ENV
-      #     echo "TOKEN_FILE=/tmp/technitium02_token_${SAFE_JOB_ID}_${RUN_ID}" >> $GITHUB_ENV
+          echo "JOB_ID=${SAFE_JOB_ID}" >> $GITHUB_ENV
+          echo "TESTING_SUFFIX=${SAFE_JOB_ID}-${RUN_ID}.test" >> $GITHUB_ENV
+          echo "CONTAINER_SUFFIX=-${SAFE_JOB_ID}-${RUN_ID}" >> $GITHUB_ENV
+          echo "TOKEN_FILE=/tmp/technitium02_token_${SAFE_JOB_ID}_${RUN_ID}" >> $GITHUB_ENV
           
-      #     # Calculate unique ports using hash of job ID (guaranteed unique)
-      #     JOB_HASH=$(echo "${SAFE_JOB_ID}" | shasum | cut -c1-4)
-      #     PORT_OFFSET=$((0x${JOB_HASH} % 500 + 1))
+          # Calculate unique ports using hash of job ID (guaranteed unique)
+          JOB_HASH=$(echo "${SAFE_JOB_ID}" | shasum | cut -c1-4)
+          PORT_OFFSET=$((0x${JOB_HASH} % 500 + 1))
           
-      #     echo "PORT_OFFSET=${PORT_OFFSET}" >> $GITHUB_ENV
-      #     echo "HTTP_PORT_1=$((6000 + PORT_OFFSET * 10 + 1))" >> $GITHUB_ENV
-      #     echo "HTTP_PORT_2=$((6000 + PORT_OFFSET * 10 + 2))" >> $GITHUB_ENV
-      #     echo "HTTPS_PORT_1=$((50000 + PORT_OFFSET * 10 + 1))" >> $GITHUB_ENV  
-      #     echo "HTTPS_PORT_2=$((50000 + PORT_OFFSET * 10 + 2))" >> $GITHUB_ENV
+          echo "PORT_OFFSET=${PORT_OFFSET}" >> $GITHUB_ENV
+          echo "HTTP_PORT_1=$((6000 + PORT_OFFSET * 10 + 1))" >> $GITHUB_ENV
+          echo "HTTP_PORT_2=$((6000 + PORT_OFFSET * 10 + 2))" >> $GITHUB_ENV
+          echo "HTTPS_PORT_1=$((50000 + PORT_OFFSET * 10 + 1))" >> $GITHUB_ENV  
+          echo "HTTPS_PORT_2=$((50000 + PORT_OFFSET * 10 + 2))" >> $GITHUB_ENV
 
-      # - name: Setup testing environment
-      #   run: ansible-playbook roles/test_utils/playbooks/run_setup_testing_env.yml
+      - name: Setup testing environment
+        run: ansible-playbook roles/test_utils/playbooks/run_setup_testing_env.yml
 
       # - name: Get Technitium server values
       #   id: get_server_values
