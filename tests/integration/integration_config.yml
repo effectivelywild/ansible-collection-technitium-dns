@@ -1,6 +1,6 @@
 # Zone names for authoritative tests (must exist on authoritative_nameservers)
 technitium_api_url: http://localhost
-technitium_api_token: 6a8d400b5c58b6f9621c84e79ecabd5c7f272e5232b98b9bff488be9629867be
+technitium_api_token: a1263596c6172419f6c9d2e62d7cad7b4bbf0ab21fc4fa3cb29806f60e978579
 technitium_api_port: 5382
 validate_certs: false
 

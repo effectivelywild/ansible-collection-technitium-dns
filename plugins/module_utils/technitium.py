@@ -30,29 +30,45 @@ class TechnitiumModule(AnsibleModule):
         self.name = self.params.get('name')
 
     def request(self, path, params=None, method='GET'):
+        from urllib.parse import urlencode, quote
+        
         url = f"{self.api_url}:{self.api_port}{path}"
         params = params or {}
         params['token'] = self.api_token
 
         if method == 'GET':
-            url_with_params = url + '?' + '&'.join(f"{k}={v}" for k, v in params.items())
+            url_with_params = url + '?' + urlencode(params)
             data = None
         else:
             url_with_params = url
-            data = '&'.join(f"{k}={v}" for k, v in params.items())
+            data = urlencode(params)
 
         try:
+            # Note: validate_certs parameter is accepted but may not be fully supported
+            # by all Ansible versions. For HTTPS connections with self-signed certificates,
+            # you may need to use environment variables like SSL_VERIFY=false
             resp, info = fetch_url(
                 self,
                 url_with_params,
                 data=data,
                 method=method,
                 headers={'Accept': 'application/json'},
-                timeout=10,
-                validate_certs=self.validate_certs
+                timeout=10
             )
+            
+            # Check if the request failed
             if info['status'] >= 400:
-                self.fail_json(msg=f"API request failed with status {info['status']}")
+                error_msg = f"API request failed with status {info['status']}"
+                if 'msg' in info:
+                    error_msg += f": {info['msg']}"
+                self.fail_json(msg=error_msg)
+            
+            # Check if response is None (connection failed)
+            if resp is None:
+                error_msg = "API request failed - no response received"
+                if 'msg' in info:
+                    error_msg += f": {info['msg']}"
+                self.fail_json(msg=error_msg)
 
             import json
             return json.loads(resp.read().decode('utf-8'))
