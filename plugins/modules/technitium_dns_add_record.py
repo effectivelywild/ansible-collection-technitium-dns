@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
+from __future__ import (absolute_import, division, print_function)
+__metaclass__ = type
 from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 DOCUMENTATION = r'''
@@ -62,7 +64,7 @@ options:
     appName:
         description:
             - Application name (APP only)
-            
+
         required: false
         type: str
     autoIpv4Hint:
@@ -355,7 +357,7 @@ options:
     tlsaCertificateUsage:
         description:
             - TLSA certificate usage (TLSA only)
-        choices: 
+        choices:
             - PKIX-TA
             - PKIX-EE
             - DANE-TA
@@ -459,6 +461,7 @@ options:
         required: false
         type: str
 '''
+
 EXAMPLES = r'''
 # Basic A record
 - name: Add an A record
@@ -696,7 +699,7 @@ EXAMPLES = r'''
     name: "fwdrec.fwd.example.com"
     zone: "fwd.example.com"
     type: "FWD"
-    protocol: Udp, 
+    protocol: Udp,
     forwarder: 192.0.2.10
     forwarderPriority: 10
 
@@ -738,7 +741,8 @@ EXAMPLES = r'''
     ttl: 3600
     validate_certs: true
 '''
-RETURN = r''' 
+
+RETURN = r'''
 api_response:
     description: The raw response from the Technitium DNS API.
     type: dict
@@ -871,6 +875,7 @@ msg:
     type: str
 '''
 
+
 class AddRecordModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
@@ -955,7 +960,7 @@ class AddRecordModule(TechnitiumModule):
             'NoProxy', 'DefaultProxy', 'Http', 'Socks5'
         ]),
         proxyAddress=dict(type='str', required=False),
-        proxyPort=dict(type='int', required=False), 
+        proxyPort=dict(type='int', required=False),
         proxyUsername=dict(type='str', required=False),
         proxyPassword=dict(type='str', required=False),
         appName=dict(type='str', required=False),
@@ -970,32 +975,32 @@ class AddRecordModule(TechnitiumModule):
     def run(self):
         params = self.params
         record_type = params['type'].upper()
-        
+
         # Parameter validation maps for different DNS record types
         # Each record type has specific parameters that are allowed/required
         # Using new parameter names to avoid conflicts with Ansible module reserved names
         allowed_params = {
-            'A': {'ipAddress','ttl','overwrite','comments','expiryTtl','ptr','createPtrZone','updateSvcbHints'},
-            'AAAA': {'ipAddress','ttl','overwrite','comments','expiryTtl','ptr','createPtrZone','updateSvcbHints'},
-            'NS': {'nameServer','glue','ttl','overwrite','comments','expiryTtl'},
-            'CNAME': {'cname','ttl','overwrite','comments','expiryTtl'},
-            'PTR': {'ptrName','ttl','overwrite','comments','expiryTtl'},
-            'MX': {'exchange','preference','ttl','overwrite','comments','expiryTtl'},
-            'TXT': {'text','splitText','ttl','overwrite','comments','expiryTtl'},
-            'SRV': {'priority','weight','srv_port','target','ttl','overwrite','comments','expiryTtl'},
-            'NAPTR': {'naptrOrder','naptrPreference','naptrFlags','naptrServices','naptrRegexp','naptrReplacement','ttl','overwrite','comments','expiryTtl'},
-            'DNAME': {'dname','ttl','overwrite','comments','expiryTtl'},
-            'DS': {'keyTag','algorithm','digestType','digest','ttl','overwrite','comments','expiryTtl'},
-            'SSHFP': {'sshfpAlgorithm','sshfpFingerprintType','sshfpFingerprint','ttl','overwrite','comments','expiryTtl'},
-            'TLSA': {'tlsaCertificateUsage','tlsaSelector','tlsaMatchingType','tlsaCertificateAssociationData','ttl','overwrite','comments','expiryTtl'},
-            'SVCB': {'svcPriority','svcTargetName','svcParams','autoIpv4Hint','autoIpv6Hint','ttl','overwrite','comments','expiryTtl'},
-            'HTTPS': {'svcPriority','svcTargetName','svcParams','autoIpv4Hint','autoIpv6Hint','ttl','overwrite','comments','expiryTtl'},
-            'CAA': {'flags','tag','value','ttl','overwrite','comments','expiryTtl'},
-            'ANAME': {'aname','ttl','overwrite','comments','expiryTtl'},
-            'FWD': {'ttl','protocol','forwarder','forwarderPriority','dnssecValidation','proxyType','proxyAddress','proxyPort','proxyUsername','proxyPassword','overwrite','comments','expiryTtl'},
-            'APP': {'appName','classPath','recordData','ttl','overwrite','comments','expiryTtl'},
-            'UNKNOWN': {'rdata','ttl','overwrite','comments','expiryTtl'},
-            'URI': {'uriPriority','uriWeight','uri','ttl','overwrite','comments','expiryTtl'}
+            'A': {'ipAddress', 'ttl', 'overwrite', 'comments', 'expiryTtl', 'ptr', 'createPtrZone', 'updateSvcbHints'},
+            'AAAA': {'ipAddress', 'ttl', 'overwrite', 'comments', 'expiryTtl', 'ptr', 'createPtrZone', 'updateSvcbHints'},
+            'NS': {'nameServer', 'glue', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'CNAME': {'cname', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'PTR': {'ptrName', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'MX': {'exchange', 'preference', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'TXT': {'text', 'splitText', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'SRV': {'priority', 'weight', 'srv_port', 'target', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'NAPTR': {'naptrOrder', 'naptrPreference', 'naptrFlags', 'naptrServices', 'naptrRegexp', 'naptrReplacement', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'DNAME': {'dname', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'DS': {'keyTag', 'algorithm', 'digestType', 'digest', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'SSHFP': {'sshfpAlgorithm', 'sshfpFingerprintType', 'sshfpFingerprint', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'TLSA': {'tlsaCertificateUsage', 'tlsaSelector', 'tlsaMatchingType', 'tlsaCertificateAssociationData', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'SVCB': {'svcPriority', 'svcTargetName', 'svcParams', 'autoIpv4Hint', 'autoIpv6Hint', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'HTTPS': {'svcPriority', 'svcTargetName', 'svcParams', 'autoIpv4Hint', 'autoIpv6Hint', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'CAA': {'flags', 'tag', 'value', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'ANAME': {'aname', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'FWD': {'ttl', 'protocol', 'forwarder', 'forwarderPriority', 'dnssecValidation', 'proxyType', 'proxyAddress', 'proxyPort', 'proxyUsername', 'proxyPassword', 'overwrite', 'comments', 'expiryTtl'},
+            'APP': {'appName', 'classPath', 'recordData', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'UNKNOWN': {'rdata', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'URI': {'uriPriority', 'uriWeight', 'uri', 'ttl', 'overwrite', 'comments', 'expiryTtl'}
         }
         required_params = {
             'A': ['ipAddress'],
@@ -1003,36 +1008,38 @@ class AddRecordModule(TechnitiumModule):
             'NS': ['nameServer'],
             'CNAME': ['cname'],
             'PTR': ['ptrName'],
-            'MX': ['exchange','preference'],
+            'MX': ['exchange', 'preference'],
             'TXT': ['text'],
-            'SRV': ['priority','weight','srv_port','target'],
-            'NAPTR': ['naptrOrder','naptrPreference'],
+            'SRV': ['priority', 'weight', 'srv_port', 'target'],
+            'NAPTR': ['naptrOrder', 'naptrPreference'],
             'DNAME': ['dname'],
-            'DS': ['keyTag','algorithm','digestType','digest'],
-            'SSHFP': ['sshfpAlgorithm','sshfpFingerprintType','sshfpFingerprint'],
-            'TLSA': ['tlsaCertificateUsage','tlsaSelector','tlsaMatchingType','tlsaCertificateAssociationData'],
-            'SVCB': ['svcPriority','svcTargetName','svcParams'],
-            'HTTPS': ['svcPriority','svcTargetName','svcParams'],
-            'CAA': ['flags','tag','value'],
+            'DS': ['keyTag', 'algorithm', 'digestType', 'digest'],
+            'SSHFP': ['sshfpAlgorithm', 'sshfpFingerprintType', 'sshfpFingerprint'],
+            'TLSA': ['tlsaCertificateUsage', 'tlsaSelector', 'tlsaMatchingType', 'tlsaCertificateAssociationData'],
+            'SVCB': ['svcPriority', 'svcTargetName', 'svcParams'],
+            'HTTPS': ['svcPriority', 'svcTargetName', 'svcParams'],
+            'CAA': ['flags', 'tag', 'value'],
             'ANAME': ['aname'],
-            'FWD': ['protocol','forwarder'],
-            'APP': ['appName','classPath','recordData'],
+            'FWD': ['protocol', 'forwarder'],
+            'APP': ['appName', 'classPath', 'recordData'],
             'UNKNOWN': ['rdata'],
-            'URI': ['uriPriority','uriWeight','uri'],
+            'URI': ['uriPriority', 'uriWeight', 'uri'],
         }
         # Validate allowed/required params
         if record_type in allowed_params:
             for param in params:
                 # Skip core connection/control params and the canonical name param (domain) plus its alias (name)
-                if param in ['api_url','api_port','api_token','domain','name','zone','type','validate_certs']:
+                if param in ['api_url', 'api_port', 'api_token', 'domain', 'name', 'zone', 'type', 'validate_certs']:
                     continue
                 if params[param] is not None and param not in allowed_params[record_type]:
-                    self.fail_json(msg=f"Parameter '{param}' is not supported for record type '{record_type}'.")
+                    self.fail_json(
+                        msg=f"Parameter '{param}' is not supported for record type '{record_type}'.")
         if record_type in required_params:
             for req in required_params[record_type]:
                 param_value = params.get(req)
                 if param_value is None:
-                    self.fail_json(msg=f"Parameter '{req}' is required for record type '{record_type}'.")
+                    self.fail_json(
+                        msg=f"Parameter '{req}' is required for record type '{record_type}'.")
                 # Special handling for parameters that can be 0 or empty string
                 if req in ['svcPriority'] and param_value == 0:
                     continue  # 0 is valid for svcPriority (alias mode)
@@ -1048,7 +1055,8 @@ class AddRecordModule(TechnitiumModule):
                 get_query['zone'] = params['zone']
             get_resp = self.request('/api/zones/records/get', params=get_query)
             if get_resp.get('status') != 'ok':
-                self.fail_json(msg=f"Technitium API error (check mode fetch): {get_resp.get('errorMessage') or 'Unknown'}", api_response=get_resp)
+                self.fail_json(
+                    msg=f"Technitium API error (check mode fetch): {get_resp.get('errorMessage') or 'Unknown'}", api_response=get_resp)
             existing_records = get_resp.get('response', {}).get('records', [])
             # Technitium API may return record type with capitalization (e.g. 'Unknown') so compare case-insensitively
             type_exists = any((r.get('type') or '').upper() == record_type for r in existing_records)
@@ -1056,8 +1064,9 @@ class AddRecordModule(TechnitiumModule):
             # If overwrite requested we report changed even if exists (would replace set)
             would_change = (not type_exists) or overwrite
             msg = "(check mode) DNS record would be added." if would_change else "(check mode) Record already exists."
-            self.exit_json(changed=would_change, msg=msg, api_response={'status': 'ok', 'check_mode': True, 'record_type_exists': type_exists})
-        
+            self.exit_json(changed=would_change, msg=msg, api_response={
+                           'status': 'ok', 'check_mode': True, 'record_type_exists': type_exists})
+
         # Build query, mapping internal names to API names
         query = {}
         for key in self.argument_spec:
@@ -1079,13 +1088,18 @@ class AddRecordModule(TechnitiumModule):
         if data.get('status') != 'ok':
             error_msg = data.get('errorMessage') or "Unknown error"
             if 'record already exists' in error_msg.lower():
-                self.exit_json(changed=False, msg=f"Record already exists.", api_response={'status': 'ok', 'msg': f"Record already exists."})
-            self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)
-        self.exit_json(changed=True, msg="DNS record added.", api_response=data)
+                self.exit_json(changed=False, msg="Record already exists.", api_response={
+                               'status': 'ok', 'msg': "Record already exists."})
+            self.fail_json(
+                msg=f"Technitium API error: {error_msg}", api_response=data)
+        self.exit_json(changed=True, msg="DNS record added.",
+                       api_response=data)
+
 
 def main():
     module = AddRecordModule()
     module()
+
 
 if __name__ == '__main__':
     main()

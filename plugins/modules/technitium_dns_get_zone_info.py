@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
+from __future__ import (absolute_import, division, print_function)
+__metaclass__ = type
 from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 DOCUMENTATION = r'''
@@ -186,13 +188,13 @@ class GetZoneInfoModule(TechnitiumModule):
         if data.get('status') != 'ok':
             error_msg = data.get('errorMessage') or "Unknown error"
             self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)
-        
+
         zones = data.get('response', {}).get('zones', [])
-        
+
         # Apply zone type filter if specified
         if zone_type:
             zones = [z for z in zones if z.get('type') == zone_type]
-        
+
         # Handle specific zone request vs. all zones request
         if zone_name:
             # Find the specific zone in the filtered list

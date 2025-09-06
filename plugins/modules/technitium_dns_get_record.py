@@ -1,11 +1,13 @@
 #!/usr/bin/python
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
+from __future__ import (absolute_import, division, print_function)
+__metaclass__ = type
 from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 DOCUMENTATION = r'''
 ---
-module: technitium_dns_get_records
+module: technitium_dns_get_record
 short_description: Get DNS record(s)
 version_added: "0.1.0"
 author: Frank Muise (@effectivelywild)
@@ -86,7 +88,7 @@ EXAMPLES = r'''
 
 RETURN = r'''
 records:
-    description: 
+    description:
         - List of DNS records (convenience extraction from api_response.response.records)
         - See api_response.response.records for detailed field documentation
     type: list
@@ -226,6 +228,7 @@ failed:
     sample: false
 '''
 
+
 class GetRecordsModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
@@ -239,7 +242,7 @@ class GetRecordsModule(TechnitiumModule):
 
     def run(self):
         params = self.params
-        
+
         # Build API query parameters from module arguments
         query = {}
         for key in self.argument_spec:
@@ -249,29 +252,28 @@ class GetRecordsModule(TechnitiumModule):
                 if isinstance(val, bool):
                     val = str(val).lower()
                 query[key] = val
-        
+
         # Add authentication token and set domain parameter for API
         query['token'] = self.api_token
         query['domain'] = self.name
-        
+
         # Fetch DNS records from the API
         data = self.request('/api/zones/records/get', params=query)
         if data.get('status') != 'ok':
             error_msg = data.get('errorMessage') or "Unknown error"
             self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)
-        
+
         records = data.get('response', {}).get('records', [])
-        
+
         # Validate results based on operation mode
         # For specific record queries (not zone listing), ensure records were found
         if self.params.get('name') and not self.params.get('listZone', False):
             if not records:
                 self.fail_json(msg=f"No records found for name '{self.params['name']}' in zone '{self.params.get('zone', '')}'", api_response=data)
-        
+
         self.exit_json(changed=False, records=records, api_response=data)
 
 
 if __name__ == '__main__':
     module = GetRecordsModule()
     module.run()
-

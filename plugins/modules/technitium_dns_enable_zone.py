@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
+from __future__ import (absolute_import, division, print_function)
+__metaclass__ = type
 from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 DOCUMENTATION = r'''
@@ -97,6 +99,7 @@ msg:
     sample: "Zone 'demo.test.local' enabled."
 '''
 
+
 class EnableZoneModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
@@ -112,9 +115,8 @@ class EnableZoneModule(TechnitiumModule):
         # Check if the zone exists and get its current status
         zone_check_query = {'zone': zone}
         zone_check_data = self.request('/api/zones/options/get', params=zone_check_query)
-        zone_exists = True
         is_disabled = False
-        
+
         # Parse the API response to determine if zone exists and its status
         if zone_check_data.get('status') != 'ok':
             error_msg = zone_check_data.get('errorMessage', '')
@@ -146,7 +148,7 @@ class EnableZoneModule(TechnitiumModule):
         if data.get('status') != 'ok':
             error_msg = data.get('errorMessage') or "Unknown error"
             self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)
-            
+
         # Return success - zone was enabled
         self.exit_json(changed=True, msg=f"Zone '{zone}' enabled.", api_response=data)
 

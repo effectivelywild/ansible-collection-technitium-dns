@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
+from __future__ import (absolute_import, division, print_function)
+__metaclass__ = type
 from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 DOCUMENTATION = r'''
@@ -201,6 +203,7 @@ failed:
     sample: false
 '''
 
+
 class GetZoneOptionsModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
@@ -215,21 +218,22 @@ class GetZoneOptionsModule(TechnitiumModule):
     def run(self):
         params = self.params
         zone = params['zone']
-        
+
         query = {'zone': zone}
         if params['includeAvailableCatalogZoneNames']:
             query['includeAvailableCatalogZoneNames'] = True
         if params['includeAvailableTsigKeyNames']:
             query['includeAvailableTsigKeyNames'] = True
-        
+
         data = self.request('/api/zones/options/get', params=query)
-        
+
         if data.get('status') != 'ok':
             error_msg = data.get('errorMessage') or data.get('message') or "Unknown error"
             self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)
-        
+
         options = data.get('response', {})
         self.exit_json(changed=False, options=options)
+
 
 if __name__ == '__main__':
     module = GetZoneOptionsModule()

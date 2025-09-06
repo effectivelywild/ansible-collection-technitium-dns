@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
+from __future__ import (absolute_import, division, print_function)
+__metaclass__ = type
 from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 DOCUMENTATION = r'''
@@ -95,6 +97,7 @@ msg:
     sample: "Zone 'dnssec-demo.test.local' converted from NSEC3 to NSEC."
 '''
 
+
 class ConvertToNsecModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
@@ -107,7 +110,7 @@ class ConvertToNsecModule(TechnitiumModule):
 
     def run(self):
         zone = self.params['zone']
-        
+
         # Fetch current zone DNSSEC status (this also validates zone exists)
         dnssec_status, zone_info = self.get_dnssec_status(zone)
 
@@ -134,8 +137,9 @@ class ConvertToNsecModule(TechnitiumModule):
 
         if status != 'ok':
             self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)
-        
+
         self.exit_json(changed=True, msg=f"Zone '{zone}' converted from NSEC3 to NSEC.", api_response=data)
+
 
 if __name__ == '__main__':
     module = ConvertToNsecModule()

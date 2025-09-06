@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
+from __future__ import (absolute_import, division, print_function)
+__metaclass__ = type
 from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 DOCUMENTATION = r'''
@@ -198,7 +200,7 @@ msg:
     sample: "Zone 'demo.test.local' signed."
 '''
 
-# Refactored to use TechnitiumModule base class
+
 class SignZoneModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
@@ -222,38 +224,40 @@ class SignZoneModule(TechnitiumModule):
     )
 
     def run(self):
-      zone = self.params['zone']
-      algorithm = self.params['algorithm']
-      # Build query params for API
-      query = {'zone': zone, 'algorithm': algorithm}
+        zone = self.params['zone']
+        algorithm = self.params['algorithm']
+        # Build query params for API
+        query = {'zone': zone, 'algorithm': algorithm}
 
-      # Build query with optional parameters  
-      for key in [
-        'pemKskPrivateKey', 'pemZskPrivateKey', 'hashAlgorithm', 'kskKeySize', 'zskKeySize',
-        'curve', 'dnsKeyTtl', 'zskRolloverDays', 'nxProof', 'iterations', 'saltLength']:
-        value = self.params.get(key)
-        if value is not None:
-          query[key] = value
+        # Build query with optional parameters
+        for key in [
+            'pemKskPrivateKey', 'pemZskPrivateKey', 'hashAlgorithm', 'kskKeySize', 'zskKeySize',
+            'curve', 'dnsKeyTtl', 'zskRolloverDays', 'nxProof', 'iterations', 'saltLength'
+        ]:
+            value = self.params.get(key)
+            if value is not None:
+                query[key] = value
 
-      # Fetch current zone DNSSEC status (this also validates zone exists)
-      dnssec_status, zone_info = self.get_dnssec_status(zone)
+        # Fetch current zone DNSSEC status (this also validates zone exists)
+        dnssec_status, zone_info = self.get_dnssec_status(zone)
 
-      if dnssec_status != 'unsigned':
-        self.exit_json(changed=False, msg=f"Zone '{zone}' is already signed (status: {zone_info.get('dnssecStatus')}).", api_response={'status': 'ok', 'msg': f"Zone '{zone}' is already signed."})
+        if dnssec_status != 'unsigned':
+            self.exit_json(changed=False, msg=f"Zone '{zone}' is already signed (status: {zone_info.get('dnssecStatus')}).", api_response={'status': 'ok', 'msg': f"Zone '{zone}' is already signed."})
 
-      if self.check_mode:
-        self.exit_json(changed=True, msg="Zone would be signed (check mode)", api_response={})
+        if self.check_mode:
+            self.exit_json(changed=True, msg="Zone would be signed (check mode)", api_response={})
 
-      data = self.request('/api/zones/dnssec/sign', params=query, method='POST')
-      status = data.get('status')
-      error_msg = data.get('errorMessage') or data.get('error') or data.get('message') or "Unknown error"
-      already_signed_msg = 'the zone is already signed'
+        data = self.request('/api/zones/dnssec/sign', params=query, method='POST')
+        status = data.get('status')
+        error_msg = data.get('errorMessage') or data.get('error') or data.get('message') or "Unknown error"
+        already_signed_msg = 'the zone is already signed'
 
-      if status != 'ok':
-        if already_signed_msg in str(error_msg).lower():
-          self.exit_json(changed=False, msg=f"Zone '{zone}' is already signed.", api_response={'status': 'ok', 'msg': f"Zone '{zone}' is already signed."})
-        self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)
-      self.exit_json(changed=True, msg=f"Zone '{zone}' signed.", api_response=data)
+        if status != 'ok':
+            if already_signed_msg in str(error_msg).lower():
+                self.exit_json(changed=False, msg=f"Zone '{zone}' is already signed.", api_response={'status': 'ok', 'msg': f"Zone '{zone}' is already signed."})
+            self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)
+        self.exit_json(changed=True, msg=f"Zone '{zone}' signed.", api_response=data)
+
 
 if __name__ == '__main__':
     module = SignZoneModule()

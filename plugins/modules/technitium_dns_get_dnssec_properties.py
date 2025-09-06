@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
+from __future__ import (absolute_import, division, print_function)
+__metaclass__ = type
 from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 DOCUMENTATION = r'''
@@ -50,7 +52,6 @@ options:
         type: str
 '''
 
-
 EXAMPLES = r'''
 - name: Get DNSSEC properties for example.com
   technitium_dns_get_dnssec_properties:
@@ -71,7 +72,7 @@ changed:
     sample: false
 
 dnssec_properties:
-    description: 
+    description:
         - DNSSEC properties and configuration for the zone
         - Contains comprehensive information about DNSSEC signing status, keys, and settings
     type: dict
@@ -174,26 +175,26 @@ class GetDnssecPropertiesModule(TechnitiumModule):
 
     def run(self):
         zone = self.params['zone']
-        
+
         # Validate that the zone exists before attempting to get DNSSEC properties
         # This will fail with a clear error message if the zone doesn't exist
         self.validate_zone_exists(zone)
-        
+
         # Build API parameters for DNSSEC properties request
         params = {'zone': zone}
-        
+
         # Fetch DNSSEC properties from the Technitium API
         # This endpoint returns DNSSEC keys, signing information, and configuration
         data = self.request('/api/zones/dnssec/properties/get', params=params)
-        
+
         # Check API response status and handle errors
         if data.get('status') != 'ok':
             error_msg = data.get('errorMessage') or "Unknown error"
             self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)
-        
+
         # Extract DNSSEC properties from API response
         dnssec_properties = data.get('response', {})
-        
+
         # Return the DNSSEC properties (read-only operation, never changed=True)
         self.exit_json(changed=False, dnssec_properties=dnssec_properties)
 

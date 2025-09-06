@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
+from __future__ import (absolute_import, division, print_function)
+__metaclass__ = type
 from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 DOCUMENTATION = r'''
@@ -318,6 +320,7 @@ msg:
     sample: "Zone options set successfully."
 '''
 
+
 class SetZoneOptionsModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
@@ -327,23 +330,33 @@ class SetZoneOptionsModule(TechnitiumModule):
         overrideCatalogQueryAccess=dict(type='bool', required=False),
         overrideCatalogZoneTransfer=dict(type='bool', required=False),
         overrideCatalogNotify=dict(type='bool', required=False),
-        primaryNameServerAddresses=dict(type='list', elements='str', required=False),
-        primaryZoneTransferProtocol=dict(type='str', required=False, choices=['Tcp', 'Tls', 'Quic']),
+        primaryNameServerAddresses=dict(
+            type='list', elements='str', required=False),
+        primaryZoneTransferProtocol=dict(
+            type='str', required=False, choices=['Tcp', 'Tls', 'Quic']),
         primaryZoneTransferTsigKeyName=dict(type='str', required=False),
         validateZone=dict(type='bool', required=False),
-        queryAccess=dict(type='str', required=False, choices=['Deny', 'Allow', 'AllowOnlyPrivateNetworks', 'AllowOnlyZoneNameServers', 'UseSpecifiedNetworkACL', 'AllowZoneNameServersAndUseSpecifiedNetworkACL']),
-        queryAccessNetworkACL=dict(type='list', elements='str', required=False),
-        zoneTransfer=dict(type='str', required=False, choices=['Deny', 'Allow', 'AllowOnlyZoneNameServers', 'UseSpecifiedNetworkACL', 'AllowZoneNameServersAndUseSpecifiedNetworkACL']),
-        zoneTransferNetworkACL=dict(type='list', elements='str', required=False),
-        zoneTransferTsigKeyNames=dict(type='list', elements='str', required=False),
-        notify=dict(type='str', required=False, choices=['None', 'ZoneNameServers', 'SpecifiedNameServers', 'BothZoneAndSpecifiedNameServers', 'SeparateNameServersForCatalogAndMemberZones']),
+        queryAccess=dict(type='str', required=False, choices=['Deny', 'Allow', 'AllowOnlyPrivateNetworks',
+                         'AllowOnlyZoneNameServers', 'UseSpecifiedNetworkACL', 'AllowZoneNameServersAndUseSpecifiedNetworkACL']),
+        queryAccessNetworkACL=dict(
+            type='list', elements='str', required=False),
+        zoneTransfer=dict(type='str', required=False, choices=[
+                          'Deny', 'Allow', 'AllowOnlyZoneNameServers', 'UseSpecifiedNetworkACL', 'AllowZoneNameServersAndUseSpecifiedNetworkACL']),
+        zoneTransferNetworkACL=dict(
+            type='list', elements='str', required=False),
+        zoneTransferTsigKeyNames=dict(
+            type='list', elements='str', required=False),
+        notify=dict(type='str', required=False, choices=[
+                    'None', 'ZoneNameServers', 'SpecifiedNameServers', 'BothZoneAndSpecifiedNameServers', 'SeparateNameServersForCatalogAndMemberZones']),
         notifyNameServers=dict(type='list', elements='str', required=False),
-        notifySecondaryCatalogsNameServers=dict(type='list', elements='str', required=False),
-        update=dict(type='str', required=False, choices=['Deny', 'Allow', 'AllowOnlyZoneNameServers', 'UseSpecifiedNetworkACL', 'AllowZoneNameServersAndUseSpecifiedNetworkACL']),
+        notifySecondaryCatalogsNameServers=dict(
+            type='list', elements='str', required=False),
+        update=dict(type='str', required=False, choices=[
+                    'Deny', 'Allow', 'AllowOnlyZoneNameServers', 'UseSpecifiedNetworkACL', 'AllowZoneNameServersAndUseSpecifiedNetworkACL']),
         updateNetworkACL=dict(type='list', elements='str', required=False),
         updateSecurityPolicies=dict(
-            type='list', 
-            elements='dict', 
+            type='list',
+            elements='dict',
             required=False,
             options=dict(
                 tsigKeyName=dict(type='str', required=True),
@@ -363,15 +376,15 @@ class SetZoneOptionsModule(TechnitiumModule):
             'zoneTransferTsigKeyNames', 'notifyNameServers', 'notifySecondaryCatalogsNameServers',
             'updateNetworkACL'
         ]
-        
+
         # Handle None/empty values
         if value in [None, "", []]:
             return [] if key in list_like_fields or key == 'updateSecurityPolicies' else None
-            
+
         # Normalize booleans to lowercase strings
         if isinstance(value, bool):
             return str(value).lower()
-            
+
         # Normalize list-like fields
         if key in list_like_fields:
             if isinstance(value, list):
@@ -380,7 +393,7 @@ class SetZoneOptionsModule(TechnitiumModule):
                 return sorted([x.strip() for x in value.split(",") if x.strip()])
             else:
                 return sorted([str(value)])
-                
+
         # Normalize updateSecurityPolicies
         if key == 'updateSecurityPolicies':
             if not isinstance(value, list):
@@ -390,12 +403,13 @@ class SetZoneOptionsModule(TechnitiumModule):
                 if isinstance(policy, dict):
                     normalized_policy = dict(policy)
                     if 'allowedTypes' in normalized_policy and isinstance(normalized_policy['allowedTypes'], list):
-                        normalized_policy['allowedTypes'] = sorted(normalized_policy['allowedTypes'])
+                        normalized_policy['allowedTypes'] = sorted(
+                            normalized_policy['allowedTypes'])
                     normalized_policies.append(normalized_policy)
                 else:
                     normalized_policies.append(policy)
             return sorted(normalized_policies, key=lambda x: (x.get('tsigKeyName', ''), x.get('domain', '')))
-            
+
         return value
 
     def run(self):
@@ -406,33 +420,36 @@ class SetZoneOptionsModule(TechnitiumModule):
         get_data = self.validate_zone_exists(zone)
         if get_data.get('status') != 'ok':
             error_msg = get_data.get('errorMessage') or 'Unknown error'
-            self.fail_json(msg=f"Technitium API error (get options): {error_msg}", api_response=get_data)
+            self.fail_json(
+                msg=f"Technitium API error (get options): {error_msg}", api_response=get_data)
         current = get_data.get('response', {})
         zone_type = current.get('type')
 
         # 1b. Conditional parameter validation based on zone type
         allowed_params = {
-            'Primary': set(['disabled','catalog','overrideCatalogQueryAccess','overrideCatalogZoneTransfer','overrideCatalogNotify','queryAccess','queryAccessNetworkACL','zoneTransfer','zoneTransferNetworkACL','zoneTransferTsigKeyNames','notify','notifyNameServers','update','updateNetworkACL','updateSecurityPolicies']),
-            'Stub': set(['disabled','catalog','overrideCatalogQueryAccess','primaryNameServerAddresses','validateZone','queryAccess','queryAccessNetworkACL']),
-            'Forwarder': set(['disabled','catalog','overrideCatalogQueryAccess','overrideCatalogZoneTransfer','overrideCatalogNotify','notify','notifyNameServers','update','updateNetworkACL','updateSecurityPolicies']),
-            'Secondary': set(['disabled','primaryNameServerAddresses','primaryZoneTransferProtocol','primaryZoneTransferTsigKeyName','validateZone','zoneTransfer','zoneTransferNetworkACL','zoneTransferTsigKeyNames','notify','notifyNameServers','update','updateNetworkACL','queryAccess','queryAccessNetworkACL']),
-            'SecondaryForwarder': set(['disabled','primaryNameServerAddresses','primaryZoneTransferProtocol','primaryZoneTransferTsigKeyName','zoneTransfer','zoneTransferNetworkACL','zoneTransferTsigKeyNames','notify','notifyNameServers','queryAccess','queryAccessNetworkACL']),
-            'SecondaryCatalog': set(['disabled','primaryNameServerAddresses','primaryZoneTransferProtocol','primaryZoneTransferTsigKeyName','zoneTransfer','zoneTransferNetworkACL','zoneTransferTsigKeyNames','notify','notifyNameServers']),
-            'Catalog': set(['disabled','zoneTransfer','zoneTransferNetworkACL','zoneTransferTsigKeyNames','notify','notifyNameServers','notifySecondaryCatalogsNameServers','queryAccess','queryAccessNetworkACL']),
+            'Primary': set(['disabled', 'catalog', 'overrideCatalogQueryAccess', 'overrideCatalogZoneTransfer', 'overrideCatalogNotify', 'queryAccess', 'queryAccessNetworkACL', 'zoneTransfer', 'zoneTransferNetworkACL', 'zoneTransferTsigKeyNames', 'notify', 'notifyNameServers', 'update', 'updateNetworkACL', 'updateSecurityPolicies']),
+            'Stub': set(['disabled', 'catalog', 'overrideCatalogQueryAccess', 'primaryNameServerAddresses', 'validateZone', 'queryAccess', 'queryAccessNetworkACL']),
+            'Forwarder': set(['disabled', 'catalog', 'overrideCatalogQueryAccess', 'overrideCatalogZoneTransfer', 'overrideCatalogNotify', 'notify', 'notifyNameServers', 'update', 'updateNetworkACL', 'updateSecurityPolicies']),
+            'Secondary': set(['disabled', 'primaryNameServerAddresses', 'primaryZoneTransferProtocol', 'primaryZoneTransferTsigKeyName', 'validateZone', 'zoneTransfer', 'zoneTransferNetworkACL', 'zoneTransferTsigKeyNames', 'notify', 'notifyNameServers', 'update', 'updateNetworkACL', 'queryAccess', 'queryAccessNetworkACL']),
+            'SecondaryForwarder': set(['disabled', 'primaryNameServerAddresses', 'primaryZoneTransferProtocol', 'primaryZoneTransferTsigKeyName', 'zoneTransfer', 'zoneTransferNetworkACL', 'zoneTransferTsigKeyNames', 'notify', 'notifyNameServers', 'queryAccess', 'queryAccessNetworkACL']),
+            'SecondaryCatalog': set(['disabled', 'primaryNameServerAddresses', 'primaryZoneTransferProtocol', 'primaryZoneTransferTsigKeyName', 'zoneTransfer', 'zoneTransferNetworkACL', 'zoneTransferTsigKeyNames', 'notify', 'notifyNameServers']),
+            'Catalog': set(['disabled', 'zoneTransfer', 'zoneTransferNetworkACL', 'zoneTransferTsigKeyNames', 'notify', 'notifyNameServers', 'notifySecondaryCatalogsNameServers', 'queryAccess', 'queryAccessNetworkACL']),
             'SecondaryROOT': set(['disabled']),
         }
         if zone_type in allowed_params:
             for param in params:
-                if param in ['api_url','api_port','api_token','zone','validate_certs']:
+                if param in ['api_url', 'api_port', 'api_token', 'zone', 'validate_certs']:
                     continue
                 if params[param] is not None and param not in allowed_params[zone_type]:
                     # Show what user attempted to configure for debugging
-                    attempted_config = {k: v for k, v in params.items() if v is not None and k not in ['api_url','api_port','api_token','validate_certs','zone']}
+                    attempted_config = {k: v for k, v in params.items() if v is not None and k not in [
+                        'api_url', 'api_port', 'api_token', 'validate_certs', 'zone']}
                     self.fail_json(
                         msg=f"Parameter '{param}' is not supported for zone type '{zone_type}'.",
                         attempted_changes=attempted_config,
                         zone_type=zone_type,
-                        supported_params=sorted(list(allowed_params[zone_type]))
+                        supported_params=sorted(
+                            list(allowed_params[zone_type]))
                     )
 
         # 2. Build desired state dict and validate user inputs
@@ -447,16 +464,18 @@ class SetZoneOptionsModule(TechnitiumModule):
             'disabled', 'catalog', 'overrideCatalogQueryAccess', 'overrideCatalogZoneTransfer', 'overrideCatalogNotify',
             'primaryNameServerAddresses', 'primaryZoneTransferProtocol', 'primaryZoneTransferTsigKeyName', 'validateZone',
             'queryAccess', 'queryAccessNetworkACL', 'zoneTransfer', 'zoneTransferNetworkACL', 'zoneTransferTsigKeyNames',
-            'notify', 'notifyNameServers', 'notifySecondaryCatalogsNameServers', 'update', 'updateNetworkACL', 'updateSecurityPolicies']:
+                'notify', 'notifyNameServers', 'notifySecondaryCatalogsNameServers', 'update', 'updateNetworkACL', 'updateSecurityPolicies']:
             value = params.get(key)
             if value is not None:
                 # Validate input types before storing
                 if key in list_like_fields:
                     if not isinstance(value, list):
-                        self.fail_json(msg=f"Parameter '{key}' must be a list, got {type(value).__name__}")
+                        self.fail_json(
+                            msg=f"Parameter '{key}' must be a list, got {type(value).__name__}")
                 if key == 'updateSecurityPolicies':
                     if not isinstance(value, list):
-                        self.fail_json(msg=f"Parameter '{key}' must be a list of dict, got {type(value).__name__}")
+                        self.fail_json(
+                            msg=f"Parameter '{key}' must be a list of dict, got {type(value).__name__}")
                 # Store raw value - normalization happens during comparison
                 desired[key] = value
 
@@ -466,13 +485,14 @@ class SetZoneOptionsModule(TechnitiumModule):
             current_val = current.get(k)
             normalized_current = self._normalize_value(k, current_val)
             normalized_desired = self._normalize_value(k, v)
-            
+
             if normalized_current != normalized_desired:
-                diff[k] = {'current': normalized_current, 'desired': normalized_desired}
+                diff[k] = {'current': normalized_current,
+                           'desired': normalized_desired}
 
         if not diff:
-            self.exit_json(changed=False, msg="Zone options already match desired state.")
-
+            self.exit_json(
+                changed=False, msg="Zone options already match desired state.")
 
         # Check mode: if changes would be made, exit early and show diff
         if self.check_mode:
@@ -506,7 +526,7 @@ class SetZoneOptionsModule(TechnitiumModule):
         if data.get('status') != 'ok':
             error_msg = data.get('errorMessage') or 'Unknown error'
             self.fail_json(
-                msg=f"Technitium API error: {error_msg}", 
+                msg=f"Technitium API error: {error_msg}",
                 api_response=data
             )
         self.exit_json(
@@ -515,6 +535,7 @@ class SetZoneOptionsModule(TechnitiumModule):
             diff=diff,
             api_response=data
         )
+
 
 if __name__ == '__main__':
     module = SetZoneOptionsModule()

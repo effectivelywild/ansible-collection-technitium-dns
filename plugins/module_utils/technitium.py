@@ -1,5 +1,8 @@
+from __future__ import (absolute_import, division, print_function)
+__metaclass__ = type
 from ansible.module_utils.basic import AnsibleModule
-import requests
+from ansible.module_utils.urls import fetch_url
+
 
 class TechnitiumModule(AnsibleModule):
     argument_spec = {}
@@ -25,22 +28,34 @@ class TechnitiumModule(AnsibleModule):
         self.api_token = self.params['api_token']
         self.validate_certs = self.params.get('validate_certs', True)
         self.name = self.params.get('name')
-        
+
     def request(self, path, params=None, method='GET'):
         url = f"{self.api_url}:{self.api_port}{path}"
         params = params or {}
         params['token'] = self.api_token
+
+        if method == 'GET':
+            url_with_params = url + '?' + '&'.join(f"{k}={v}" for k, v in params.items())
+            data = None
+        else:
+            url_with_params = url
+            data = '&'.join(f"{k}={v}" for k, v in params.items())
+
         try:
-            resp = requests.request(
-                method, 
-                url, 
-                params=params, 
-                headers={'Accept': 'application/json'}, 
+            resp, info = fetch_url(
+                self,
+                url_with_params,
+                data=data,
+                method=method,
+                headers={'Accept': 'application/json'},
                 timeout=10,
-                verify=self.validate_certs
+                validate_certs=self.validate_certs
             )
-            resp.raise_for_status()
-            return resp.json()
+            if info['status'] >= 400:
+                self.fail_json(msg=f"API request failed with status {info['status']}")
+
+            import json
+            return json.loads(resp.read().decode('utf-8'))
         except Exception as e:
             self.fail_json(msg=f"Technitium API request failed: {e}")
 

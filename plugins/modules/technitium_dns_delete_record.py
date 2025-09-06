@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
+from __future__ import (absolute_import, division, print_function)
+__metaclass__ = type
 from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 DOCUMENTATION = r'''
@@ -356,7 +358,7 @@ options:
     tlsaCertificateUsage:
         description:
             - TLSA certificate usage (TLSA only)
-        choices: 
+        choices:
             - PKIX-TA
             - PKIX-EE
             - DANE-TA
@@ -688,7 +690,8 @@ EXAMPLES = r'''
     ipAddress: "192.0.2.75"
 
 '''
-RETURN = r''' 
+
+RETURN = r'''
 api_response:
     description: The raw response from the Technitium DNS API.
     type: dict
@@ -715,6 +718,8 @@ msg:
     returned: always
     type: str
 '''
+
+
 class DeleteRecordModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
@@ -799,7 +804,7 @@ class DeleteRecordModule(TechnitiumModule):
             'NoProxy', 'DefaultProxy', 'Http', 'Socks5'
         ]),
         proxyAddress=dict(type='str', required=False),
-        proxyPort=dict(type='int', required=False), 
+        proxyPort=dict(type='int', required=False),
         proxyUsername=dict(type='str', required=False),
         proxyPassword=dict(type='str', required=False),
         appName=dict(type='str', required=False),
@@ -816,27 +821,27 @@ class DeleteRecordModule(TechnitiumModule):
         record_type = params['type'].upper()
         # Map of record type to allowed/required params (using new names for conflicting params)
         allowed_params = {
-            'A': {'ipAddress','ttl','overwrite','comments','expiryTtl','ptr','createPtrZone','updateSvcbHints'},
-            'AAAA': {'ipAddress','ttl','overwrite','comments','expiryTtl','ptr','createPtrZone','updateSvcbHints'},
-            'NS': {'nameServer','glue','ttl','overwrite','comments','expiryTtl'},
-            'CNAME': {'cname','ttl','overwrite','comments','expiryTtl'},
-            'PTR': {'ptrName','ttl','overwrite','comments','expiryTtl'},
-            'MX': {'exchange','preference','ttl','overwrite','comments','expiryTtl'},
-            'TXT': {'text','splitText','ttl','overwrite','comments','expiryTtl'},
-            'SRV': {'priority','weight','srv_port','target','ttl','overwrite','comments','expiryTtl'},
-            'NAPTR': {'naptrOrder','naptrPreference','naptrFlags','naptrServices','naptrRegexp','naptrReplacement','ttl','overwrite','comments','expiryTtl'},
-            'DNAME': {'dname','ttl','overwrite','comments','expiryTtl'},
-            'DS': {'keyTag','algorithm','digestType','digest','ttl','overwrite','comments','expiryTtl'},
-            'SSHFP': {'sshfpAlgorithm','sshfpFingerprintType','sshfpFingerprint','ttl','overwrite','comments','expiryTtl'},
-            'TLSA': {'tlsaCertificateUsage','tlsaSelector','tlsaMatchingType','tlsaCertificateAssociationData','ttl','overwrite','comments','expiryTtl'},
-            'SVCB': {'svcPriority','svcTargetName','svcParams','autoIpv4Hint','autoIpv6Hint','ttl','overwrite','comments','expiryTtl'},
-            'HTTPS': {'svcPriority','svcTargetName','svcParams','autoIpv4Hint','autoIpv6Hint','ttl','overwrite','comments','expiryTtl'},
-            'CAA': {'flags','tag','value','ttl','overwrite','comments','expiryTtl'},
-            'ANAME': {'aname','ttl','overwrite','comments','expiryTtl'},
-            'FWD': {'protocol','forwarder','forwarderPriority','dnssecValidation','proxyType','proxyAddress','proxyPort','proxyUsername','proxyPassword','overwrite','comments','expiryTtl'},
-            'APP': {'appName','classPath','recordData','ttl','overwrite','comments','expiryTtl'},
-            'UNKNOWN': {'rdata','ttl','overwrite','comments','expiryTtl'},
-            'URI': {'uriPriority','uriWeight','uri','ttl','overwrite','comments','expiryTtl'}
+            'A': {'ipAddress', 'ttl', 'overwrite', 'comments', 'expiryTtl', 'ptr', 'createPtrZone', 'updateSvcbHints'},
+            'AAAA': {'ipAddress', 'ttl', 'overwrite', 'comments', 'expiryTtl', 'ptr', 'createPtrZone', 'updateSvcbHints'},
+            'NS': {'nameServer', 'glue', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'CNAME': {'cname', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'PTR': {'ptrName', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'MX': {'exchange', 'preference', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'TXT': {'text', 'splitText', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'SRV': {'priority', 'weight', 'srv_port', 'target', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'NAPTR': {'naptrOrder', 'naptrPreference', 'naptrFlags', 'naptrServices', 'naptrRegexp', 'naptrReplacement', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'DNAME': {'dname', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'DS': {'keyTag', 'algorithm', 'digestType', 'digest', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'SSHFP': {'sshfpAlgorithm', 'sshfpFingerprintType', 'sshfpFingerprint', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'TLSA': {'tlsaCertificateUsage', 'tlsaSelector', 'tlsaMatchingType', 'tlsaCertificateAssociationData', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'SVCB': {'svcPriority', 'svcTargetName', 'svcParams', 'autoIpv4Hint', 'autoIpv6Hint', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'HTTPS': {'svcPriority', 'svcTargetName', 'svcParams', 'autoIpv4Hint', 'autoIpv6Hint', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'CAA': {'flags', 'tag', 'value', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'ANAME': {'aname', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'FWD': {'protocol', 'forwarder', 'forwarderPriority', 'dnssecValidation', 'proxyType', 'proxyAddress', 'proxyPort', 'proxyUsername', 'proxyPassword', 'overwrite', 'comments', 'expiryTtl'},
+            'APP': {'appName', 'classPath', 'recordData', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'UNKNOWN': {'rdata', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'URI': {'uriPriority', 'uriWeight', 'uri', 'ttl', 'overwrite', 'comments', 'expiryTtl'}
         }
         required_params = {
             'A': ['ipAddress'],
@@ -844,37 +849,39 @@ class DeleteRecordModule(TechnitiumModule):
             'NS': ['nameServer'],
             'CNAME': ['cname'],
             'PTR': ['ptrName'],
-            'MX': ['exchange','preference'],
+            'MX': ['exchange', 'preference'],
             'TXT': ['text'],
-            'SRV': ['priority','weight','srv_port','target'],
-            'NAPTR': ['naptrOrder','naptrPreference'],
+            'SRV': ['priority', 'weight', 'srv_port', 'target'],
+            'NAPTR': ['naptrOrder', 'naptrPreference'],
             'DNAME': ['dname'],
-            'DS': ['keyTag','algorithm','digestType','digest'],
-            'SSHFP': ['sshfpAlgorithm','sshfpFingerprintType','sshfpFingerprint'],
-            'TLSA': ['tlsaCertificateUsage','tlsaSelector','tlsaMatchingType','tlsaCertificateAssociationData'],
-            'SVCB': ['svcPriority','svcTargetName','svcParams'],
-            'HTTPS': ['svcPriority','svcTargetName','svcParams'],
-            'CAA': ['flags','tag','value'],
+            'DS': ['keyTag', 'algorithm', 'digestType', 'digest'],
+            'SSHFP': ['sshfpAlgorithm', 'sshfpFingerprintType', 'sshfpFingerprint'],
+            'TLSA': ['tlsaCertificateUsage', 'tlsaSelector', 'tlsaMatchingType', 'tlsaCertificateAssociationData'],
+            'SVCB': ['svcPriority', 'svcTargetName', 'svcParams'],
+            'HTTPS': ['svcPriority', 'svcTargetName', 'svcParams'],
+            'CAA': ['flags', 'tag', 'value'],
             'ANAME': ['aname'],
-            'FWD': ['protocol','forwarder'],
-            'APP': ['appName','classPath','recordData'],
+            'FWD': ['protocol', 'forwarder'],
+            'APP': ['appName', 'classPath', 'recordData'],
             'UNKNOWN': ['rdata'],
-            'URI': ['uriPriority','uriWeight','uri'],
+            'URI': ['uriPriority', 'uriWeight', 'uri'],
         }
 
-        # Validate required parameters for the specific record type        
+        # Validate required parameters for the specific record type
         if record_type in allowed_params:
             for param in params:
-                if param in ['api_url','api_port','api_token','domain','name','zone','type','validate_certs']:
+                if param in ['api_url', 'api_port', 'api_token', 'domain', 'name', 'zone', 'type', 'validate_certs']:
                     continue
                 if params[param] is not None and param not in allowed_params[record_type]:
-                    self.fail_json(msg=f"Parameter '{param}' is not supported for record type '{record_type}'.")
+                    self.fail_json(
+                        msg=f"Parameter '{param}' is not supported for record type '{record_type}'.")
 
         # Validate that no unsupported parameters are provided
         if record_type in required_params:
             for req in required_params[record_type]:
                 if params.get(req) is None:
-                    self.fail_json(msg=f"Parameter '{req}' is required for record type '{record_type}'.")
+                    self.fail_json(
+                        msg=f"Parameter '{req}' is required for record type '{record_type}'.")
 
         # Build the query for the GET request to check for existence.
         # This must include all parameters needed for a unique match.
@@ -900,13 +907,14 @@ class DeleteRecordModule(TechnitiumModule):
 
         if get_resp.get('status') != 'ok':
             # The API failed to get a response. This is a critical error.
-            self.fail_json(msg=f"Technitium API error during existence check: {get_resp.get('errorMessage') or 'Unknown'}", api_response=get_resp)
+            self.fail_json(
+                msg=f"Technitium API error during existence check: {get_resp.get('errorMessage') or 'Unknown'}", api_response=get_resp)
 
         # Filter for an exact match among the returned records.
         found_records = get_resp.get('response', {}).get('records', [])
         matching_type_records = []
         exact_match_found = False
-        
+
         # First, find all records that match type and domain
         for rec in found_records:
             if rec.get('type', '').upper() == record_type and rec.get('name', '').lower() == params['name'].lower():
@@ -914,13 +922,15 @@ class DeleteRecordModule(TechnitiumModule):
 
         if not matching_type_records:
             # No records of this type/domain exist at all
-            self.exit_json(changed=False, msg=f"DNS record of type '{record_type}' for '{params['name']}' does not exist.")
+            self.exit_json(
+                changed=False, msg=f"DNS record of type '{record_type}' for '{params['name']}' does not exist.")
 
         # Now check for exact parameter matches
         parameter_mismatches = []
         for rec in matching_type_records:
-            mismatch_details = self._check_record_parameters(record_type, params, rec, required_params)
-            
+            mismatch_details = self._check_record_parameters(
+                record_type, params, rec, required_params)
+
             if not mismatch_details:
                 exact_match_found = True
                 break
@@ -933,15 +943,18 @@ class DeleteRecordModule(TechnitiumModule):
                 # Records exist but with different parameter values
                 mismatch_msg = "; ".join(parameter_mismatches)
                 debug_info = f"Found {len(matching_type_records)} {record_type} record(s) for '{params['name']}'"
-                self.fail_json(msg=f"DNS record of type '{record_type}' for '{params['name']}' exists but with different parameter values: {mismatch_msg}. {debug_info}")
+                self.fail_json(
+                    msg=f"DNS record of type '{record_type}' for '{params['name']}' exists but with different parameter values: {mismatch_msg}. {debug_info}")
             else:
                 # This shouldn't happen but handle gracefully
-                self.exit_json(changed=False, msg=f"DNS record of type '{record_type}' for '{params['name']}' does not match the specified parameters.")
+                self.exit_json(
+                    changed=False, msg=f"DNS record of type '{record_type}' for '{params['name']}' does not match the specified parameters.")
 
         # If we get here, the record exists and parameters are valid
         # Check mode: report what would happen without actually doing it
         if self.check_mode:
-            self.exit_json(changed=True, msg=f"DNS record of type '{record_type}' for '{params['name']}' would be deleted (check mode).")
+            self.exit_json(
+                changed=True, msg=f"DNS record of type '{record_type}' for '{params['name']}' would be deleted (check mode).")
 
         # If not in check mode, perform the actual deletion
         delete_query = {
@@ -963,9 +976,11 @@ class DeleteRecordModule(TechnitiumModule):
 
         if data.get('status') != 'ok':
             error_msg = data.get('errorMessage') or "Unknown error"
-            self.fail_json(msg=f"Technitium API error during deletion: {error_msg}", api_response=data)
+            self.fail_json(
+                msg=f"Technitium API error during deletion: {error_msg}", api_response=data)
 
-        self.exit_json(changed=True, msg=f"DNS record of type '{record_type}' for '{params['name']}' deleted.", api_response=data)
+        self.exit_json(
+            changed=True, msg=f"DNS record of type '{record_type}' for '{params['name']}' deleted.", api_response=data)
 
     def _check_record_parameters(self, record_type, params, rec, required_params):
         """
@@ -973,12 +988,12 @@ class DeleteRecordModule(TechnitiumModule):
         Returns a list of mismatch details, or empty list if all parameters match.
         """
         mismatch_details = []
-        
+
         # Define parameter mapping exceptions (most map to themselves)
         param_mapping_exceptions = {
             'SRV': {
                 'srv_port': 'port',
-                'srv_target': 'target', 
+                'srv_target': 'target',
                 'srv_priority': 'priority',
                 'srv_weight': 'weight'
             },
@@ -1001,53 +1016,55 @@ class DeleteRecordModule(TechnitiumModule):
                 'uriWeight': 'weight'
             }
         }
-        
+
         # Special case for UNKNOWN records
         if record_type == 'UNKNOWN':
             expected_rdata = params.get('rdata')
             actual_rdata = rec.get('rData', {}).get('value')
             if expected_rdata and actual_rdata:
                 # Normalize both formats to continuous hex for comparison
-                # API always returns: "01:02:03:04:DE:AD:BE:EF" 
+                # API always returns: "01:02:03:04:DE:AD:BE:EF"
                 # Input can be: "01020304deadbeef" OR "01:02:03:04:de:ad:be:ef"
                 actual_continuous = actual_rdata.replace(':', '').lower()
                 expected_continuous = expected_rdata.replace(':', '').lower()
                 if actual_continuous != expected_continuous:
-                    mismatch_details.append(f"rdata: found '{actual_rdata}', expected '{expected_rdata}'")
+                    mismatch_details.append(
+                        f"rdata: found '{actual_rdata}', expected '{expected_rdata}'")
             return mismatch_details
-            
+
         # Check parameters for this record type
         required_params_for_type = required_params.get(record_type, [])
         exceptions = param_mapping_exceptions.get(record_type, {})
-        
+
         for param_name in required_params_for_type:
             expected_value = params.get(param_name)
             # Use exception mapping if available, otherwise param maps to itself
             record_field = exceptions.get(param_name, param_name)
-            
+
             # Most record data is nested in rData object
             rdata = rec.get('rData', {})
             actual_value = rdata.get(record_field)
-            
+
             # If not found in rData, check top level (for fields like ttl, name, etc.)
             if actual_value is None:
                 actual_value = rec.get(record_field)
-            
+
             # Special handling for svcParams in HTTPS/SVCB records
             if param_name == 'svcParams' and record_type in ['HTTPS', 'SVCB']:
                 if isinstance(actual_value, dict) and isinstance(expected_value, str):
                     # Convert API dict format to pipe-delimited string for comparison
-                    actual_params_str = '|'.join(f'{k}|{v}' for k, v in actual_value.items())
+                    actual_params_str = '|'.join(
+                        f'{k}|{v}' for k, v in actual_value.items())
                     converted_match = (actual_params_str == expected_value)
                     if converted_match:
                         continue  # Skip the normal comparison
-            
+
             # Special handling for SSHFP fingerprints (case-insensitive comparison)
             if param_name == 'sshfpFingerprint' and record_type == 'SSHFP':
                 if isinstance(actual_value, str) and isinstance(expected_value, str):
                     if actual_value.upper() == expected_value.upper():
                         continue  # Skip the normal comparison
-            
+
             # Special handling for TLSA records (numeric to text conversion and case-insensitive)
             if record_type == 'TLSA':
                 # TLSA certificate data case-insensitive comparison
@@ -1055,7 +1072,7 @@ class DeleteRecordModule(TechnitiumModule):
                     if isinstance(actual_value, str) and isinstance(expected_value, str):
                         if actual_value.upper() == expected_value.upper():
                             continue  # Skip the normal comparison
-            
+
             if expected_value is not None and actual_value != expected_value:
                 # Try type conversion for numeric comparisons (e.g., CAA flags "0" vs 0)
                 converted_match = False
@@ -1069,11 +1086,13 @@ class DeleteRecordModule(TechnitiumModule):
                         converted_match = (int(actual_value) == expected_value)
                     except ValueError:
                         pass
-                        
+
                 if not converted_match:
-                    mismatch_details.append(f"{param_name}: found '{actual_value}', expected '{expected_value}'")
-                
+                    mismatch_details.append(
+                        f"{param_name}: found '{actual_value}', expected '{expected_value}'")
+
         return mismatch_details
+
 
 if __name__ == '__main__':
     module = DeleteRecordModule()
