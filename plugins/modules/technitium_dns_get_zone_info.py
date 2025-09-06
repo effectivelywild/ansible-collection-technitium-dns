@@ -3,7 +3,6 @@
 
 from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
-from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 DOCUMENTATION = r'''
 ---
@@ -167,12 +166,15 @@ failed:
     sample: false
 '''
 
+from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
+
 
 class GetZoneInfoModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
         zone=dict(type='str', required=False),
-        zone_type=dict(type='str', required=False, choices=['Primary', 'Forwarder', 'SecondaryForwarder', 'Stub', 'Secondary', 'Catalog', 'SecondaryCatalog', 'SecondaryROOT'])
+        zone_type=dict(type='str', required=False, choices=[
+            'Primary', 'Forwarder', 'SecondaryForwarder', 'Stub', 'Secondary', 'Catalog', 'SecondaryCatalog', 'SecondaryROOT'])
     )
     module_kwargs = dict(
         supports_check_mode=True

@@ -3,7 +3,6 @@
 
 from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
-from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 DOCUMENTATION = r'''
 ---
@@ -320,6 +319,8 @@ msg:
     sample: "Zone options set successfully."
 '''
 
+from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
+
 
 class SetZoneOptionsModule(TechnitiumModule):
     argument_spec = dict(
@@ -334,7 +335,7 @@ class SetZoneOptionsModule(TechnitiumModule):
             type='list', elements='str', required=False),
         primaryZoneTransferProtocol=dict(
             type='str', required=False, choices=['Tcp', 'Tls', 'Quic']),
-        primaryZoneTransferTsigKeyName=dict(type='str', required=False),
+        primaryZoneTransferTsigKeyName=dict(type='str', required=False, no_log=True),
         validateZone=dict(type='bool', required=False),
         queryAccess=dict(type='str', required=False, choices=['Deny', 'Allow', 'AllowOnlyPrivateNetworks',
                          'AllowOnlyZoneNameServers', 'UseSpecifiedNetworkACL', 'AllowZoneNameServersAndUseSpecifiedNetworkACL']),
@@ -345,7 +346,7 @@ class SetZoneOptionsModule(TechnitiumModule):
         zoneTransferNetworkACL=dict(
             type='list', elements='str', required=False),
         zoneTransferTsigKeyNames=dict(
-            type='list', elements='str', required=False),
+            type='list', elements='str', required=False, no_log=True),
         notify=dict(type='str', required=False, choices=[
                     'None', 'ZoneNameServers', 'SpecifiedNameServers', 'BothZoneAndSpecifiedNameServers', 'SeparateNameServersForCatalogAndMemberZones']),
         notifyNameServers=dict(type='list', elements='str', required=False),
@@ -359,7 +360,7 @@ class SetZoneOptionsModule(TechnitiumModule):
             elements='dict',
             required=False,
             options=dict(
-                tsigKeyName=dict(type='str', required=True),
+                tsigKeyName=dict(type='str', required=True, no_log=True),
                 domain=dict(type='str', required=True),
                 allowedTypes=dict(type='list', elements='str', required=True)
             )
@@ -427,13 +428,28 @@ class SetZoneOptionsModule(TechnitiumModule):
 
         # 1b. Conditional parameter validation based on zone type
         allowed_params = {
-            'Primary': set(['disabled', 'catalog', 'overrideCatalogQueryAccess', 'overrideCatalogZoneTransfer', 'overrideCatalogNotify', 'queryAccess', 'queryAccessNetworkACL', 'zoneTransfer', 'zoneTransferNetworkACL', 'zoneTransferTsigKeyNames', 'notify', 'notifyNameServers', 'update', 'updateNetworkACL', 'updateSecurityPolicies']),
-            'Stub': set(['disabled', 'catalog', 'overrideCatalogQueryAccess', 'primaryNameServerAddresses', 'validateZone', 'queryAccess', 'queryAccessNetworkACL']),
-            'Forwarder': set(['disabled', 'catalog', 'overrideCatalogQueryAccess', 'overrideCatalogZoneTransfer', 'overrideCatalogNotify', 'notify', 'notifyNameServers', 'update', 'updateNetworkACL', 'updateSecurityPolicies']),
-            'Secondary': set(['disabled', 'primaryNameServerAddresses', 'primaryZoneTransferProtocol', 'primaryZoneTransferTsigKeyName', 'validateZone', 'zoneTransfer', 'zoneTransferNetworkACL', 'zoneTransferTsigKeyNames', 'notify', 'notifyNameServers', 'update', 'updateNetworkACL', 'queryAccess', 'queryAccessNetworkACL']),
-            'SecondaryForwarder': set(['disabled', 'primaryNameServerAddresses', 'primaryZoneTransferProtocol', 'primaryZoneTransferTsigKeyName', 'zoneTransfer', 'zoneTransferNetworkACL', 'zoneTransferTsigKeyNames', 'notify', 'notifyNameServers', 'queryAccess', 'queryAccessNetworkACL']),
-            'SecondaryCatalog': set(['disabled', 'primaryNameServerAddresses', 'primaryZoneTransferProtocol', 'primaryZoneTransferTsigKeyName', 'zoneTransfer', 'zoneTransferNetworkACL', 'zoneTransferTsigKeyNames', 'notify', 'notifyNameServers']),
-            'Catalog': set(['disabled', 'zoneTransfer', 'zoneTransferNetworkACL', 'zoneTransferTsigKeyNames', 'notify', 'notifyNameServers', 'notifySecondaryCatalogsNameServers', 'queryAccess', 'queryAccessNetworkACL']),
+            'Primary': set(['disabled', 'catalog', 'overrideCatalogQueryAccess', 'overrideCatalogZoneTransfer',
+                            'overrideCatalogNotify', 'queryAccess', 'queryAccessNetworkACL', 'zoneTransfer',
+                            'zoneTransferNetworkACL', 'zoneTransferTsigKeyNames', 'notify', 'notifyNameServers',
+                            'update', 'updateNetworkACL', 'updateSecurityPolicies']),
+            'Stub': set(['disabled', 'catalog', 'overrideCatalogQueryAccess', 'primaryNameServerAddresses',
+                         'validateZone', 'queryAccess', 'queryAccessNetworkACL']),
+            'Forwarder': set(['disabled', 'catalog', 'overrideCatalogQueryAccess', 'overrideCatalogZoneTransfer',
+                              'overrideCatalogNotify', 'notify', 'notifyNameServers', 'update', 'updateNetworkACL',
+                              'updateSecurityPolicies']),
+            'Secondary': set(['disabled', 'primaryNameServerAddresses', 'primaryZoneTransferProtocol',
+                              'primaryZoneTransferTsigKeyName', 'validateZone', 'zoneTransfer', 'zoneTransferNetworkACL',
+                              'zoneTransferTsigKeyNames', 'notify', 'notifyNameServers', 'update', 'updateNetworkACL',
+                              'queryAccess', 'queryAccessNetworkACL']),
+            'SecondaryForwarder': set(['disabled', 'primaryNameServerAddresses', 'primaryZoneTransferProtocol',
+                                       'primaryZoneTransferTsigKeyName', 'zoneTransfer', 'zoneTransferNetworkACL',
+                                       'zoneTransferTsigKeyNames', 'notify', 'notifyNameServers', 'queryAccess',
+                                       'queryAccessNetworkACL']),
+            'SecondaryCatalog': set(['disabled', 'primaryNameServerAddresses', 'primaryZoneTransferProtocol',
+                                     'primaryZoneTransferTsigKeyName', 'zoneTransfer', 'zoneTransferNetworkACL',
+                                     'zoneTransferTsigKeyNames', 'notify', 'notifyNameServers']),
+            'Catalog': set(['disabled', 'zoneTransfer', 'zoneTransferNetworkACL', 'zoneTransferTsigKeyNames', 'notify',
+                            'notifyNameServers', 'notifySecondaryCatalogsNameServers', 'queryAccess', 'queryAccessNetworkACL']),
             'SecondaryROOT': set(['disabled']),
         }
         if zone_type in allowed_params:

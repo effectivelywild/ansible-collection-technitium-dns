@@ -3,7 +3,6 @@
 
 from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
-from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 DOCUMENTATION = r'''
 ---
@@ -65,12 +64,12 @@ options:
             - Initialize Conditional Forwarder zone with FWD record (Forwarder only)
         required: false
         type: bool
-        default: true
     primaryNameServerAddresses:
         description:
-            - Comma separated IPs or names of primary name server (Secondary, SecondaryForwarder, SecondaryCatalog, Stub)
+            - List of primary name server IP addresses or names (Secondary, SecondaryForwarder, SecondaryCatalog, Stub)
         required: false
-        type: str
+        type: list
+        elements: str
     protocol:
         description:
             - DNS transport protocol for Conditional Forwarder zone.
@@ -119,7 +118,6 @@ options:
             - Enable using date scheme for SOA serial (Primary, Forwarder, Catalog zones)
         required: false
         type: bool
-        default: false
     validate_certs:
         description:
             - Whether to validate SSL certificates when making API requests
@@ -201,6 +199,8 @@ msg:
     sample: "Zone 'demo.test.local' created."
 '''
 
+from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
+
 
 class CreateZoneModule(TechnitiumModule):
     argument_spec = dict(
@@ -214,7 +214,7 @@ class CreateZoneModule(TechnitiumModule):
             type='list', elements='str', required=False),
         zoneTransferProtocol=dict(type='str', required=False, choices=[
                                   "Tcp", "Tls", "Quic"]),
-        tsigKeyName=dict(type='str', required=False),
+        tsigKeyName=dict(type='str', required=False, no_log=True),
         validateZone=dict(type='bool', required=False),
         initializeForwarder=dict(type='bool', required=False),
         protocol=dict(type='str', required=False, choices=[
@@ -226,7 +226,7 @@ class CreateZoneModule(TechnitiumModule):
         proxyAddress=dict(type='str', required=False),
         proxyPort=dict(type='int', required=False),
         proxyUsername=dict(type='str', required=False),
-        proxyPassword=dict(type='str', required=False)
+        proxyPassword=dict(type='str', required=False, no_log=True)
     )
     module_kwargs = dict(
         supports_check_mode=True
@@ -247,7 +247,8 @@ class CreateZoneModule(TechnitiumModule):
         # Each zone type has specific allowed and required parameters
         allowed_params = {
             'Primary': set(['catalog', 'useSoaSerialDateScheme']),
-            'Forwarder': set(['catalog', 'useSoaSerialDateScheme', 'initializeForwarder', 'protocol', 'forwarder', 'dnssecValidation', 'proxyType', 'proxyAddress', 'proxyPort', 'proxyUsername', 'proxyPassword']),
+            'Forwarder': set(['catalog', 'useSoaSerialDateScheme', 'initializeForwarder', 'protocol', 'forwarder',
+                              'dnssecValidation', 'proxyType', 'proxyAddress', 'proxyPort', 'proxyUsername', 'proxyPassword']),
             'Catalog': set(['catalog', 'useSoaSerialDateScheme']),
             'Secondary': set(['primaryNameServerAddresses', 'zoneTransferProtocol', 'tsigKeyName', 'validateZone']),
             'SecondaryForwarder': set(['primaryNameServerAddresses', 'zoneTransferProtocol', 'tsigKeyName']),

@@ -30,8 +30,7 @@ class TechnitiumModule(AnsibleModule):
         self.name = self.params.get('name')
 
     def request(self, path, params=None, method='GET'):
-        from urllib.parse import urlencode, quote
-        
+        from urllib.parse import urlencode
         url = f"{self.api_url}:{self.api_port}{path}"
         params = params or {}
         params['token'] = self.api_token
@@ -55,14 +54,14 @@ class TechnitiumModule(AnsibleModule):
                 headers={'Accept': 'application/json'},
                 timeout=10
             )
-            
+
             # Check if the request failed
             if info['status'] >= 400:
                 error_msg = f"API request failed with status {info['status']}"
                 if 'msg' in info:
                     error_msg += f": {info['msg']}"
                 self.fail_json(msg=error_msg)
-            
+
             # Check if response is None (connection failed)
             if resp is None:
                 error_msg = "API request failed - no response received"

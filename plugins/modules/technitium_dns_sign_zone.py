@@ -3,7 +3,6 @@
 
 from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
-from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 DOCUMENTATION = r'''
 ---
@@ -57,7 +56,6 @@ options:
   dnsKeyTtl:
     description:
       - TTL for DNSKEY records
-    default: 86400
     required: false
     type: int
   hashAlgorithm:
@@ -69,7 +67,6 @@ options:
   iterations:
     description:
       - NSEC3 iterations
-    default: 0
     required: false
     type: int
   kskKeySize:
@@ -81,7 +78,6 @@ options:
     description:
       - Proof of non-existence
     required: false
-    default: NSEC
     type: str
     choices: [NSEC, NSEC3]
   pemKskPrivateKey:
@@ -99,7 +95,6 @@ options:
   saltLength:
     description:
       - NSEC3 salt length
-    default: 0
     required: false
     type: int
   validate_certs:
@@ -121,7 +116,6 @@ options:
   zskRolloverDays:
     description:
       - ZSK rollover frequency in days
-    default: 30
     required: false
     type: int
 '''
@@ -200,6 +194,8 @@ msg:
     sample: "Zone 'demo.test.local' signed."
 '''
 
+from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
+
 
 class SignZoneModule(TechnitiumModule):
     argument_spec = dict(
@@ -209,10 +205,10 @@ class SignZoneModule(TechnitiumModule):
         pemKskPrivateKey=dict(type='str', required=False, default=None, no_log=True),
         pemZskPrivateKey=dict(type='str', required=False, default=None, no_log=True),
         hashAlgorithm=dict(type='str', required=False, choices=['MD5', 'SHA1', 'SHA256', 'SHA512']),
-        kskKeySize=dict(type='int', required=False),
-        zskKeySize=dict(type='int', required=False),
+        kskKeySize=dict(type='int', required=False, no_log=True),
+        zskKeySize=dict(type='int', required=False, no_log=True),
         curve=dict(type='str', required=False, choices=['P256', 'P384', 'ED25519', 'ED448']),
-        dnsKeyTtl=dict(type='int', required=False),
+        dnsKeyTtl=dict(type='int', required=False, no_log=True),
         zskRolloverDays=dict(type='int', required=False),
         nxProof=dict(type='str', required=False, choices=['NSEC', 'NSEC3']),
         iterations=dict(type='int', required=False),
@@ -242,7 +238,9 @@ class SignZoneModule(TechnitiumModule):
         dnssec_status, zone_info = self.get_dnssec_status(zone)
 
         if dnssec_status != 'unsigned':
-            self.exit_json(changed=False, msg=f"Zone '{zone}' is already signed (status: {zone_info.get('dnssecStatus')}).", api_response={'status': 'ok', 'msg': f"Zone '{zone}' is already signed."})
+            self.exit_json(
+                changed=False, msg=f"Zone '{zone}' is already signed (status: {zone_info.get('dnssecStatus')}).",
+                api_response={'status': 'ok', 'msg': f"Zone '{zone}' is already signed."})
 
         if self.check_mode:
             self.exit_json(changed=True, msg="Zone would be signed (check mode)", api_response={})
@@ -254,7 +252,9 @@ class SignZoneModule(TechnitiumModule):
 
         if status != 'ok':
             if already_signed_msg in str(error_msg).lower():
-                self.exit_json(changed=False, msg=f"Zone '{zone}' is already signed.", api_response={'status': 'ok', 'msg': f"Zone '{zone}' is already signed."})
+                self.exit_json(
+                    changed=False, msg=f"Zone '{zone}' is already signed.",
+                    api_response={'status': 'ok', 'msg': f"Zone '{zone}' is already signed."})
             self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)
         self.exit_json(changed=True, msg=f"Zone '{zone}' signed.", api_response=data)
 

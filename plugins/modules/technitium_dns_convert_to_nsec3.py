@@ -3,7 +3,6 @@
 
 from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
-from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 DOCUMENTATION = r'''
 ---
@@ -97,6 +96,8 @@ msg:
     sample: "Zone 'dnssec-demo.test.local' converted from NSEC to NSEC3."
 '''
 
+from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
+
 
 class ConvertToNsec3Module(TechnitiumModule):
     argument_spec = dict(
@@ -116,15 +117,22 @@ class ConvertToNsec3Module(TechnitiumModule):
 
         # Check if zone is signed with DNSSEC
         if dnssec_status == 'unsigned':
-            self.fail_json(msg=f"Zone '{zone}' is not signed with DNSSEC. Cannot convert unsigned zone to NSEC3.", api_response={'status': 'error', 'msg': 'Zone must be signed with DNSSEC'})
+            self.fail_json(
+                msg=f"Zone '{zone}' is not signed with DNSSEC. Cannot convert unsigned zone to NSEC3.",
+                api_response={'status': 'error', 'msg': 'Zone must be signed with DNSSEC'})
 
         # If zone is already using NSEC3, no changes needed
         if dnssec_status == 'signedwithnsec3':
-            self.exit_json(changed=False, msg=f"Zone '{zone}' is already using NSEC3.", api_response={'status': 'ok', 'msg': f"Zone '{zone}' is already using NSEC3."})
+            self.exit_json(
+                changed=False, msg=f"Zone '{zone}' is already using NSEC3.",
+                api_response={'status': 'ok', 'msg': f"Zone '{zone}' is already using NSEC3."})
 
         # If zone is not using NSEC, it cannot be converted to NSEC3
         if dnssec_status != 'signedwithnsec':
-            self.fail_json(msg=f"Zone '{zone}' is signed but not with NSEC (status: {zone_info.get('dnssecStatus')}). Can only convert NSEC zones to NSEC3.", api_response={'status': 'error', 'msg': 'Zone must be signed with NSEC to convert to NSEC3'})
+            self.fail_json(
+                msg=f"Zone '{zone}' is signed but not with NSEC (status: {zone_info.get('dnssecStatus')}). "
+                    f"Can only convert NSEC zones to NSEC3.",
+                api_response={'status': 'error', 'msg': 'Zone must be signed with NSEC to convert to NSEC3'})
 
         if self.check_mode:
             self.exit_json(changed=True, msg="Zone would be converted from NSEC to NSEC3 (check mode)", api_response={})

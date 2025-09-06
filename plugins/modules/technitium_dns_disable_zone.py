@@ -3,7 +3,6 @@
 
 from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
-from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 DOCUMENTATION = r'''
 ---
@@ -99,6 +98,8 @@ msg:
     sample: "Zone 'demo.test.local' disabled."
 '''
 
+from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
+
 
 class DisableZoneModule(TechnitiumModule):
     argument_spec = dict(
@@ -141,7 +142,9 @@ class DisableZoneModule(TechnitiumModule):
         # Implement idempotent disable behavior
         # If zone is already disabled, return success without changes
         if is_disabled:
-            self.exit_json(changed=False, msg=f"Zone '{zone}' is already disabled.", api_response={'status': 'ok', 'msg': f"Zone '{zone}' is already disabled."})
+            self.exit_json(
+                changed=False, msg=f"Zone '{zone}' is already disabled.",
+                api_response={'status': 'ok', 'msg': f"Zone '{zone}' is already disabled."})
 
         # Disable the zone via the Technitium API
         data = self.request('/api/zones/disable', params={'zone': zone})

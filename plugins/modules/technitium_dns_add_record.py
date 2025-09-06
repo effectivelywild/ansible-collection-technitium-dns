@@ -3,7 +3,6 @@
 
 from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
-from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 DOCUMENTATION = r'''
 ---
@@ -171,6 +170,8 @@ options:
         description:
             - The record name (e.g., test.example.com)
         required: true
+        aliases:
+            - domain
         type: str
     nameServer:
         description:
@@ -875,6 +876,8 @@ msg:
     type: str
 '''
 
+from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
+
 
 class AddRecordModule(TechnitiumModule):
     argument_spec = dict(
@@ -882,7 +885,8 @@ class AddRecordModule(TechnitiumModule):
         name=dict(type='str', required=True, aliases=['domain']),
         zone=dict(type='str', required=False),
         type=dict(type='str', required=True, choices=[
-            'A', 'AAAA', 'NS', 'CNAME', 'PTR', 'MX', 'TXT', 'SRV', 'NAPTR', 'DNAME', 'DS', 'SSHFP', 'TLSA', 'SVCB', 'HTTPS', 'URI', 'CAA', 'ANAME', 'FWD', 'APP', 'UNKNOWN'
+            'A', 'AAAA', 'NS', 'CNAME', 'PTR', 'MX', 'TXT', 'SRV', 'NAPTR', 'DNAME', 'DS', 'SSHFP', 'TLSA', 'SVCB',
+            'HTTPS', 'URI', 'CAA', 'ANAME', 'FWD', 'APP', 'UNKNOWN'
         ]),
         ttl=dict(type='int', required=False),
         overwrite=dict(type='bool', required=False, default=False),
@@ -913,9 +917,10 @@ class AddRecordModule(TechnitiumModule):
         naptrRegexp=dict(type='str', required=False),
         naptrReplacement=dict(type='str', required=False),
         dname=dict(type='str', required=False),
-        keyTag=dict(type='int', required=False),
+        keyTag=dict(type='int', required=False, no_log=True),
         algorithm=dict(type='str', required=False, choices=[
-            'RSAMD5', 'DSA', 'RSASHA1', 'DSA-NSEC3-SHA1', 'RSASHA1-NSEC3-SHA1', 'RSASHA256', 'RSASHA512', 'ECC-GOST', 'ECDSAP256SHA256', 'ECDSAP384SHA384', 'ED25519', 'ED448'
+            'RSAMD5', 'DSA', 'RSASHA1', 'DSA-NSEC3-SHA1', 'RSASHA1-NSEC3-SHA1', 'RSASHA256', 'RSASHA512',
+            'ECC-GOST', 'ECDSAP256SHA256', 'ECDSAP384SHA384', 'ED25519', 'ED448'
         ]),
         digestType=dict(type='str', required=False, choices=[
             'SHA1', 'SHA256', 'GOST-R-34-11-94', 'SHA384'
@@ -962,7 +967,7 @@ class AddRecordModule(TechnitiumModule):
         proxyAddress=dict(type='str', required=False),
         proxyPort=dict(type='int', required=False),
         proxyUsername=dict(type='str', required=False),
-        proxyPassword=dict(type='str', required=False),
+        proxyPassword=dict(type='str', required=False, no_log=True),
         appName=dict(type='str', required=False),
         classPath=dict(type='str', required=False),
         recordData=dict(type='str', required=False),
@@ -988,16 +993,19 @@ class AddRecordModule(TechnitiumModule):
             'MX': {'exchange', 'preference', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
             'TXT': {'text', 'splitText', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
             'SRV': {'priority', 'weight', 'srv_port', 'target', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
-            'NAPTR': {'naptrOrder', 'naptrPreference', 'naptrFlags', 'naptrServices', 'naptrRegexp', 'naptrReplacement', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'NAPTR': {'naptrOrder', 'naptrPreference', 'naptrFlags', 'naptrServices', 'naptrRegexp', 'naptrReplacement',
+                      'ttl', 'overwrite', 'comments', 'expiryTtl'},
             'DNAME': {'dname', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
             'DS': {'keyTag', 'algorithm', 'digestType', 'digest', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
             'SSHFP': {'sshfpAlgorithm', 'sshfpFingerprintType', 'sshfpFingerprint', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
-            'TLSA': {'tlsaCertificateUsage', 'tlsaSelector', 'tlsaMatchingType', 'tlsaCertificateAssociationData', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'TLSA': {'tlsaCertificateUsage', 'tlsaSelector', 'tlsaMatchingType', 'tlsaCertificateAssociationData',
+                     'ttl', 'overwrite', 'comments', 'expiryTtl'},
             'SVCB': {'svcPriority', 'svcTargetName', 'svcParams', 'autoIpv4Hint', 'autoIpv6Hint', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
             'HTTPS': {'svcPriority', 'svcTargetName', 'svcParams', 'autoIpv4Hint', 'autoIpv6Hint', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
             'CAA': {'flags', 'tag', 'value', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
             'ANAME': {'aname', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
-            'FWD': {'ttl', 'protocol', 'forwarder', 'forwarderPriority', 'dnssecValidation', 'proxyType', 'proxyAddress', 'proxyPort', 'proxyUsername', 'proxyPassword', 'overwrite', 'comments', 'expiryTtl'},
+            'FWD': {'ttl', 'protocol', 'forwarder', 'forwarderPriority', 'dnssecValidation', 'proxyType', 'proxyAddress',
+                    'proxyPort', 'proxyUsername', 'proxyPassword', 'overwrite', 'comments', 'expiryTtl'},
             'APP': {'appName', 'classPath', 'recordData', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
             'UNKNOWN': {'rdata', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
             'URI': {'uriPriority', 'uriWeight', 'uri', 'ttl', 'overwrite', 'comments', 'expiryTtl'}

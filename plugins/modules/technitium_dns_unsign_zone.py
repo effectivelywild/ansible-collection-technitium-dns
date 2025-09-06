@@ -3,7 +3,6 @@
 
 from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
-from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 DOCUMENTATION = r'''
 ---
@@ -93,6 +92,8 @@ msg:
     sample: "Zone 'demo.test.local' unsigned."
 '''
 
+from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
+
 
 class UnsignZoneModule(TechnitiumModule):
     argument_spec = dict(
@@ -112,7 +113,9 @@ class UnsignZoneModule(TechnitiumModule):
 
         # If zone is already unsigned, no changes needed
         if dnssec_status == 'unsigned':
-            self.exit_json(changed=False, msg=f"Zone '{zone}' is already unsigned.", api_response={'status': 'ok', 'msg': f"Zone '{zone}' is already unsigned."})
+            self.exit_json(
+                changed=False, msg=f"Zone '{zone}' is already unsigned.",
+                api_response={'status': 'ok', 'msg': f"Zone '{zone}' is already unsigned."})
 
         if self.check_mode:
             self.exit_json(changed=True, msg="Zone would be unsigned (check mode)", api_response={})
