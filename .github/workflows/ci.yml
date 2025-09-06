@@ -13,9 +13,9 @@ jobs:
       matrix:
         ansible:
           - stable-2.18
-          # - stable-2.17
-          # - stable-2.16
-          # - devel
+          - stable-2.17
+          - stable-2.16
+          - devel
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -35,7 +35,9 @@ jobs:
       working-directory: ansible_collections/effectivelywild/technitium_dns
 
     - name: Run sanity tests
-      run: ansible-test sanity --docker -v --color --coverage --exclude .github/
+      run: |
+        ansible-test sanity --docker -v --color --coverage --exclude .github/ 
+        --python 3.8 --python 3.9 --python 3.10 --python 3.11 --python 3.12
       working-directory: ansible_collections/effectivelywild/technitium_dns
 
     - name: Generate coverage report
