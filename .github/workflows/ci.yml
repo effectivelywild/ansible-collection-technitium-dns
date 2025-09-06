@@ -7,7 +7,7 @@ on:
 
 jobs:
   sanity:
-    name: Sanity Check
+    name: Sanity (${{ matrix.ansible }})
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -48,10 +48,88 @@ jobs:
         token: ${{ secrets.CODECOV_TOKEN }}
         fail_ci_if_error: false
 
-    #   # Clean up (always runs, even if tests fail)
-    # - name: Clean up containers
-    #   if: always()
-    #   run: |
-    #     docker stop technitium01 technitium02 || true
-    #     docker rm technitium01 technitium02 || true
-    #     docker volume rm technitium01-config technitium02-config || true
+  integration:
+    runs-on: ubuntu-latest
+    name: Integration (${{ matrix.ansible }}+py${{ matrix.python }})
+    strategy:
+      fail-fast: false
+      matrix:
+        ansible:
+          - stable-2.17
+          - stable-2.18
+          - stable-2.19
+          - devel
+        python:
+          - '3.9'
+          - '3.10'
+          - '3.11'
+          - '3.12'
+        # exclude not supported combinations
+        exclude:
+          - ansible: devel
+            python: '3.9'
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v5
+        with:
+          path: ansible_collections/ansible_collections/effectivelywild/technitium_dns
+
+      - name: Setup testing environment
+        run: ansible-playbook roles/test_utils/playbooks/run_setup_testing_env.yml
+        working-directory: ./ansible_collections/effectivelywild/technitium_dns
+
+      - name: Get Technitium server values
+        id: get_server_values
+        run: |
+          # Read token from the exported file
+          API_TOKEN=$(cat /tmp/technitium02_token)
+          echo "api_token=$API_TOKEN" >> $GITHUB_OUTPUT
+
+          # Get container IP for notify_name_server
+          CONTAINER_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' technitium01)
+          echo "technitium01_ip=$CONTAINER_IP" >> $GITHUB_OUTPUT
+
+      - name: Create integration config
+        run: |
+          cat > tests/integration/integration_config.yml << EOF
+          technitium_api_url: http://localhost
+          technitium_api_token: ${{ steps.get_server_values.outputs.api_token }}
+          technitium_api_port: 5382
+          validate_certs: false
+
+          # Notify Name Server (technitium01), used for Zone testing
+          notify_name_server: ${{ steps.get_server_values.outputs.technitium01_ip }}
+
+          # Debugging options
+          debug: false
+
+          # Testing domain
+          testing_suffix: example.com
+          EOF
+        working-directory: ./ansible_collections/effectivelywild/technitium_dns
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install ansible-base (${{ matrix.ansible }})
+        run: pip install https://github.com/ansible/ansible/archive/${{ matrix.ansible }}.tar.gz --disable-pip-version-check
+
+      - name: Install python dependencies
+        run: pip install -r requirements.txt --upgrade-strategy eager --disable-pip-version-check
+        working-directory: ./ansible_collections/effectivelywild/technitium_dns
+
+      - name: Run integration test
+        run: ansible-test integration -v --color --retry-on-error --continue-on-error --diff --python ${{ matrix.python }} --coverage --requirements
+        working-directory: ./ansible_collections/effectivelywild/technitium_dns
+
+      - name: Generate coverage report
+        run: ansible-test coverage xml -v --requirements --group-by command --group-by version
+        working-directory: ./ansible_collections/effectivelywild/technitium_dns
+
+      - uses: codecov/codecov-action@v5
+        with:
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}

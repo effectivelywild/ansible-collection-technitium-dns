@@ -12,21 +12,3 @@
     content: "{{ technitium_tokens.technitium02.token }}"
     dest: "/tmp/technitium02_token"
   when: technitium_tokens.technitium02 is defined
-
-- name: Print token file locations for GitHub Actions
-  debug:
-    msg: 
-      - "Technitium01 token saved to: /tmp/technitium01_token"
-      - "Technitium02 token saved to: /tmp/technitium02_token"
-      - "Use these in subsequent test runs"
-
-- name: Set GitHub Actions environment variables
-  lineinfile:
-    path: "{{ ansible_env.GITHUB_ENV }}"
-    line: "{{ item }}"
-    create: yes
-  loop:
-    - "TECHNITIUM_API_TOKEN={{ technitium_tokens.technitium01.token }}"
-    - "TECHNITIUM01_TOKEN={{ technitium_tokens.technitium01.token }}"
-    - "TECHNITIUM02_TOKEN={{ technitium_tokens.technitium02.token }}"
-  when: ansible_env.GITHUB_ENV is defined
