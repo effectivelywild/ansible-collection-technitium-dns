@@ -1,0 +1,2 @@
+  fixes:
+    - "ansible_collections/effectivelywild/technitium_dns/::"  # Strip this prefix
