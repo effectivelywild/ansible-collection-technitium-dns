@@ -72,8 +72,6 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v5
-        with:
-          path: ansible_collections/ansible_collections/effectivelywild/technitium_dns
 
       - name: Setup testing environment
         run: ansible-playbook roles/test_utils/playbooks/run_setup_testing_env.yml
