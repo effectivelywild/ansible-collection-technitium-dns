@@ -19,7 +19,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-    
+      with:
+        path: ansible_collections/effectivelywild/technitium_dns
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -31,12 +32,15 @@ jobs:
 
     - name: Install dependencies
       run: pip install -r ./tests/requirements.txt
+      working-directory: ansible_collections/effectivelywild/technitium_dns
 
     - name: Run sanity tests
       run: ansible-test sanity --docker -v --color --coverage --exclude .github/
+      working-directory: ansible_collections/effectivelywild/technitium_dns
 
     - name: Generate coverage report
       run: ansible-test coverage xml -v --requirements --group-by command --group-by version
+      working-directory: ansible_collections/effectivelywild/technitium_dns
 
     - uses: codecov/codecov-action@v5
       with:
