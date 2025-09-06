@@ -90,7 +90,8 @@ jobs:
 
       - name: Check out code
         uses: actions/checkout@v5
-
+        with:
+         path: ansible_collections/effectivelywild/technitium_dns
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -105,9 +106,11 @@ jobs:
           ansible-galaxy collection install community.docker
           ansible-galaxy collection build .
           ansible-galaxy collection install effectivelywild-technitium_dns-*.tar.gz
+        working-directory: ./ansible_collections/effectivelywild/technitium_dns
 
       - name: Install python dependencies
         run: pip install -r tests/requirements.txt --upgrade-strategy eager --disable-pip-version-check
+        working-directory: ./ansible_collections/effectivelywild/technitium_dns
 
       - name: Set unique identifiers for parallel jobs
         run: |
@@ -133,6 +136,8 @@ jobs:
 
       - name: Setup testing environment
         run: ansible-playbook roles/test_utils/playbooks/run_setup_testing_env.yml
+        working-directory: ./ansible_collections/effectivelywild/technitium_dns
+
 
       - name: Get Technitium server values
         id: get_server_values
@@ -164,12 +169,16 @@ jobs:
           testing_suffix: ${TESTING_SUFFIX}
           EOF
           cat tests/integration/integration_config.yml
+        working-directory: ./ansible_collections/effectivelywild/technitium_dns
+
 
       - name: Run integration test
         run: ansible-test integration --color --retry-on-error --continue-on-error --diff --python ${{ matrix.python }} --coverage --requirements
+        working-directory: ./ansible_collections/effectivelywild/technitium_dns
 
       - name: Generate coverage report
         run: ansible-test coverage xml -v --requirements --group-by command --group-by version
+        working-directory: ./ansible_collections/effectivelywild/technitium_dns
 
       - uses: codecov/codecov-action@v5
         with:
