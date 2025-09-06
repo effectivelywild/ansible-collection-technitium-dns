@@ -5,7 +5,7 @@
   loop: "{{ dns_servers_to_create }}"
 
 - name: "Create Technitium containers"
-  docker_container:
+  community.docker.docker_container:
     name: "{{ item.name }}"
     image: technitium/dns-server
     state: started
