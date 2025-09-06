@@ -54,4 +54,3 @@
   ansible.builtin.uri:
     url: "http://localhost:{{ dns_servers.technitium01.http_port }}/api/zones/options/set?token={{ technitium_tokens.technitium01.token }}&zone={{ item.name }}&zoneTransfer=Allow"
   loop: "{{ zones_to_create }}"
-

@@ -1,5 +1,4 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
@@ -10,8 +9,6 @@ module: technitium_dns_convert_to_nsec
 short_description: Convert a signed DNS zone from NSEC3 to NSEC
 version_added: "0.1.0"
 author: Frank Muise (@effectivelywild)
-requirements:
-  - requests
 description:
   - Converts a primary DNS zone from NSEC3 to NSEC for proof of non-existence using the Technitium DNS API.
   - Only works on zones that are already signed with DNSSEC using NSEC3.

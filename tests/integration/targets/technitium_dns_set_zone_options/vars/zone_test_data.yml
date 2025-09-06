@@ -62,11 +62,3 @@ zones_to_create:
     dnssecStatus: "SignedWithNSEC"
     test_scenario: "dnssec_nsec"
     description: "DNSSEC-enabled primary zone with NSEC for creation testing"
-
-
-
-
-
-
-
-

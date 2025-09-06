@@ -1,6 +1,5 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
-# Ansible module to get DNS records from Technitium DNS using TechnitiumModule base class
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
@@ -10,8 +9,6 @@ module: technitium_dns_get_records
 short_description: Get DNS record(s)
 version_added: "0.1.0"
 author: Frank Muise (@effectivelywild)
-requirements:
-  - requests
 description:
     - Get DNS resource records from a Technitium DNS authoritative zone using its API.
 seealso:

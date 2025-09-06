@@ -1,6 +1,5 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
-# Ansible module to delete DNS records from Technitium DNS using TechnitiumModule base class
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
@@ -9,6 +8,7 @@ DOCUMENTATION = r'''
 module: technitium_dns_delete_record
 short_description: Delete a DNS record
 version_added: "0.1.0"
+author: Frank Muise (@effectivelywild)
 description:
     - Delete a a DNS record to a Technitium DNS zone.
     - You must include the record parameters when deleting a record.
