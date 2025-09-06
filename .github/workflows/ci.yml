@@ -165,13 +165,13 @@ jobs:
           EOF
           cat tests/integration/integration_config.yml
 
-      # - name: Run integration test
-      #   run: ansible-test integration --color --retry-on-error --continue-on-error --diff --python ${{ matrix.python }} --coverage --requirements
+      - name: Run integration test
+        run: ansible-test integration --color --retry-on-error --continue-on-error --diff --python ${{ matrix.python }} --coverage --requirements
 
-      # - name: Generate coverage report
-      #   run: ansible-test coverage xml -v --requirements --group-by command --group-by version
+      - name: Generate coverage report
+        run: ansible-test coverage xml -v --requirements --group-by command --group-by version
 
-      # - uses: codecov/codecov-action@v5
-      #   with:
-      #     fail_ci_if_error: false
-      #     token: ${{ secrets.CODECOV_TOKEN }}
+      - uses: codecov/codecov-action@v5
+        with:
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
