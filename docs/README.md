@@ -39,5 +39,3 @@ open _build/html/index.html
 ## GitHub Pages
 
 The documentation is automatically built and deployed to GitHub Pages when changes are pushed to the main branch.
-
-Access your documentation at: `https://[username].github.io/[repository-name]/`
