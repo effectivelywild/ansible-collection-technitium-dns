@@ -1,6 +1,6 @@
 # Ansible Collection - technetium.dns
 
-[![CI](https://github.com/effectivelywild/ansible-collection-technitium-dns/workflows/CI/badge.svg?event=push)](https://github.com/effectivelywild/ansible-collection-technitium-dns/actions) [![codecov](https://codecov.io/github/effectivelywild/ansible-collection-technitium-dns/graph/badge.svg?token=UVSWMN1RV1)](https://codecov.io/github/effectivelywild/ansible-collection-technitium-dns)
+[![CI](https://github.com/effectivelywild/ansible-collection-technitium-dns/actions/workflows/ci.yml/badge.svg)](https://github.com/effectivelywild/ansible-collection-technitium-dns/actions/workflows/ci.yml) [![codecov](https://codecov.io/github/effectivelywild/ansible-collection-technitium-dns/graph/badge.svg?token=UVSWMN1RV1)](https://codecov.io/github/effectivelywild/ansible-collection-technitium-dns)
 
 Ansible collection for Technitium DNS based on the [API](https://github.com/TechnitiumSoftware/DnsServer/blob/master/APIDOCS.md).
 
@@ -43,17 +43,21 @@ The process of decision making in this collection is based on discussing and fin
 
 Every voice is important. If you have something on your mind, create an issue or dedicated discussion and let's discuss it!
 
+## Compatibility Matrix
 
-## Ansible version compatibility
+This collection is tested against the following Ansible and Python versions:
 
-TBD
+| Ansible Version | Python 3.10 | Python 3.11 | Python 3.12 | Python 3.13 |
+|----------------|--------------|--------------|--------------|--------------|
+| 2.17           | ✅           | ✅           | ✅           | ❌           |
+| 2.18           | ❌           | ✅           | ✅           | ✅           |
+| 2.19           | ❌           | ✅           | ✅           | ✅           |
+| devel          | ❌           | ❌           | ❌           | ✅           |
 
-## Python version compatibility
-
-TBD
+**Note:** This matrix reflects our current CI testing coverage. Other combinations may work but are not regularly tested.
 
 ## Included content
-See the complete list of collection content in the [Plugin Index](TBD).
+See the complete list of collection content in the [Plugin Index](https://effectivelywild.github.io/ansible-collection-technitium-dns/collections/index_module.html).
 
 ### Installing the Collection from Ansible Galaxy
 
@@ -84,7 +88,7 @@ See [Ansible Using collections](https://docs.ansible.com/ansible/devel/user_guid
 
 ## Using this collection
 
-TBD
+Review module [documentation](https://effectivelywild.github.io/ansible-collection-technitium-dns/collections/effectivelywild/technitium_dns/index.html#plugins-in-effectivelywild-technitium-dns) for usage instructions and examples.
 
 ## Release notes
 
