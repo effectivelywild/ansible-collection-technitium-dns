@@ -4,7 +4,15 @@ name: Documentation Only
 on:
   push:
     branches: [main]
+    paths:
+      - 'plugins/modules/**'      # Only module files
+      - 'plugins/module_utils/**' # Only module utils
+      - 'roles/**'                # Only roles
   pull_request:
+    paths:
+      - 'plugins/modules/**'      # Only module files
+      - 'plugins/module_utils/**' # Only module utils  
+      - 'roles/**'                # Only roles
   workflow_dispatch:
 
 # Required for GitHub Pages deployment
