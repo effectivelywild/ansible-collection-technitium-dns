@@ -10,7 +10,7 @@ tags:
   - technitium
   - dns
 repository: https://github.com/effectivelywild/ansible-collection-technitium-dns
-documentation: https://devopsarr.github.io/ansible-doc/collections/effectivelywild/technitium-dns/
+documentation: https://effectivelywild.github.io/ansible-collection-technitium-dns/collections/effectivelywild/technitium_dns/
 homepage: https://github.com/effectivelywild/ansible-collection-technitium-dns
 issues: https://github.com/effectivelywild/ansible-collection-technitium-dns/issues
 build_ignore:

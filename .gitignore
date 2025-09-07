@@ -1,6 +1,12 @@
-# Test output directories
-tests/output/
+# Debugging output
 out
+tests/output/
+
+# Python virtual environments
 .venv/
+
+# antsibull-docs output
 dest/
-.vars
+
+# antsibull-changelog cache
+changelogs/.plugin-cache.yaml

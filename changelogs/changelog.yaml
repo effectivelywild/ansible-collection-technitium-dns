@@ -1,4 +1,54 @@
----
-# Changelog entries will be added here by antsibull-changelog
 ancestor: null
-releases: {}
+releases:
+  0.1.0:
+    changes:
+      release_summary: Test release for new CD workflow
+    fragments:
+    - test-release.yaml
+    modules:
+    - description: Add a DNS record.
+      name: technitium_dns_add_record
+      namespace: ''
+    - description: Convert a signed DNS zone from NSEC3 to NSEC.
+      name: technitium_dns_convert_to_nsec
+      namespace: ''
+    - description: Convert a signed DNS zone from NSEC to NSEC3.
+      name: technitium_dns_convert_to_nsec3
+      namespace: ''
+    - description: Create a DNS zone.
+      name: technitium_dns_create_zone
+      namespace: ''
+    - description: Delete a DNS record.
+      name: technitium_dns_delete_record
+      namespace: ''
+    - description: Delete a DNS zone.
+      name: technitium_dns_delete_zone
+      namespace: ''
+    - description: Disable a DNS zone.
+      name: technitium_dns_disable_zone
+      namespace: ''
+    - description: Enable a DNS zone.
+      name: technitium_dns_enable_zone
+      namespace: ''
+    - description: Get DNSSEC properties for a primary zone.
+      name: technitium_dns_get_dnssec_properties
+      namespace: ''
+    - description: Get DNS record(s).
+      name: technitium_dns_get_record
+      namespace: ''
+    - description: Get DNS zone(s).
+      name: technitium_dns_get_zone_info
+      namespace: ''
+    - description: Get DNS zone options.
+      name: technitium_dns_get_zone_options
+      namespace: ''
+    - description: Set DNS zone options.
+      name: technitium_dns_set_zone_options
+      namespace: ''
+    - description: Sign a DNS zone.
+      name: technitium_dns_sign_zone
+      namespace: ''
+    - description: Unsign a DNS zone.
+      name: technitium_dns_unsign_zone
+      namespace: ''
+    release_date: '2025-09-07'
