@@ -69,19 +69,13 @@ jobs:
         # exclude not supported combinations
         exclude:
           - ansible: devel
-            python: '3.9'
-          - ansible: devel
             python: '3.10'
           - ansible: devel
             python: '3.11'
           - ansible: devel
             python: '3.12'
           - ansible: stable-2.19
-            python: '3.9'
-          - ansible: stable-2.19
             python: '3.10'
-          - ansible: stable-2.18
-            python: '3.9'
           - ansible: stable-2.18
             python: '3.10'
           - ansible: stable-2.17

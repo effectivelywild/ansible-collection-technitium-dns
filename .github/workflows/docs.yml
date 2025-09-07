@@ -45,10 +45,6 @@ jobs:
         antsibull-docs sphinx-init --use-current --dest-dir ./build effectivelywild.technitium_dns
         cd ./build && pip install -r requirements.txt && ./build.sh
 
-    - name: Copy documentation to root
-      run: |
-        cp -r ./build/build/html/* ./
-
     - name: Setup Pages
       if: github.ref == 'refs/heads/main'
       uses: actions/configure-pages@v4
@@ -57,7 +53,7 @@ jobs:
       if: github.ref == 'refs/heads/main'
       uses: actions/upload-pages-artifact@v3
       with:
-        path: '.'
+        path: './build/build/html'
 
     - name: Upload docs as regular artifact (for PRs)
       if: github.ref != 'refs/heads/main'
