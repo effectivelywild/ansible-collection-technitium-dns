@@ -49,7 +49,7 @@ jobs:
           pip install antsibull-changelog --disable-pip-version-check &&\
           git fetch --all &&\
           git checkout release-please--branches--main &&\
-          antsibull-changelog release --refresh &&\
+          antsibull-changelog release -v --refresh &&\
           git add . &&\
           git commit --amend --no-edit &&\
           git push -f
