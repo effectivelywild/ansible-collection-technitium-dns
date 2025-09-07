@@ -19,12 +19,7 @@
         {"type": "ci", "section": "Continuous Integration", "hidden": true}
       ],
       "extra-files": [
-        {
-          "type": "generic",
-          "path": "galaxy.yml",
-          "match": "version: .*",
-          "replace": "version: {{version}}"
-        }
+        "galaxy.yml"
       ]
     }
   }
