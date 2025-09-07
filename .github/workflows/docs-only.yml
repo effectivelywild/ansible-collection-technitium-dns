@@ -1,10 +1,11 @@
 ---
-name: Documentation (Release)
+name: Documentation Only
 
 on:
-  release:
-    types: [published]          # Only when a release is published
-  workflow_dispatch:            # Keep manual trigger
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
 
 # Required for GitHub Pages deployment
 permissions:
@@ -12,11 +13,46 @@ permissions:
   pages: write
   id-token: write
 
+env:
+  PYTHON_VERSION: '3.12'
+
 jobs:
-  generation:
+  # Only run sanity tests to validate documentation
+  sanity-docs:
+    name: Documentation Sanity Check
     runs-on: ubuntu-latest
-    # Runs on release publish or manual trigger
-    
+    # Only run if commit message starts with "docs:"
+    if: startsWith(github.event.head_commit.message, 'docs:')
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        path: ansible_collections/effectivelywild/technitium_dns
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install ansible-base (stable-2.19)
+      run: pip install https://github.com/ansible/ansible/archive/stable-2.19.tar.gz --disable-pip-version-check
+
+    - name: Install dependencies
+      run: pip install -r ./tests/requirements.txt
+      working-directory: ansible_collections/effectivelywild/technitium_dns
+
+    - name: Run sanity tests (docs focus)
+      run: |
+        ansible-test sanity --docker -v --color --test ansible-doc --test validate-modules
+      working-directory: ansible_collections/effectivelywild/technitium_dns
+
+  # Generate and deploy documentation
+  generate-docs:
+    runs-on: ubuntu-latest
+    needs: sanity-docs
+    # Only run if commit message starts with "docs:"
+    if: startsWith(github.event.head_commit.message, 'docs:')
+    # Only deploy docs on main branch, but generate for PRs
     steps:
     - name: Check out code
       uses: actions/checkout@v4
@@ -26,7 +62,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: ${{ env.PYTHON_VERSION }}
 
     - name: Install Ansible and documentation tools
       run: |
@@ -64,9 +100,9 @@ jobs:
         retention-days: 7
 
   deploy-docs:
-    # Only deploy on main branch pushes
-    if: github.ref == 'refs/heads/main'
-    needs: generation
+    # Only deploy on main branch pushes AND docs commits
+    if: github.ref == 'refs/heads/main' && startsWith(github.event.head_commit.message, 'docs:')
+    needs: generate-docs
     runs-on: ubuntu-latest
     
     environment:

@@ -3,14 +3,28 @@ name: CI
 
 on:                    
   pull_request:           # Every time someone makes a PR
+    paths-ignore:
+      - '**.md'           # Skip markdown files
+      - '**.rst'          # Skip reStructuredText files
+      - 'LICENSE'         # Skip license changes
+      - '.gitignore'      # Skip gitignore changes
+      - 'docs/**'         # Skip docs folder changes
   push:
     branches: [main]      # Test code when merged to main
+    paths-ignore:
+      - '**.md'           # Skip markdown files
+      - '**.rst'          # Skip reStructuredText files  
+      - 'LICENSE'         # Skip license changes
+      - '.gitignore'      # Skip gitignore changes
+      - 'docs/**'         # Skip docs folder changes
   workflow_dispatch:      # Manual trigger button in GitHub
 
 jobs:
   sanity:
     name: Sanity (${{ matrix.ansible }})
     runs-on: ubuntu-latest
+    # Skip if this is a docs-only commit
+    if: ${{ !startsWith(github.event.head_commit.message, 'docs:') }}
     strategy:
       matrix:
         ansible:
