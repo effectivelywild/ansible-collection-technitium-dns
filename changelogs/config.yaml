@@ -1,0 +1,46 @@
+---
+# Configuration for antsibull-changelog
+changelog_filename_template: CHANGELOG-%s.md
+changelog_filename_version_depth: 0
+changes_file: changelog.yaml
+changes_format: classic
+keep_fragments: false
+mention_ancestor: true
+new_plugins_after_name: removed_features
+notesdir: fragments
+prelude_section_name: release_summary
+prelude_section_title: Release Summary
+sanitize_changelog: true
+sections:
+  - title: Release Summary
+    prelude: release_summary
+  - title: Major Changes
+    content:
+      - major_changes
+  - title: Minor Changes
+    content:
+      - minor_changes
+  - title: Breaking Changes
+    content:
+      - breaking_changes
+  - title: Deprecated Features
+    content:
+      - deprecated_features
+  - title: Removed Features (previously deprecated)
+    content:
+      - removed_features
+  - title: Security Fixes
+    content:
+      - security_fixes
+  - title: Bugfixes
+    content:
+      - bugfixes
+  - title: New Plugins
+    content:
+      - new_plugins
+  - title: New Modules
+    content:
+      - new_modules
+title: effectivelywild.technitium_dns
+trivial_section_name: trivial
+use_fqcn: true

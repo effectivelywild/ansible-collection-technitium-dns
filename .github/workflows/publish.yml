@@ -17,9 +17,9 @@ jobs:
     
     # 2. Set up Python
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
-        python-version: "3.11"
+        python-version: "3.12"
     
     # 3. Install Ansible
     - name: Install Ansible
@@ -48,7 +48,7 @@ jobs:
     # 5. Build the collection
     - name: Build collection
       run: |
-        ansible-galaxy collection build . --force
+        ansible-galaxy collection build .
         
         # List all files to debug
         echo "Files created:"
@@ -74,7 +74,7 @@ jobs:
           fi
         fi
     
-    # 6. Publish to Galaxy (only if API key is available)
+    # 6. Publish to Galaxy
     - name: Publish to Ansible Galaxy
       env:
         GALAXY_API_KEY: ${{ secrets.GALAXY_API_KEY }}

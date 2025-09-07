@@ -1,0 +1,103 @@
+---
+# Ansible Collection release workflow
+name: CD
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Default values to simplify job configurations below
+env:
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release_please.outputs.release_created }}
+      tag_name: ${{ steps.release_please.outputs.tag_name }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Allow release-please to access older tag information
+          fetch-depth: 0
+          # Use GITHUB_TOKEN for now, can upgrade to bot later
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Release Please
+        id: release_please
+        uses: google-github-actions/release-please-action@v4
+        with:
+          release-type: python
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config-file: .release-please-config.json
+
+      - name: Update changelog with antsibull-changelog
+        if: ${{ steps.release_please.outputs.pr }}
+        run: |
+          pip install antsibull-changelog --disable-pip-version-check
+          
+          # Check out the release PR branch
+          gh pr checkout ${{ steps.release_please.outputs.pr }}
+          
+          # Generate changelog entries from git history
+          antsibull-changelog release --refresh
+          
+          # Commit changes if any
+          if git diff --quiet; then
+            echo "No changelog changes to commit"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add changelogs/
+            git commit -m "chore: update changelog with antsibull-changelog"
+            git push
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  collection-release:
+    runs-on: ubuntu-latest
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Ansible
+        run: |
+          pip install ansible --disable-pip-version-check
+
+      - name: Build collection
+        run: |
+          ansible-galaxy collection build .
+          echo "COLLECTION_FILE=$(ls *.tar.gz)" >> $GITHUB_ENV
+
+      - name: Upload collection to Ansible Galaxy
+        if: ${{ secrets.GALAXY_API_KEY }}
+        run: |
+          ansible-galaxy collection publish ${{ env.COLLECTION_FILE }} --api-key ${{ secrets.GALAXY_API_KEY }}
+          echo "✅ Published to Ansible Galaxy successfully!"
+
+      - name: Upload collection artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ansible-collection-${{ needs.release-please.outputs.tag_name }}
+          path: ${{ env.COLLECTION_FILE }}
+          retention-days: 90
+
+      - name: Attach collection to GitHub release
+        run: |
+          gh release upload ${{ needs.release-please.outputs.tag_name }} ${{ env.COLLECTION_FILE }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
