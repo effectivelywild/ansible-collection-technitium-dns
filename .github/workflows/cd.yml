@@ -39,7 +39,6 @@ jobs:
         id: release_please
         uses: googleapis/release-please-action@v4
         with:
-          release-type: python
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: .release-please-config.json
 
