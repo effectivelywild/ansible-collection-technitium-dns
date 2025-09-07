@@ -13,3 +13,8 @@ changelogs/.plugin-cache.yaml
 
 # Local Testing
 tests/integration/integration_config.yml
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
