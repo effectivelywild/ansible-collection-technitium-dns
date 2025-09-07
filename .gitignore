@@ -10,3 +10,6 @@ dest/
 
 # antsibull-changelog cache
 changelogs/.plugin-cache.yaml
+
+# Local Testing
+tests/integration/integration_config.yml

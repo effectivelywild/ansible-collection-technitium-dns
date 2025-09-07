@@ -99,5 +99,19 @@ class TechnitiumModule(AnsibleModule):
         dnssec_status = zone_info.get('dnssecStatus', '').lower()
         return dnssec_status, zone_info
 
+    def get_dnssec_properties(self, zone):
+        """Get DNSSEC properties for a zone, with standardized error handling"""
+        params = {'zone': zone}
+        data = self.request('/api/zones/dnssec/properties/get', params=params)
+
+        if data.get('status') != 'ok':
+            error_msg = data.get('errorMessage') or data.get('error') or data.get('message') or "Unknown error"
+            # Remove stackTrace if present for cleaner error responses
+            clean_response = dict(data)
+            clean_response.pop('stackTrace', None)
+            self.fail_json(msg=f"Failed to fetch DNSSEC properties: {error_msg}", api_response=clean_response)
+
+        return data.get('response', {})
+
     def __call__(self):
         self.run()

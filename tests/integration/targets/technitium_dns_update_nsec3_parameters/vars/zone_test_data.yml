@@ -1,0 +1,35 @@
+---
+# test data for technitium_dns_update_nsec3_parameters integration tests
+# Test zones for NSEC3 parameter update testing
+update_nsec3_params_test_zones:
+  - name: "nsec3-param-zone"
+    zone: "nsec3-param.{{ testing_suffix }}"
+    
+  - name: "nsec3-param-second"  
+    zone: "nsec3-param2.{{ testing_suffix }}"
+
+# Parameters for initially signing zones with NSEC3
+sign_parameters:
+  algorithm: "RSA"
+  hashAlgorithm: "SHA256"
+  kskKeySize: 2048
+  zskKeySize: 1024
+  dnsKeyTtl: 86400
+  zskRolloverDays: 30
+  nxProof: "NSEC3"
+  iterations: 0
+  saltLength: 0
+
+# Test parameter combinations
+nsec3_test_parameters:
+  - name: "default_params"
+    iterations: 0
+    salt_length: 0
+    
+  - name: "moderate_params"
+    iterations: 10
+    salt_length: 8
+    
+  - name: "high_params"
+    iterations: 50
+    salt_length: 16
