@@ -42,7 +42,6 @@ jobs:
           release-type: python
           token: ${{ secrets.GITHUB_TOKEN }}
           config-file: .release-please-config.json
-          extra-files: galaxy.yml
 
       - name: Update changelog
         if: ${{ !steps.release_please.outputs.release_created }}
