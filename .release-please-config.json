@@ -1,7 +1,7 @@
 {
   "bootstrap-sha": "a1f4e66",
   "initial-version": "0.1.0",
-  "release-type": "simple",
+  "release-type": "python",
   "include-component-in-tag": false,
   "include-v-in-tag": true,
   "changelog-sections": [
@@ -19,17 +19,6 @@
     {"type": "ci", "section": "Continuous Integration", "hidden": true}
   ],
   "extra-files": [
-    {
-      "type": "generic",
-      "path": "galaxy.yml",
-      "glob": "version: *",
-      "replacements": [
-        {
-          "type": "regex",
-          "pattern": "^version: (.+)$",
-          "replacement": "version: {{version}}"
-        }
-      ]
-    }
+    "galaxy.yml"
   ]
 }
