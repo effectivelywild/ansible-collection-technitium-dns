@@ -7,6 +7,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Permissions needed for release-please to create PRs and releases
+permissions:
+  contents: write
+  pull-requests: write
+
 # Default values to simplify job configurations below
 env:
   PYTHON_VERSION: '3.12'
@@ -32,7 +37,7 @@ jobs:
 
       - name: Release Please
         id: release_please
-        uses: google-github-actions/release-please-action@v4
+        uses: googleapis/release-please-action@v4
         with:
           release-type: python
           token: ${{ secrets.GITHUB_TOKEN }}
