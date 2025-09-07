@@ -22,7 +22,14 @@
     {
       "type": "generic",
       "path": "galaxy.yml",
-      "jsonpath": "$.version"
+      "glob": "version: *",
+      "replacements": [
+        {
+          "type": "regex",
+          "pattern": "^version: (.+)$",
+          "replacement": "version: {{version}}"
+        }
+      ]
     }
   ]
 }
