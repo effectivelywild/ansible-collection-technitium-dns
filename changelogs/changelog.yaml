@@ -52,3 +52,5 @@ releases:
       name: technitium_dns_unsign_zone
       namespace: ''
     release_date: '2025-09-07'
+  0.2.1:
+    release_date: '2025-09-07'
