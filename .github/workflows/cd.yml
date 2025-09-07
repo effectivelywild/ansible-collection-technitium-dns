@@ -48,8 +48,10 @@ jobs:
         run: |
           pip install antsibull-changelog --disable-pip-version-check
           
-          # Check out the release PR branch
-          gh pr checkout ${{ steps.release_please.outputs.pr }}
+          # Extract PR number from URL and check out the PR branch
+          PR_NUMBER=$(echo "${{ steps.release_please.outputs.pr }}" | grep -o '[0-9]\+$')
+          echo "Checking out PR #${PR_NUMBER}"
+          gh pr checkout "${PR_NUMBER}"
           
           # Generate changelog entries from git history
           antsibull-changelog release --refresh
