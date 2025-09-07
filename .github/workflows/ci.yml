@@ -67,6 +67,8 @@ jobs:
   integration:
     runs-on: ubuntu-latest
     name: Integration (${{ matrix.ansible }}+py${{ matrix.python }})
+    # Skip if this is a docs-only commit
+    if: ${{ !startsWith(github.event.head_commit.message, 'docs:') }}
     strategy:
       fail-fast: false
       matrix:
@@ -94,10 +96,7 @@ jobs:
             python: '3.10'
           - ansible: stable-2.17
             python: '3.13'
-
-
     steps:
-
       - name: Check out code
         uses: actions/checkout@v5
         with:
@@ -180,7 +179,6 @@ jobs:
           EOF
           cat tests/integration/integration_config.yml
         working-directory: ./ansible_collections/effectivelywild/technitium_dns
-
 
       - name: Run integration test
         run: ansible-test integration --color --retry-on-error --continue-on-error --diff --python ${{ matrix.python }} --coverage --requirements
