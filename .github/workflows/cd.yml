@@ -84,7 +84,6 @@ jobs:
           echo "COLLECTION_FILE=$(ls *.tar.gz)" >> $GITHUB_ENV
 
       - name: Upload collection to Ansible Galaxy
-        if: ${{ secrets.GALAXY_API_KEY }}
         run: |
           ansible-galaxy collection publish ${{ env.COLLECTION_FILE }} --api-key ${{ secrets.GALAXY_API_KEY }}
           echo "✅ Published to Ansible Galaxy successfully!"
