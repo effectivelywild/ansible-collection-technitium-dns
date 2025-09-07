@@ -1,3 +1,3 @@
 # Ansible Collection - technetium.dns
 
-Documentation for the collection.
+Ansible collection for Technitium DNS based on the [API](https://github.com/TechnitiumSoftware/DnsServer/blob/master/APIDOCS.md).
