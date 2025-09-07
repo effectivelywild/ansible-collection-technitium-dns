@@ -12,5 +12,3 @@
     content: "{{ technitium_tokens[('technitium02' + (lookup('env', 'CONTAINER_SUFFIX') | default('')))].token }}"
     dest: "{{ lookup('env', 'TOKEN_FILE') | default('/tmp/technitium02_token') }}"
   when: technitium_tokens[('technitium02' + (lookup('env', 'CONTAINER_SUFFIX') | default('')))] is defined
-
-
