@@ -2,7 +2,9 @@
 name: Documentation Generation
 
 on:
-  workflow_dispatch:
+  release:
+    types: [published]          # Only when a release is published
+  workflow_dispatch:            # Keep manual trigger
 
 # Required for GitHub Pages deployment
 permissions:
@@ -13,6 +15,7 @@ permissions:
 jobs:
   generation:
     runs-on: ubuntu-latest
+    # Runs on release publish or manual trigger
     
     steps:
     - name: Check out code

@@ -3,6 +3,8 @@ name: CI
 
 on:                    
   pull_request:           # Every time someone makes a PR
+  push:
+    branches: [main]      # Test code when merged to main
   workflow_dispatch:      # Manual trigger button in GitHub
 
 jobs:
