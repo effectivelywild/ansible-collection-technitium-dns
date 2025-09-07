@@ -48,11 +48,25 @@ jobs:
         run: |
           pip install antsibull-changelog --disable-pip-version-check
           
-          echo "PR URL: ${{ steps.release_please.outputs.pr }}"
-
-          # Extract PR number from URL and check out the PR branch
-          PR_NUMBER=$(echo "${{ steps.release_please.outputs.pr }}" | grep -o '[0-9]\+$')
-          echo "Checking out PR #${PR_NUMBER}"
+          # Debug: Show all Release Please outputs
+          echo "Release Please outputs:"
+          echo "  pr: '${{ steps.release_please.outputs.pr }}'"
+          echo "  release_created: '${{ steps.release_please.outputs.release_created }}'"
+          
+          # Get the PR number safely
+          PR_OUTPUT='${{ steps.release_please.outputs.pr }}'
+          echo "Raw PR output: '${PR_OUTPUT}'"
+          
+          # Extract just the number part if it's a URL, otherwise use as-is
+          if [[ "${PR_OUTPUT}" =~ /([0-9]+)$ ]]; then
+            PR_NUMBER="${BASH_REMATCH[1]}"
+          else
+            PR_NUMBER="${PR_OUTPUT}"
+          fi
+          
+          echo "Using PR number: '${PR_NUMBER}'"
+          
+          # Check out the PR branch
           gh pr checkout "${PR_NUMBER}"
           
           # Generate changelog entries from git history
