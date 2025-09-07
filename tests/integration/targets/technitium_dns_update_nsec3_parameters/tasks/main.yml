@@ -1,0 +1,350 @@
+# technitium_dns_update_nsec3_parameters integration tests
+---
+# Phase 1: Load configuration and setup test zones
+- name: "Load test configuration"
+  include_vars: ../vars/config.yml
+
+- name: "Load zone test data"  
+  include_vars: ../vars/zone_test_data.yml
+
+- name: "Delete DNS zones (cleanup)"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_deletion_result
+  loop: "{{ update_nsec3_params_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+  ignore_errors: true
+
+# Phase 2: Create and sign DNS zones with NSEC3
+- name: "Create DNS zones for testing"
+  technitium_dns_create_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    type: Primary
+  register: zone_creation_results
+  loop: "{{ update_nsec3_params_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+- name: "Sign DNS zones with NSEC3"
+  technitium_dns_sign_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    algorithm: "{{ sign_parameters.algorithm }}"
+    hashAlgorithm: "{{ sign_parameters.hashAlgorithm }}"
+    kskKeySize: "{{ sign_parameters.kskKeySize }}"
+    zskKeySize: "{{ sign_parameters.zskKeySize }}"
+    dnsKeyTtl: "{{ sign_parameters.dnsKeyTtl }}"
+    zskRolloverDays: "{{ sign_parameters.zskRolloverDays }}"
+    nxProof: "{{ sign_parameters.nxProof }}"
+    iterations: "{{ sign_parameters.iterations }}"
+    saltLength: "{{ sign_parameters.saltLength }}"
+  register: nsec3_zone_signing_results
+  loop: "{{ update_nsec3_params_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+- name: "Verify zones are signed with NSEC3"
+  technitium_dns_get_zone_options:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: pre_update_zone_status
+  loop: "{{ update_nsec3_params_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+- name: "Assert zones are signed with NSEC3"
+  ansible.builtin.assert:
+    that:
+      - item.options.dnssecStatus == 'SignedWithNSEC3'
+    quiet: true
+    fail_msg: "Zone {{ item.zone_item.zone }} should be signed with NSEC3 but is {{ item.options.dnssecStatus }}"
+  loop: "{{ pre_update_zone_status.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+# Phase 3: Test check mode parameter updates
+- name: "Check mode - Update NSEC3 parameters"
+  technitium_dns_update_nsec3_parameters:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_nsec3_params_test_zones[0].zone }}"
+    iterations: "{{ nsec3_test_parameters[1].iterations }}"
+    salt_length: "{{ nsec3_test_parameters[1].salt_length }}"
+  check_mode: true
+  register: update_nsec3_params_check_result
+
+- name: "Assert NSEC3 parameters would be updated (check mode)"
+  ansible.builtin.assert:
+    that:
+      - update_nsec3_params_check_result is changed
+    quiet: true
+    fail_msg: "NSEC3 parameters should be marked as changed in check mode"
+
+# Phase 4: Test actual parameter updates
+- name: "Update NSEC3 parameters to moderate settings"
+  technitium_dns_update_nsec3_parameters:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    iterations: "{{ nsec3_test_parameters[1].iterations }}"
+    salt_length: "{{ nsec3_test_parameters[1].salt_length }}"
+  register: update_nsec3_params_results
+  loop: "{{ update_nsec3_params_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "update: {{ zone_item.zone }}"
+
+- name: "Assert NSEC3 parameters were updated"
+  ansible.builtin.assert:
+    that:
+      - item is changed
+    quiet: true
+    fail_msg: "Zone {{ item.zone_item.zone }} should be marked as changed after parameter update"
+  loop: "{{ update_nsec3_params_results.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+# Phase 5: Verify parameter updates worked
+- name: "Get DNSSEC properties to verify parameter updates"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: post_update_dnssec_props
+  loop: "{{ update_nsec3_params_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "verify: {{ zone_item.zone }}"
+
+- name: "Assert NSEC3 parameters were updated correctly"
+  ansible.builtin.assert:
+    that:
+      - item.dnssec_properties.nsec3Iterations is defined
+      - item.dnssec_properties.nsec3Iterations == nsec3_test_parameters[1].iterations
+      - item.dnssec_properties.nsec3SaltLength == nsec3_test_parameters[1].salt_length
+    quiet: true
+    fail_msg: "Zone {{ item.zone_item.zone }} NSEC3 parameters not updated correctly"
+    success_msg: "Zone {{ item.zone_item.zone }} NSEC3 parameters updated correctly"
+  loop: "{{ post_update_dnssec_props.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+# Phase 6: Idempotency tests
+- name: "Idempotency - Update with same parameters"
+  technitium_dns_update_nsec3_parameters:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_nsec3_params_test_zones[0].zone }}"
+    iterations: "{{ nsec3_test_parameters[1].iterations }}"
+    salt_length: "{{ nsec3_test_parameters[1].salt_length }}"
+  register: idempotency_nsec3_params_result
+
+- name: "Assert NSEC3 parameter update is idempotent"
+  ansible.builtin.assert:
+    that:
+      - not (idempotency_nsec3_params_result is changed)
+    quiet: true
+    fail_msg: "NSEC3 parameters with same values should not be changed"
+
+# Phase 7: Test different parameter combinations
+- name: "Update NSEC3 parameters to high security settings"
+  technitium_dns_update_nsec3_parameters:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_nsec3_params_test_zones[1].zone }}"
+    iterations: "{{ nsec3_test_parameters[2].iterations }}"
+    salt_length: "{{ nsec3_test_parameters[2].salt_length }}"
+  register: high_security_params_result
+
+- name: "Assert high security parameters were applied"
+  ansible.builtin.assert:
+    that:
+      - high_security_params_result is changed
+    quiet: true
+
+- name: "Reset NSEC3 parameters to defaults"
+  technitium_dns_update_nsec3_parameters:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_nsec3_params_test_zones[1].zone }}"
+    iterations: "{{ nsec3_test_parameters[0].iterations }}"
+    salt_length: "{{ nsec3_test_parameters[0].salt_length }}"
+  register: reset_params_result
+
+- name: "Assert parameters were reset to defaults"
+  ansible.builtin.assert:
+    that:
+      - reset_params_result is changed
+    quiet: true
+
+# Phase 8: Negative tests
+- name: "Negative test - Update with invalid API token"
+  technitium_dns_update_nsec3_parameters:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "BADTOKEN"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_nsec3_params_test_zones[0].zone }}"
+    iterations: 5
+    salt_length: 8
+  register: fail_bad_token
+  ignore_errors: true
+
+- name: "Assert failure of invalid API token"
+  ansible.builtin.assert:
+    that:
+      - fail_bad_token.failed
+      - "'Invalid token' in (fail_bad_token.msg)"
+    quiet: true
+
+- name: "Negative test - Update non-existent zone"
+  technitium_dns_update_nsec3_parameters:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "nonexistent999.{{ testing_suffix }}"
+    iterations: 5
+    salt_length: 8
+  ignore_errors: true
+  register: nonexistent_zone_result
+
+- name: "Assert update fails for non-existent zone"
+  ansible.builtin.assert:
+    that:
+      - nonexistent_zone_result is failed
+      - "'No such zone was found' in (nonexistent_zone_result.msg)"
+    quiet: true
+
+- name: "Negative test - Update unsigned zone"
+  technitium_dns_create_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "unsigned999.{{ testing_suffix }}"
+    type: Primary
+  register: unsigned_zone_creation
+
+- name: "Negative test - Try to update NSEC3 parameters on unsigned zone"
+  technitium_dns_update_nsec3_parameters:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "unsigned999.{{ testing_suffix }}"
+    iterations: 5
+    salt_length: 8
+  ignore_errors: true
+  register: unsigned_zone_result
+
+- name: "Assert update fails for unsigned zone"
+  ansible.builtin.assert:
+    that:
+      - unsigned_zone_result is failed
+      - "'is not signed' in (unsigned_zone_result.msg)"
+    quiet: true
+
+- name: "Negative test - Create NSEC-signed zone"
+  technitium_dns_create_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "nsec999.{{ testing_suffix }}"
+    type: Primary
+  register: nsec_zone_creation
+
+- name: "Sign zone with NSEC (not NSEC3)"
+  technitium_dns_sign_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "nsec999.{{ testing_suffix }}"
+    algorithm: "RSA"
+    hashAlgorithm: "SHA256"
+    kskKeySize: 2048
+    zskKeySize: 1024
+    dnsKeyTtl: 86400
+    zskRolloverDays: 30
+    nxProof: "NSEC"
+  register: nsec_zone_signing
+
+- name: "Negative test - Try to update NSEC3 parameters on NSEC zone"
+  technitium_dns_update_nsec3_parameters:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "nsec999.{{ testing_suffix }}"
+    iterations: 5
+    salt_length: 8
+  ignore_errors: true
+  register: nsec_zone_result
+
+- name: "Assert update fails for NSEC zone"
+  ansible.builtin.assert:
+    that:
+      - nsec_zone_result is failed
+      - "'is not using NSEC3' in (nsec_zone_result.msg)"
+    quiet: true
+
+# Phase 9: Cleanup
+- name: "Cleanup - Delete test zones"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: cleanup_zone_deletion
+  loop: "{{ update_nsec3_params_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "cleanup: {{ zone_item.zone }}"
+  ignore_errors: true
+
+- name: "Cleanup - Delete negative test zones"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ item }}"
+  register: cleanup_negative_zones
+  loop:
+    - "unsigned999.{{ testing_suffix }}"
+    - "nsec999.{{ testing_suffix }}"
+  ignore_errors: true
