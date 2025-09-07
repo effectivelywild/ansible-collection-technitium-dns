@@ -1,16 +1,17 @@
 namespace: effectivelywild
 name: technitium_dns
-version: 0.2.0 
+version: 0.2.1
 readme: README.md
 authors:
   - effectivelywild
-description: "Ansible collection for Technitium DNS Server"
+description: Ansible collection for Technitium DNS Server
 license_file: LICENSE
 tags:
   - technitium
   - dns
 repository: https://github.com/effectivelywild/ansible-collection-technitium-dns
-documentation: https://effectivelywild.github.io/ansible-collection-technitium-dns/collections/effectivelywild/technitium_dns/
+documentation: >-
+  https://effectivelywild.github.io/ansible-collection-technitium-dns/collections/effectivelywild/technitium_dns/
 homepage: https://github.com/effectivelywild/ansible-collection-technitium-dns
 issues: https://github.com/effectivelywild/ansible-collection-technitium-dns/issues
 build_ignore:
