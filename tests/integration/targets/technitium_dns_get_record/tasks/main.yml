@@ -65,7 +65,7 @@
 - name: "Assert primary zone record is present"
   ansible.builtin.assert:
     that:
-      - get_one_primary.records | selectattr('name','equalto','rec1.' ~ primary_zone_name) 
+      - (get_one_primary.records | selectattr('name','equalto','rec1.' ~ primary_zone_name) | list | length) > 0 
 
 - name: "Get one record from primary zone without zone defined"
   technitium_dns_get_record:
@@ -83,7 +83,7 @@
 - name: "Assert second primary zone record without zone is present"
   ansible.builtin.assert:
     that:
-      - get_second_primary.records | selectattr('name','equalto','rec2.' ~ primary_zone_name) 
+      - (get_second_primary.records | selectattr('name','equalto','rec2.' ~ primary_zone_name) | list | length) > 0 
 
 - name: "Get one record from security zone"
   technitium_dns_get_record:
@@ -102,7 +102,7 @@
 - name: "Assert security zone record is present"
   ansible.builtin.assert:
     that:
-      - get_one_sec.records | selectattr('name','equalto','rec1.' ~ primary_sec_zone_name)
+      - (get_one_sec.records | selectattr('name','equalto','rec1.' ~ primary_sec_zone_name) | list | length) > 0
 
 # Phase 3: Get all records from each zone and assert
 - name: "Get all records from primary zone without using zone"
@@ -122,7 +122,7 @@
 - name: "Assert all 5 records present in primary zone"
   ansible.builtin.assert:
     that:
-      - get_all_primary.records | selectattr('type','equalto','A') | selectattr('name','equalto','rec' ~ item ~ '.' ~ primary_zone_name) | list
+      - (get_all_primary.records | selectattr('type','equalto','A') | selectattr('name','equalto','rec' ~ item ~ '.' ~ primary_zone_name) | list | length) > 0
   loop: "{{ range(1,6) | list }}"
 
 - name: "Get all records from security zone using zone"
@@ -143,7 +143,7 @@
 - name: "Assert all 5 records present in security zone"
   ansible.builtin.assert:
     that:
-      - get_all_sec.records | selectattr('type','equalto','A') | selectattr('name','equalto','rec' ~ item ~ '.' ~ primary_sec_zone_name) | list
+      - (get_all_sec.records | selectattr('type','equalto','A') | selectattr('name','equalto','rec' ~ item ~ '.' ~ primary_sec_zone_name) | list | length) > 0
   loop: "{{ range(1,6) | list }}"
   
 # Phase 4: Negative tests
