@@ -47,6 +47,8 @@ jobs:
         if: ${{ !steps.release_please.outputs.release_created }}
         run: |
           pip install antsibull-changelog --disable-pip-version-check &&\
+          git config --global user.name "github-actions[bot]" &&\
+          git config --global user.email "github-actions[bot]@users.noreply.github.com" &&\
           git fetch --all &&\
           git checkout release-please--branches--main &&\
           antsibull-changelog release -v --refresh &&\
