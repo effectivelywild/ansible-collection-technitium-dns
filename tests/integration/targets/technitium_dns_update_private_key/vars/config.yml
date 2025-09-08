@@ -1,0 +1,32 @@
+---
+# Configuration for technitium_dns_update_private_key integration tests
+
+# Test zone data for private key update testing
+update_private_key_test_zones:
+  - zone: "update-key-test1.{{ testing_suffix }}"
+  - zone: "update-key-test2.{{ testing_suffix }}"
+
+rollover_days:
+  initial: 365
+  updated: 180
+  check_mode: 90
+
+# DNSSEC signing parameters for initial zone setup
+# Using ECDSA P256 as default since that's what the module expects as baseline
+sign_parameters:
+  algorithm: "ECDSA"
+  curve: "P256"
+  kskKeySize: null
+  zskKeySize: null
+  dnsKeyTtl: 86400
+  zskRolloverDays: 30
+  nxProof: "NSEC"
+
+# Test RSA key configuration to create unique identifiable keys
+# This creates a unique key we can identify and test updates on
+test_rsa_key:
+  key_type: "ZoneSigningKey"
+  algorithm: "RSA" 
+  hash_algorithm: "SHA256"
+  key_size: 1024
+  rollover_days: 0  # Start with no rollover
