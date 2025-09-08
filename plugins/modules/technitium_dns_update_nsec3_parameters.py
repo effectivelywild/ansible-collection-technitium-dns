@@ -8,7 +8,7 @@ DOCUMENTATION = r'''
 ---
 module: technitium_dns_update_nsec3_parameters
 short_description: Update NSEC3 Parameters
-version_added: "0.2.0"
+version_added: "0.2.1"
 author: Frank Muise (@effectivelywild)
 description:
   - Updates the iteration and salt length parameters for NSEC3 on a signed DNS zone.
