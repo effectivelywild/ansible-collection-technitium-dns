@@ -31,7 +31,7 @@ sections:
   - Bugfixes
 - - known_issues
   - Known Issues
-title: Effectivelywild.Technitium_Dns
+title: effectivelywild.technitium_dns
 trivial_section_name: trivial
 use_fqcn: true
 vcs: auto

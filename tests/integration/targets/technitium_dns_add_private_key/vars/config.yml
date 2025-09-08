@@ -1,0 +1,70 @@
+---
+# Configuration for technitium_dns_add_private_key integration tests
+
+# Test zone data for DNSSEC private key testing
+add_private_key_test_zones:
+  - zone: "dnssec-key-test1.{{ testing_suffix }}"
+  - zone: "dnssec-key-test2.{{ testing_suffix }}" 
+  - zone: "dnssec-key-test3.{{ testing_suffix }}"
+
+# DNSSEC signing parameters for initial zone setup
+sign_parameters:
+  algorithm: "RSA"
+  hashAlgorithm: "SHA256"
+  kskKeySize: 2048
+  zskKeySize: 1024
+  dnsKeyTtl: 86400
+  zskRolloverDays: 30
+  nxProof: "NSEC"
+
+# Test key configurations to test different algorithms
+test_key_configs:
+  # RSA tests
+  - name: "RSA-SHA256-KSK"
+    key_type: "KeySigningKey"
+    algorithm: "RSA"
+    hash_algorithm: "SHA256"
+    key_size: 2048
+  - name: "RSA-SHA512-ZSK"
+    key_type: "ZoneSigningKey"
+    algorithm: "RSA"
+    hash_algorithm: "SHA512"
+    key_size: 2048
+    rollover_days: 60
+  - name: "RSA-SHA256-3072"
+    key_type: "KeySigningKey"
+    algorithm: "RSA"
+    hash_algorithm: "SHA256"
+    key_size: 3072
+    
+  # ECDSA tests
+  - name: "ECDSA-P256-KSK"
+    key_type: "KeySigningKey"
+    algorithm: "ECDSA"
+    curve: "P256"
+  - name: "ECDSA-P384-ZSK"
+    key_type: "ZoneSigningKey"
+    algorithm: "ECDSA"
+    curve: "P384"
+    rollover_days: 45
+  - name: "ECDSA-P256-ZSK"
+    key_type: "ZoneSigningKey"
+    algorithm: "ECDSA"
+    curve: "P256"
+    rollover_days: 30
+    
+  # EDDSA tests
+  - name: "EDDSA-ED25519-KSK"
+    key_type: "KeySigningKey"
+    algorithm: "EDDSA"
+    curve: "ED25519"
+  - name: "EDDSA-ED448-ZSK"
+    key_type: "ZoneSigningKey"
+    algorithm: "EDDSA"
+    curve: "ED448"
+    rollover_days: 90
+  - name: "EDDSA-ED25519-ZSK"
+    key_type: "ZoneSigningKey"
+    algorithm: "EDDSA"
+    curve: "ED25519"
+    rollover_days: 60
