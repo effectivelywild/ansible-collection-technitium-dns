@@ -8,7 +8,7 @@ DOCUMENTATION = r'''
 ---
 module: technitium_dns_add_private_key
 short_description: Add DNSSEC private key to a zone
-version_added: "0.2.1"
+version_added: "0.3.0"
 author: Frank Muise (@effectivelywild)
 description:
   - Adds a private key to be used for signing a zone with DNSSEC.
