@@ -1,0 +1,320 @@
+# technitium_dns_update_private_key integration tests
+---
+# Phase 1: Load configuration and setup test zones
+- name: "Load test configuration"
+  include_vars: ../vars/config.yml
+
+- name: "Delete DNS zones (cleanup)"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_deletion_result
+  loop: "{{ update_private_key_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+  ignore_errors: true
+
+# Phase 2: Create and sign DNS zones for testing
+- name: "Create DNS zones for testing"
+  technitium_dns_create_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    type: Primary
+  register: zone_creation_results
+  loop: "{{ update_private_key_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+- name: "Sign first DNS zone with DNSSEC (leave second unsigned for error testing)"
+  technitium_dns_sign_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_private_key_test_zones[0].zone }}"
+    algorithm: "{{ sign_parameters.algorithm }}"
+    curve: "{{ sign_parameters.curve }}"
+    dnsKeyTtl: "{{ sign_parameters.dnsKeyTtl }}"
+    zskRolloverDays: "{{ sign_parameters.zskRolloverDays }}"
+    nxProof: "{{ sign_parameters.nxProof }}"
+  register: zone_signing_result
+
+- name: "Add unique RSA private key to first test zone for update testing"
+  technitium_dns_add_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_private_key_test_zones[0].zone }}"
+    key_type: "{{ test_rsa_key.key_type }}"
+    algorithm: "{{ test_rsa_key.algorithm }}"
+    hash_algorithm: "{{ test_rsa_key.hash_algorithm }}"
+    key_size: "{{ test_rsa_key.key_size }}"
+    rollover_days: "{{ test_rsa_key.rollover_days }}"
+  register: rsa_key_result
+
+# Phase 3: Find the RSA key tag for testing
+- name: "Get DNSSEC properties to find RSA key tag"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_private_key_test_zones[0].zone }}"
+  register: dnssec_props
+
+- name: "Find RSA key tag by matching algorithm signature"
+  set_fact:
+    rsa_key_tag: "{{ item.keyTag }}"
+  loop: "{{ dnssec_props.dnssec_properties.dnssecPrivateKeys }}"
+  when: 
+    - item.algorithm is match(".*RSASHA256.*1024 bits.*")
+  loop_control:
+    label: "{{ item.keyTag }}: {{ item.algorithm }}"
+
+- name: debug rsa_key_tag
+  debug:
+    var: rsa_key_tag
+  when: debug | default(false)
+
+- name: "Verify we found the RSA key"
+  ansible.builtin.assert:
+    that:
+      - rsa_key_tag is defined
+      - rsa_key_tag | int > 0
+    quiet: true
+    fail_msg: "Could not find RSA SHA256 1024-bit key in zone {{ update_private_key_test_zones[0].zone }}"
+
+# Phase 4: Test private key rollover updates
+- name: "Test private key rollover updates"
+  technitium_dns_update_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_private_key_test_zones[0].zone }}"
+    key_tag: "{{ rsa_key_tag | int }}"
+    rollover_days: "{{ rollover_days.updated }}"
+  register: update_results
+
+- name: debug update_results
+  debug:
+    var: update_results
+  when: debug | default(false)
+
+- name: "Assert private key updates were successful"
+  ansible.builtin.assert:
+    that:
+      - update_results is changed
+      - update_results.api_response.status == 'ok'
+      - update_results.key_info.keyTag == (rsa_key_tag | int)
+      - update_results.key_info.rolloverDays == rollover_days.updated
+    quiet: true
+
+# Phase 5: Test check mode (after we know the key exists, need keyTag)
+- name: "Check mode - Update private key rollover days"
+  technitium_dns_update_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_private_key_test_zones[0].zone }}"
+    key_tag: "{{ rsa_key_tag | int }}"
+    rollover_days: "{{ rollover_days.check_mode }}"  
+  check_mode: true
+  register: check_mode_result
+
+- name: "Assert check mode returns changed"
+  ansible.builtin.assert:
+    that:
+      - check_mode_result is changed
+      - "'check mode' in check_mode_result.msg"
+      - check_mode_result.key_info.rolloverDays == rollover_days.check_mode
+    quiet: true
+
+- name: "Verify check mode didn't actually change anything"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_private_key_test_zones[0].zone }}"
+  register: check_verify_props
+
+- name: "Confirm rollover days unchanged after check mode"
+  set_fact:
+    check_key: "{{ check_verify_props.dnssec_properties.dnssecPrivateKeys | selectattr('keyTag', 'equalto', rsa_key_tag | int) | first }}"
+
+- name: "Assert check mode didn't change rollover days"
+  ansible.builtin.assert:
+    that:
+      - check_key.rolloverDays == rollover_days.updated  # Should still be the last set value
+    quiet: true
+    fail_msg: "Check mode incorrectly modified rollover days: {{ check_key.rolloverDays }}"
+    success_msg: "Successfully verified check mode didn't modify rollover days"
+
+# Phase 6: Verify updates by checking DNSSEC properties after each change
+- name: "Get DNSSEC properties to verify final state"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_private_key_test_zones[0].zone }}"
+  register: final_dnssec_props
+
+- name: "Find updated RSA key to verify final rollover days"
+  set_fact:
+    final_updated_key: "{{ final_dnssec_props.dnssec_properties.dnssecPrivateKeys | selectattr('keyTag', 'equalto', rsa_key_tag | int) | first }}"
+
+- name: "Verify final rollover days match last scenario (365 days)"
+  ansible.builtin.assert:
+    that:
+      - final_updated_key.rolloverDays == rollover_days.updated
+    quiet: true
+    fail_msg: "Final rollover days verification failed: expected 365, got {{ final_updated_key.rolloverDays }}"
+    success_msg: "Successfully verified final rollover days = 365"
+
+# Phase 7: Test idempotency
+- name: "Test idempotency - run same update twice"
+  technitium_dns_update_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_private_key_test_zones[0].zone }}"
+    key_tag: "{{ rsa_key_tag | int }}"
+    rollover_days: "{{ rollover_days.updated }}"  
+  register: idempotent_result
+
+- name: "Verify idempotent behavior"
+  ansible.builtin.assert:
+    that:
+      - idempotent_result.changed == false
+      - "'already has rollover_days={{ rollover_days.updated }}' in idempotent_result.msg"
+    quiet: true
+    fail_msg: "Idempotency test failed: {{ idempotent_result }}"
+    success_msg: "Successfully verified idempotent behavior"
+
+# Phase 8: Test error scenarios
+- name: "Negative test - Update non-existent key tag"
+  technitium_dns_update_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_private_key_test_zones[0].zone }}"
+    key_tag: 99999  # Non-existent key tag
+    rollover_days: 30
+  register: nonexistent_key_result
+  ignore_errors: true
+
+- name: "Assert non-existent key tag error"
+  ansible.builtin.assert:
+    that:
+      - nonexistent_key_result is failed
+      - "'not found' in nonexistent_key_result.msg"
+    quiet: true
+    fail_msg: "Non-existent key tag should have failed: {{ nonexistent_key_result }}"
+
+- name: "Negative test - Update key in unsigned zone"
+  technitium_dns_update_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_private_key_test_zones[1].zone }}"  # This zone was created but not signed
+    key_tag: 1234
+    rollover_days: 30
+  register: unsigned_zone_result
+  ignore_errors: true
+
+- name: "Assert unsigned zone error"
+  ansible.builtin.assert:
+    that:
+      - unsigned_zone_result is failed
+      - "'not signed' in unsigned_zone_result.msg"
+    quiet: true
+    fail_msg: "Unsigned zone should have failed: {{ unsigned_zone_result }}"
+
+- name: "Negative test - Invalid rollover days (negative)"
+  technitium_dns_update_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_private_key_test_zones[0].zone }}"
+    key_tag: "{{ rsa_key_tag | int }}"
+    rollover_days: -1
+  register: negative_rollover_result
+  ignore_errors: true
+
+- name: "Assert negative rollover days error"
+  ansible.builtin.assert:
+    that:
+      - negative_rollover_result is failed
+      - "'must be between 0-365' in negative_rollover_result.msg"
+    quiet: true
+    fail_msg: "Negative rollover days should have failed: {{ negative_rollover_result }}"
+
+- name: "Negative test - Invalid rollover days (over 365)"
+  technitium_dns_update_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_private_key_test_zones[0].zone }}"
+    key_tag: "{{ rsa_key_tag | int }}"
+    rollover_days: 366
+  register: excessive_rollover_result
+  ignore_errors: true
+
+- name: "Assert excessive rollover days error"
+  ansible.builtin.assert:
+    that:
+      - excessive_rollover_result is failed
+      - "'must be between 0-365' in excessive_rollover_result.msg"
+    quiet: true
+    fail_msg: "Excessive rollover days should have failed: {{ excessive_rollover_result }}"
+
+- name: "Negative test - Invalid API token"
+  technitium_dns_update_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "BADTOKEN"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_private_key_test_zones[0].zone }}"
+    key_tag: "{{ rsa_key_tag | int }}"
+    rollover_days: 30
+  register: bad_token_result
+  ignore_errors: true
+
+- name: "Assert invalid token fails correctly"
+  ansible.builtin.assert:
+    that:
+      - bad_token_result is failed
+      - "'Invalid token' in bad_token_result.msg"
+    quiet: true
+    fail_msg: "Should fail with invalid API token"
+
+# Phase 9: Cleanup
+- name: "Cleanup - Delete test zones"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: cleanup_zone_deletion
+  loop: "{{ update_private_key_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "cleanup: {{ zone_item.zone }}"
