@@ -118,7 +118,7 @@ class UpdatePrivateKeyModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
         zone=dict(type='str', required=True),
-        key_tag=dict(type='int', required=True, no_log=True),
+        key_tag=dict(type='int', required=True, no_log=False),
         rollover_days=dict(type='int', required=True),
     )
 
