@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.2](https://github.com/effectivelywild/ansible-collection-technitium-dns/compare/v0.2.1...v0.2.2) (2025-09-08)
+
+
+### Documentation
+
+* Remove legacy README files from integration tests. ([3fe2b46](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/3fe2b46b6dc61d302ce83c62a8e43f8dbf687a49))
+* Update README [skip ci] ([01d99af](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/01d99af073b181568fdc2aa58fbc3d7d9ea97316))
+
 ## [0.2.1](https://github.com/effectivelywild/ansible-collection-technitium-dns/compare/v0.2.0...v0.2.1) (2025-09-07)
 
 

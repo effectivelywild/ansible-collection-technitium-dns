@@ -4,17 +4,11 @@ Effectivelywild.Technitium\_Dns Release Notes
 
 .. contents:: Topics
 
+v0.2.2
+======
+
 v0.2.1
 ======
-Release Summary
----------------
-
-Test release for new CD workflow
-
-New Modules
------------
-
-- effectivelywild.technitium_dns.technitium_update_nsec3_properties - Update NSEC3 Parameters.
 
 v0.1.0
 ======
