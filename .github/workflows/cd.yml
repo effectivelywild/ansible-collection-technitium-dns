@@ -3,11 +3,13 @@
 name: CD
 
 on:
-  workflow_run:
-    workflows: ["CI"]         # Wait for CI workflow
-    branches: [main]          # Only on main branch  
-    types: [completed]        # When CI completes
   workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Create release? This will publish to Ansible Galaxy'
+        required: true
+        type: boolean
+        default: false
 
 # Permissions needed for release-please to create PRs and releases
 permissions:
@@ -21,8 +23,7 @@ env:
 jobs:
   release-please:
     runs-on: ubuntu-latest
-    # Only run if CI passed successfully
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: ${{ github.event.inputs.confirm == 'true' }}
     outputs:
       release_created: ${{ steps.release_please.outputs.release_created }}
       tag_name: ${{ steps.release_please.outputs.tag_name }}
