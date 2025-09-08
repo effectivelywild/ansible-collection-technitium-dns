@@ -1,0 +1,418 @@
+# technitium_dns_add_private_key integration tests
+---
+# Phase 1: Load configuration and setup test zones
+- name: "Load test configuration"
+  include_vars: ../vars/config.yml
+
+- name: "Load zone test data"  
+  include_vars: ../vars/zone_test_data.yml
+
+- name: "Delete DNS zones (cleanup)"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_deletion_result
+  loop: "{{ add_private_key_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+  ignore_errors: true
+
+# Phase 2: Create and sign DNS zones for testing
+- name: "Create DNS zones for testing"
+  technitium_dns_create_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    type: Primary
+  register: zone_creation_results
+  loop: "{{ add_private_key_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+- name: "Sign DNS zones with DNSSEC"
+  technitium_dns_sign_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    algorithm: "{{ sign_parameters.algorithm }}"
+    hashAlgorithm: "{{ sign_parameters.hashAlgorithm }}"
+    kskKeySize: "{{ sign_parameters.kskKeySize }}"
+    zskKeySize: "{{ sign_parameters.zskKeySize }}"
+    dnsKeyTtl: "{{ sign_parameters.dnsKeyTtl }}"
+    zskRolloverDays: "{{ sign_parameters.zskRolloverDays }}"
+    nxProof: "{{ sign_parameters.nxProof }}"
+  register: zone_signing_results
+  loop: "{{ add_private_key_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+- name: "Verify zones are signed with DNSSEC"
+  technitium_dns_get_zone_options:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: pre_test_zone_status
+  loop: "{{ add_private_key_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+- name: "Assert zones are signed with DNSSEC"
+  ansible.builtin.assert:
+    that:
+      - item.options.dnssecStatus in ['Signed', 'SignedWithNSEC']
+    quiet: true
+    fail_msg: "Zone {{ item.zone_item.zone }} should be signed but is {{ item.options.dnssecStatus }}"
+  loop: "{{ pre_test_zone_status.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+# Phase 3: Test check mode
+- name: "Check mode - Add RSA private key"
+  technitium_dns_add_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ add_private_key_test_zones[0].zone }}"
+    key_type: "KeySigningKey"
+    algorithm: "RSA"
+    hash_algorithm: "SHA256"
+    key_size: 2048
+  check_mode: true
+  register: check_mode_result
+
+- name: "Assert check mode returns changed"
+  ansible.builtin.assert:
+    that:
+      - check_mode_result is changed
+      - "'check mode' in check_mode_result.msg"
+    quiet: true
+    fail_msg: "Check mode should indicate changes would be made"
+
+# Phase 4: Test all key type and algorithm combinations
+- name: "Add private keys - test all algorithm combinations"
+  technitium_dns_add_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ add_private_key_test_zones[0].zone }}"
+    key_type: "{{ config_item.key_type }}"
+    algorithm: "{{ config_item.algorithm }}"
+    hash_algorithm: "{{ config_item.hash_algorithm | default(omit) }}"
+    key_size: "{{ config_item.key_size | default(omit) }}"
+    curve: "{{ config_item.curve | default(omit) }}"
+    rollover_days: "{{ config_item.rollover_days | default(omit) }}"
+  register: add_key_results
+  loop: "{{ test_key_configs }}"
+  loop_control:
+    loop_var: config_item
+    label: "{{ config_item.name }}"
+
+- name: "Assert private keys were added successfully"
+  ansible.builtin.assert:
+    that:
+      - item is changed
+      - "'Private key added successfully' in item.msg"
+      - item.api_response.status == 'ok'
+    quiet: true
+    fail_msg: "Failed to add private key for {{ item.config_item.name }}"
+    success_msg: "Successfully added private key for {{ item.config_item.name }}"
+  loop: "{{ add_key_results.results }}"
+  loop_control:
+    label: "{{ item.config_item.name }}"
+
+# Verify the added keys by counting total keys
+- name: "Get DNSSEC properties to verify keys were added"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ add_private_key_test_zones[0].zone }}"
+  register: post_add_keys_dnssec_properties
+
+- name: "Assert correct number of DNSSEC keys exist"
+  ansible.builtin.assert:
+    that:
+      # Initial zone signing creates 2 keys (KSK + ZSK)
+      # We added 9 more keys from test_key_configs
+      # Total should be 11 keys
+      - post_add_keys_dnssec_properties.dnssec_properties.dnssecPrivateKeys | length == 11
+    quiet: true
+    fail_msg: "Expected 11 total DNSSEC keys (2 initial + 9 added), but found {{ post_add_keys_dnssec_properties.dnssec_properties.dnssecPrivateKeys | length }}"
+    success_msg: "Successfully verified 11 DNSSEC keys total (2 initial + 9 added)"
+
+- name: "Verify we have keys from different algorithms"
+  ansible.builtin.assert:
+    that:
+      # Should have RSA, ECDSA, and EDDSA keys
+      - post_add_keys_dnssec_properties.dnssec_properties.dnssecPrivateKeys | selectattr('algorithm', 'match', 'RSA.*') | list | length >= 3
+      - post_add_keys_dnssec_properties.dnssec_properties.dnssecPrivateKeys | selectattr('algorithm', 'match', 'ECDSA.*') | list | length >= 3  
+      - post_add_keys_dnssec_properties.dnssec_properties.dnssecPrivateKeys | selectattr('algorithm', 'match', 'ED.*') | list | length >= 3
+    quiet: true
+    fail_msg: "Missing expected algorithm diversity in DNSSEC keys"
+    success_msg: "Verified DNSSEC keys include RSA, ECDSA, and EDDSA algorithms"
+
+# Phase 5: Test user-provided private keys
+- name: "Add user-provided RSA private key"
+  technitium_dns_add_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ add_private_key_test_zones[1].zone }}"
+    key_type: "KeySigningKey"
+    algorithm: "RSA"
+    hash_algorithm: "SHA256"
+    key_size: 2048
+    pem_private_key: "{{ sample_rsa_private_key }}"
+  register: user_rsa_key_result
+
+- name: "Add user-provided ECDSA P256 private key"  
+  technitium_dns_add_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ add_private_key_test_zones[1].zone }}"
+    key_type: "ZoneSigningKey"
+    algorithm: "ECDSA"
+    curve: "P256"
+    rollover_days: 333
+    pem_private_key: "{{ sample_ecdsa_p256_private_key }}"
+  register: user_ecdsa_key_result
+
+- name: "Get DNSSEC properties after user key addition"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ add_private_key_test_zones[1].zone }}"
+  register: post_user_key_dnssec_properties
+
+- name: debug user_ecdsa_key_result
+  ansible.builtin.debug:
+    var: user_ecdsa_key_result
+  when: debug | default(false)
+
+- name: debug post_user_key_dnssec_properties
+  ansible.builtin.debug:
+    var: post_user_key_dnssec_properties
+  when: debug | default(false)
+
+# Note: The sample keys are synthetic and may not pass API validation
+# We test that the module properly handles the API response
+- name: "Verify user-provided key handling"
+  ansible.builtin.assert:
+    that:
+      # Since keyTags are not returned in creation response, we can't verify them here
+      - user_rsa_key_result is changed
+      - "'Private key added successfully' in user_rsa_key_result.msg"
+      - user_ecdsa_key_result is changed
+      - "'Private key added successfully' in user_ecdsa_key_result.msg"
+      # Can test ZoneSigningKey rolloverDays since it has a configurable value returned by the API
+      - >-
+        (
+          post_user_key_dnssec_properties.dnssec_properties.dnssecPrivateKeys
+          | selectattr('algorithm','equalto','ECDSAP256SHA256')
+          | map(attribute='rolloverDays')
+          | first
+        ) == 333
+    quiet: true
+
+# Phase 6: Test error scenarios
+# Relies on API validation error messages for checking key types
+- name: "Negative test - Invalid pem_private_key for algorithm"
+  technitium_dns_add_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ add_private_key_test_zones[0].zone }}"
+    key_type: "KeySigningKey"
+    algorithm: "RSA"
+    hash_algorithm: "SHA256"
+    key_size: 2048
+    pem_private_key: "{{ sample_ecdsa_p256_private_key }}"
+  register: incorrect_private_key_input
+  ignore_errors: true
+
+- name: "Assert missing hash_algorithm fails correctly"
+  ansible.builtin.assert:
+    that:
+      - incorrect_private_key_input is failed
+      - "'No supported key formats were found' in incorrect_private_key_input.msg"
+    quiet: true
+
+- name: "Negative test - Missing hash_algorithm for RSA"
+  technitium_dns_add_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ add_private_key_test_zones[0].zone }}"
+    key_type: "KeySigningKey"
+    algorithm: "RSA"
+    key_size: 2048
+  register: missing_hash_result
+  ignore_errors: true
+
+- name: "Assert missing hash_algorithm fails correctly"
+  ansible.builtin.assert:
+    that:
+      - missing_hash_result is failed
+      - "'hash_algorithm is required' in missing_hash_result.msg"
+    quiet: true
+    fail_msg: "Should fail when hash_algorithm missing for RSA"
+
+- name: "Negative test - Missing curve for ECDSA"
+  technitium_dns_add_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ add_private_key_test_zones[0].zone }}"
+    key_type: "KeySigningKey"
+    algorithm: "ECDSA"
+  register: missing_curve_result
+  ignore_errors: true
+
+- name: "Assert missing curve fails correctly"
+  ansible.builtin.assert:
+    that:
+      - missing_curve_result is failed
+      - "'curve is required' in missing_curve_result.msg"
+    quiet: true
+    fail_msg: "Should fail when curve missing for ECDSA"
+
+- name: "Negative test - Invalid curve for ECDSA"
+  technitium_dns_add_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ add_private_key_test_zones[0].zone }}"
+    key_type: "KeySigningKey"
+    algorithm: "ECDSA"
+    curve: "ED25519"
+  register: invalid_curve_result
+  ignore_errors: true
+
+- name: "Assert invalid curve fails correctly"
+  ansible.builtin.assert:
+    that:
+      - invalid_curve_result is failed
+      - "'Invalid curve' in invalid_curve_result.msg"
+    quiet: true
+    fail_msg: "Should fail when using EDDSA curve with ECDSA algorithm"
+
+- name: "Negative test - Hash algorithm with ECDSA"
+  technitium_dns_add_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ add_private_key_test_zones[0].zone }}"
+    key_type: "KeySigningKey"
+    algorithm: "ECDSA"
+    curve: "P256"
+    hash_algorithm: "SHA256"
+  register: invalid_hash_ecdsa_result
+  ignore_errors: true
+
+- name: "Assert hash_algorithm with ECDSA fails correctly"
+  ansible.builtin.assert:
+    that:
+      - invalid_hash_ecdsa_result is failed
+      - "'hash_algorithm parameter is not valid for ECDSA' in invalid_hash_ecdsa_result.msg"
+    quiet: true
+    fail_msg: "Should fail when using hash_algorithm with ECDSA"
+
+- name: "Negative test - Add key to unsigned zone"
+  technitium_dns_create_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "unsigned-test.{{ testing_suffix }}"
+    type: Primary
+  register: unsigned_zone_creation
+
+- name: "Negative test - Try to add key to unsigned zone"
+  technitium_dns_add_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "unsigned-test.{{ testing_suffix }}"
+    key_type: "KeySigningKey"
+    algorithm: "ECDSA"
+    curve: "P256"
+  register: unsigned_zone_result
+  ignore_errors: true
+
+- name: "Assert adding key to unsigned zone fails"
+  ansible.builtin.assert:
+    that:
+      - unsigned_zone_result is failed
+      - "'is not signed with DNSSEC' in unsigned_zone_result.msg"
+    quiet: true
+    fail_msg: "Should fail when trying to add key to unsigned zone"
+
+- name: "Negative test - Invalid API token"
+  technitium_dns_add_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "BADTOKEN"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ add_private_key_test_zones[0].zone }}"
+    key_type: "KeySigningKey"
+    algorithm: "ECDSA"
+    curve: "P256"
+  register: bad_token_result
+  ignore_errors: true
+
+- name: "Assert invalid token fails correctly"
+  ansible.builtin.assert:
+    that:
+      - bad_token_result is failed
+      - "'Invalid token' in bad_token_result.msg"
+    quiet: true
+    fail_msg: "Should fail with invalid API token"
+
+# # Phase 8: Cleanup
+# - name: "Cleanup - Delete test zones"
+#   technitium_dns_delete_zone:
+#     api_url: "{{ technitium_api_url | default('http://localhost') }}"
+#     api_token: "{{ technitium_api_token }}"
+#     api_port: "{{ technitium_api_port | default(5380) | int }}"
+#     validate_certs: "{{ validate_certs | default(true) }}"
+#     zone: "{{ zone_item.zone }}"
+#   register: cleanup_zone_deletion
+#   loop: "{{ add_private_key_test_zones }}"
+#   loop_control:
+#     loop_var: zone_item
+#     label: "cleanup: {{ zone_item.zone }}"
+
+# - name: "Cleanup - Delete unsigned test zone"
+#   technitium_dns_delete_zone:
+#     api_url: "{{ technitium_api_url | default('http://localhost') }}"
+#     api_token: "{{ technitium_api_token }}"
+#     api_port: "{{ technitium_api_port | default(5380) | int }}"
+#     validate_certs: "{{ validate_certs | default(true) }}"
+#     zone: "unsigned-test.{{ testing_suffix }}"
