@@ -1,0 +1,27 @@
+---
+# Configuration for technitium_dns_delete_private_key integration tests
+
+# Test zone data for private key deletion testing
+delete_private_key_test_zones:
+  - zone: "delete-key-test1.{{ testing_suffix }}"
+  - zone: "delete-key-test2.{{ testing_suffix }}"
+
+# DNSSEC signing parameters for initial zone setup
+# Using ECDSA P256 as default since that's what the module expects as baseline
+sign_parameters:
+  algorithm: "ECDSA"
+  curve: "P256"
+  kskKeySize: null
+  zskKeySize: null
+  dnsKeyTtl: 86400
+  zskRolloverDays: 30
+  nxProof: "NSEC"
+
+# Test RSA key configuration to create unique identifiable keys
+# This creates a unique key we can identify and test deletion on
+test_rsa_key:
+  key_type: "ZoneSigningKey"
+  algorithm: "RSA" 
+  hash_algorithm: "SHA256"
+  key_size: 1024
+  rollover_days: 0  

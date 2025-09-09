@@ -1,0 +1,273 @@
+# technitium_dns_delete_private_key integration tests
+---
+# Phase 1: Load configuration and setup test zones
+- name: "Load test configuration"
+  include_vars: ../vars/config.yml
+
+- name: "Delete DNS zones (cleanup)"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_deletion_result
+  loop: "{{ delete_private_key_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+  ignore_errors: true
+
+# Phase 2: Create and sign DNS zones for testing
+- name: "Create DNS zones for testing"
+  technitium_dns_create_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    type: Primary
+  register: zone_creation_results
+  loop: "{{ delete_private_key_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+- name: "Sign first DNS zone with DNSSEC (leave second unsigned for error testing)"
+  technitium_dns_sign_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ delete_private_key_test_zones[0].zone }}"
+    algorithm: "{{ sign_parameters.algorithm }}"
+    curve: "{{ sign_parameters.curve }}"
+    dnsKeyTtl: "{{ sign_parameters.dnsKeyTtl }}"
+    zskRolloverDays: "{{ sign_parameters.zskRolloverDays }}"
+    nxProof: "{{ sign_parameters.nxProof }}"
+  register: zone_signing_result
+
+- name: "Add unique RSA private key to first test zone for deletion testing"
+  technitium_dns_add_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ delete_private_key_test_zones[0].zone }}"
+    key_type: "{{ test_rsa_key.key_type }}"
+    algorithm: "{{ test_rsa_key.algorithm }}"
+    hash_algorithm: "{{ test_rsa_key.hash_algorithm }}"
+    key_size: "{{ test_rsa_key.key_size }}"
+    rollover_days: "{{ test_rsa_key.rollover_days }}"
+  register: rsa_key_result
+
+# Phase 3: Find the RSA key tag for testing
+- name: "Get DNSSEC properties to find RSA key tag"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ delete_private_key_test_zones[0].zone }}"
+  register: dnssec_props
+
+- name: "Find RSA key tag by matching algorithm signature"
+  set_fact:
+    rsa_key_tag: "{{ item.keyTag }}"
+  loop: "{{ dnssec_props.dnssec_properties.dnssecPrivateKeys }}"
+  when: 
+    - item.algorithm is match(".*RSASHA256.*1024 bits.*")
+  loop_control:
+    label: "{{ item.keyTag }}: {{ item.algorithm }}"
+
+- name: debug rsa_key_tag
+  debug:
+    var: rsa_key_tag
+  when: debug | default(false)
+
+- name: "Verify we found the RSA key"
+  ansible.builtin.assert:
+    that:
+      - rsa_key_tag is defined
+      - rsa_key_tag | int > 0
+    quiet: true
+    fail_msg: "Could not find RSA SHA256 1024-bit key in zone {{ delete_private_key_test_zones[0].zone }}"
+
+# Phase 4: Test check mode (before deletion)
+- name: "Check mode - Delete private key"
+  technitium_dns_delete_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ delete_private_key_test_zones[0].zone }}"
+    key_tag: "{{ rsa_key_tag | int }}"
+  check_mode: true
+  register: check_mode_result
+
+- name: "Assert check mode returns changed"
+  ansible.builtin.assert:
+    that:
+      - check_mode_result is changed
+      - "'check mode' in check_mode_result.msg"
+    quiet: true
+
+- name: "Verify check mode didn't actually delete the key"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ delete_private_key_test_zones[0].zone }}"
+  register: check_verify_props
+
+- name: "Find the key to confirm it still exists after check mode"
+  set_fact:
+    check_key_exists: "{{ check_verify_props.dnssec_properties.dnssecPrivateKeys | selectattr('keyTag', 'equalto', rsa_key_tag | int) | list | length > 0 }}"
+
+- name: "Assert check mode didn't delete the key"
+  ansible.builtin.assert:
+    that:
+      - check_key_exists == true
+    quiet: true
+    fail_msg: "Check mode incorrectly deleted the key"
+    success_msg: "Successfully verified check mode didn't delete the key"
+
+# Phase 5: Test actual private key deletion
+- name: "Delete private key"
+  technitium_dns_delete_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ delete_private_key_test_zones[0].zone }}"
+    key_tag: "{{ rsa_key_tag | int }}"
+  register: delete_results
+
+- name: debug delete_results
+  debug:
+    var: delete_results
+  when: debug | default(false)
+
+- name: "Assert private key deletion was successful"
+  ansible.builtin.assert:
+    that:
+      - delete_results is changed
+      - delete_results.api_response.status == 'ok'
+      - "rsa_key_tag | string in delete_results.msg"
+    quiet: true
+
+# Phase 6: Verify deletion by checking DNSSEC properties
+- name: "Get DNSSEC properties to verify key was deleted"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ delete_private_key_test_zones[0].zone }}"
+  register: post_delete_dnssec_props
+
+- name: "Verify key was actually deleted"
+  set_fact:
+    key_still_exists: "{{ post_delete_dnssec_props.dnssec_properties.dnssecPrivateKeys | selectattr('keyTag', 'equalto', rsa_key_tag | int) | list | length > 0 }}"
+
+- name: "Assert key was deleted"
+  ansible.builtin.assert:
+    that:
+      - key_still_exists == false
+    quiet: true
+    fail_msg: "Key still exists after deletion"
+    success_msg: "Successfully verified key was deleted"
+
+# Phase 7: Test idempotency (attempting to delete already deleted key)
+- name: "Test idempotency - try to delete already deleted key"
+  technitium_dns_delete_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ delete_private_key_test_zones[0].zone }}"
+    key_tag: "{{ rsa_key_tag | int }}"
+  register: idempotent_result
+  ignore_errors: true
+
+- name: "Verify attempting to delete non-existent key fails appropriately"
+  ansible.builtin.assert:
+    that:
+      - idempotent_result is failed
+      - "'not found' in idempotent_result.msg"
+    quiet: true
+    fail_msg: "Should fail when trying to delete non-existent key"
+    success_msg: "Successfully verified deletion of non-existent key fails appropriately"
+
+# Phase 8: Test error scenarios
+- name: "Negative test - Delete non-existent key tag"
+  technitium_dns_delete_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ delete_private_key_test_zones[0].zone }}"
+    key_tag: 99999  # Non-existent key tag
+  register: nonexistent_key_result
+  ignore_errors: true
+
+- name: "Assert non-existent key tag error"
+  ansible.builtin.assert:
+    that:
+      - nonexistent_key_result is failed
+      - "'not found' in nonexistent_key_result.msg"
+    quiet: true
+    fail_msg: "Non-existent key tag should have failed: {{ nonexistent_key_result }}"
+
+- name: "Negative test - Delete key from unsigned zone"
+  technitium_dns_delete_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ delete_private_key_test_zones[1].zone }}"  # This zone was created but not signed
+    key_tag: 1234
+  register: unsigned_zone_result
+  ignore_errors: true
+
+- name: "Assert unsigned zone error"
+  ansible.builtin.assert:
+    that:
+      - unsigned_zone_result is failed
+      - "'not signed' in unsigned_zone_result.msg"
+    quiet: true
+    fail_msg: "Unsigned zone should have failed: {{ unsigned_zone_result }}"
+
+- name: "Negative test - Invalid API token"
+  technitium_dns_delete_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "BADTOKEN"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ delete_private_key_test_zones[0].zone }}"
+    key_tag: 1234
+  register: bad_token_result
+  ignore_errors: true
+
+- name: "Assert invalid token fails correctly"
+  ansible.builtin.assert:
+    that:
+      - bad_token_result is failed
+      - "'Invalid token' in bad_token_result.msg"
+    quiet: true
+    fail_msg: "Should fail with invalid API token"
+
+# Phase 9: Cleanup
+- name: "Cleanup - Delete test zones"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: cleanup_zone_deletion
+  loop: "{{ delete_private_key_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "cleanup: {{ zone_item.zone }}"
