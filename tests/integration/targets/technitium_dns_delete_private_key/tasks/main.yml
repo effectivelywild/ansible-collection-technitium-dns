@@ -201,6 +201,43 @@
     success_msg: "Successfully verified deletion of non-existent key fails appropriately"
 
 # Phase 8: Test error scenarios
+- name: "Get DNSSEC properties for negative tests"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ delete_private_key_test_zones[0].zone }}"
+  register: neg_delete_dnssec_props
+
+- name: debug neg_delete_dnssec_props
+  debug:
+    var: neg_delete_dnssec_props
+  when: debug | default(false)
+
+- name: Set fact for Active key tag
+  set_fact:
+    active_key_tag: "{{ (neg_delete_dnssec_props.dnssec_properties.dnssecPrivateKeys | selectattr('state', 'equalto', 'Active') | map(attribute='keyTag') ) | first }}"
+
+- name: "Negative test - Delete non-generate key state"
+  technitium_dns_delete_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ delete_private_key_test_zones[0].zone }}"
+    key_tag: "{{ active_key_tag }}"
+  register: nongenerate_key_result
+  ignore_errors: true
+
+- name: "Assert non-generate key state"
+  ansible.builtin.assert:
+    that:
+      - nongenerate_key_result is failed
+      - nongenerate_key_result.msg is search("has state 'active'")
+    quiet: true
+    fail_msg: "non-generate key state should have failed: {{ nongenerate_key_result }}"
+
 - name: "Negative test - Delete non-existent key tag"
   technitium_dns_delete_private_key:
     api_url: "{{ technitium_api_url | default('http://localhost') }}"
