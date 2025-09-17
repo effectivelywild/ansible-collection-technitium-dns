@@ -189,7 +189,7 @@ jobs:
       - name: Run integration tests that require KSK in Ready state
         run: |
           ansible-test integration --color --retry-on-error --continue-on-error --diff --python ${{ matrix.python }} --coverage --requirements \
-          --include technitium_dns_update_dnskey_ttl
+          technitium_dns_update_dnskey_ttl
         working-directory: ./ansible_collections/effectivelywild/technitium_dns
 
       - name: Generate coverage report
