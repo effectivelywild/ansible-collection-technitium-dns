@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.3.0](https://github.com/effectivelywild/ansible-collection-technitium-dns/compare/v0.2.1...v0.3.0) (2025-09-17)
+
+
+### Features
+
+* add dns_update_private_key module and integration test ([032414e](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/032414e9d98d9f69272e0bd8bc597bcb4f328520))
+
+
+### Bug Fixes
+
+* update no_log in argument spec for key_tag ([ceba81e](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/ceba81ed39d067f3af982990fb7e16600f8d6dd4))
+
+
+### Documentation
+
+* Remove legacy README files from integration tests. ([3fe2b46](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/3fe2b46b6dc61d302ce83c62a8e43f8dbf687a49))
+* Update README [skip ci] ([01d99af](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/01d99af073b181568fdc2aa58fbc3d7d9ea97316))
+
 ## [0.2.1](https://github.com/effectivelywild/ansible-collection-technitium-dns/compare/v0.2.0...v0.2.1) (2025-09-07)
 
 

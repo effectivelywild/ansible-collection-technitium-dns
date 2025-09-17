@@ -58,3 +58,18 @@ releases:
       name: technitium_dns_update_nsec3_parameters
       namespace: ''
     release_date: '2025-09-08'
+  0.3.0:
+    modules:
+    - description: Add DNSSEC private key to a zone.
+      name: technitium_dns_add_private_key
+      namespace: ''
+    - description: Delete DNSSEC private key from a zone.
+      name: technitium_dns_delete_private_key
+      namespace: ''
+    - description: Update DNSKEY TTL for a DNSSEC-signed zone.
+      name: technitium_dns_update_dnskey_ttl
+      namespace: ''
+    - description: Update DNSSEC private key properties.
+      name: technitium_dns_update_private_key
+      namespace: ''
+    release_date: '2025-09-17'
