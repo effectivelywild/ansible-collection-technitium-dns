@@ -8,9 +8,14 @@ dns_servers_to_create:
     https_port: "{{ lookup('env', 'HTTPS_PORT_2') | default('53442') }}"
 
 dns_server_admin_password: "topsecret"
+dns_server_domain: "testing.local"
 
-zones_to_create:
+t1_zones_to_create:
   - name: secondary.{{ lookup('env', 'TESTING_SUFFIX') | default('example.com') }}
     type: Primary
   - name: stub.{{ lookup('env', 'TESTING_SUFFIX') | default('example.com') }}
+    type: Primary
+
+t2_zones_to_create:
+  - name: update-dnskey-ttl-test1.{{ lookup('env', 'TESTING_SUFFIX') | default('example.com') }}
     type: Primary

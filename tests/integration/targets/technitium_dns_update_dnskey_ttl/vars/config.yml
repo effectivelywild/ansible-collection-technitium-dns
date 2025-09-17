@@ -1,0 +1,17 @@
+---
+# Configuration for technitium_dns_update_dnskey_ttl integration tests
+
+# Test zone data for DNSKEY TTL update testing
+# update-dnskey-ttl-test1 is created when the test servers are initilized to allow time for key publishing
+# see tests/integration/targets/setup_testing_env
+update_dnskey_ttl_test_zones:
+  - zone: "update-dnskey-ttl-test1.{{ testing_suffix }}"
+  - zone: "update-dnskey-ttl-test2.{{ testing_suffix }}"
+
+update_dnskey_ttl_test_zones_to_create:
+  - zone: "update-dnskey-ttl-test2.{{ testing_suffix }}"
+  
+dnskey_ttl:
+  initial: 1     # Default initial TTL (24 hours)
+  updated: 3600      # Updated TTL (1 hour)
+  check_mode: 7200   # TTL for check mode test (2 hours)

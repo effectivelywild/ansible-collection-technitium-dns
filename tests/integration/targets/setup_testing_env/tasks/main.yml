@@ -18,7 +18,7 @@
     sysctls:
       net.ipv4.ip_local_port_range: "1024 65000"
     env:
-      DNS_SERVER_DOMAIN: testing.local
+      DNS_SERVER_DOMAIN: "{{ dns_server_domain }}"
       DNS_SERVER_ADMIN_PASSWORD: "{{ dns_server_admin_password }}"
   loop: "{{ dns_servers_to_create }}"
 
@@ -48,13 +48,29 @@
 - name: Set dynamic container names for zone operations
   set_fact:
     technitium01_name: "technitium01{{ lookup('env', 'CONTAINER_SUFFIX') | default('') }}"
+    technitium02_name: "technitium02{{ lookup('env', 'CONTAINER_SUFFIX') | default('') }}"
     
 - name: Create DNS zones of technitium01 for zone transfers
   ansible.builtin.uri:
     url: "http://localhost:{{ dns_servers[technitium01_name].http_port }}/api/zones/create?token={{ technitium_tokens[technitium01_name].token }}&zone={{ item.name }}&type={{ item.type }}"
-  loop: "{{ zones_to_create }}"
+  loop: "{{ t1_zones_to_create }}"
 
 - name: Update zone options to allow zone transfers
   ansible.builtin.uri:
     url: "http://localhost:{{ dns_servers[technitium01_name].http_port }}/api/zones/options/set?token={{ technitium_tokens[technitium01_name].token }}&zone={{ item.name }}&zoneTransfer=Allow"
-  loop: "{{ zones_to_create }}"
+  loop: "{{ t1_zones_to_create }}"
+
+- name: Create zones for early DNSSEC signing
+  ansible.builtin.uri:
+    url: "http://localhost:{{ dns_servers[technitium02_name].http_port }}/api/zones/create?token={{ technitium_tokens[technitium02_name].token }}&zone={{ item.name }}&type={{ item.type }}"
+  loop: "{{ t2_zones_to_create }}"
+
+- name: Reduce TTL on NS record (will reduce publishing time of keys)
+  ansible.builtin.uri:
+    url: "http://localhost:{{ dns_servers[technitium02_name].http_port }}/api/zones/records/update?token={{ technitium_tokens[technitium02_name].token }}&zone={{ item.name }}&type=NS&domain={{ item.name }}&ttl=1&nameServer={{ dns_server_domain }}"
+  loop: "{{ t2_zones_to_create }}"
+
+- name: Sign zones for early DNSSEC signing
+  ansible.builtin.uri:
+    url: "http://localhost:{{ dns_servers[technitium02_name].http_port }}/api/zones/dnssec/sign?token={{ technitium_tokens[technitium02_name].token }}&zone={{ item.name }}&dnsKeyTtl=1&algorithm=ECDSA&curve=P256&kskKeySize=&zskKeySize=&zskRolloverDays=30&nxProof=NSEC"
+  loop: "{{ t2_zones_to_create }}"
