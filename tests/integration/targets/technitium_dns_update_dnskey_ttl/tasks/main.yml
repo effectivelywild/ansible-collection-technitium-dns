@@ -1,0 +1,241 @@
+# technitium_dns_update_dnskey_ttl integration tests
+---
+# Phase 1: Load configuration and setup test zones
+- name: "Load test configuration"
+  include_vars: ../vars/config.yml
+
+# Phase 2: Create and sign DNS zones for testing
+- name: "Create DNS zones for testing"
+  technitium_dns_create_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    type: Primary
+  register: zone_creation_results
+  loop: "{{ update_dnskey_ttl_test_zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+- name: "Get DNSSEC properties of created zones"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "update-dnskey-ttl-test1.{{ testing_suffix }}"
+  register: dnssec_properties_results
+
+- name: Debug dnssec_properties_results
+  debug:
+    var: dnssec_properties_results
+  when: debug | default(false)
+
+- name: "Wait for KeySigningKey to be in Ready state"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "update-dnskey-ttl-test1.{{ testing_suffix }}"
+  register: wait_dnssec_props
+  until: >
+    wait_dnssec_props.dnssec_properties.dnssecPrivateKeys |
+    selectattr('keyType', 'equalto', 'KeySigningKey') |
+    map(attribute='state') |
+    list |
+    first == 'Ready'
+  retries: 60
+  delay: 30
+
+# Phase 3: Test check mode
+- name: "Check mode - Update DNSKEY TTL"
+  technitium_dns_update_dnskey_ttl:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_dnskey_ttl_test_zones[0].zone }}"
+    ttl: "{{ dnskey_ttl.check_mode }}"
+  check_mode: true
+  register: check_mode_result
+
+- name: "Assert check mode returns changed"
+  ansible.builtin.assert:
+    that:
+      - check_mode_result is changed
+      - "'check mode' in check_mode_result.msg"
+      - check_mode_result.dnskey_ttl == dnskey_ttl.check_mode
+    quiet: true
+
+- name: "Verify check mode didn't actually change anything"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_dnskey_ttl_test_zones[0].zone }}"
+  register: check_verify_props
+
+- name: "Assert check mode didn't change DNSKEY TTL"
+  ansible.builtin.assert:
+    that:
+      - check_verify_props.dnssec_properties.dnsKeyTtl == dnskey_ttl.initial
+    quiet: true
+    fail_msg: "Check mode incorrectly modified DNSKEY TTL: {{ check_verify_props.dnssec_properties.dnsKeyTtl }}"
+    success_msg: "Successfully verified check mode didn't modify DNSKEY TTL"
+
+# Phase 4: Test actual TTL update
+- name: "Update DNSKEY TTL"
+  technitium_dns_update_dnskey_ttl:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_dnskey_ttl_test_zones[0].zone }}"
+    ttl: "{{ dnskey_ttl.updated }}"
+  register: update_result
+
+- name: debug update_result
+  debug:
+    var: update_result
+  when: debug | default(false)
+
+- name: "Assert DNSKEY TTL update was successful"
+  ansible.builtin.assert:
+    that:
+      - update_result is changed
+      - update_result.api_response.status == 'ok'
+      - update_result.dnskey_ttl == dnskey_ttl.updated
+    quiet: true
+
+# Phase 5: Verify the TTL has the expected new value
+- name: "Get DNSSEC properties to verify TTL update"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_dnskey_ttl_test_zones[0].zone }}"
+  register: updated_dnssec_props
+
+- name: "Verify DNSKEY TTL has expected new value"
+  ansible.builtin.assert:
+    that:
+      - updated_dnssec_props.dnssec_properties.dnsKeyTtl == dnskey_ttl.updated
+    quiet: true
+    fail_msg: "DNSKEY TTL verification failed: expected {{ dnskey_ttl.updated }}, got {{ updated_dnssec_props.dnssec_properties.dnsKeyTtl }}"
+    success_msg: "Successfully verified DNSKEY TTL = {{ dnskey_ttl.updated }}"
+
+# Phase 6: Test idempotency
+- name: "Test idempotency - run same update twice"
+  technitium_dns_update_dnskey_ttl:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_dnskey_ttl_test_zones[0].zone }}"
+    ttl: "{{ dnskey_ttl.updated }}"
+  register: idempotent_result
+
+- name: "Verify idempotent behavior"
+  ansible.builtin.assert:
+    that:
+      - idempotent_result.changed == false
+      - "'already set to {{ dnskey_ttl.updated }}' in idempotent_result.msg"
+    quiet: true
+    fail_msg: "Idempotency test failed: {{ idempotent_result }}"
+    success_msg: "Successfully verified idempotent behavior"
+
+# Phase 7: Test error scenarios
+- name: "Negative test - Update TTL in unsigned zone"
+  technitium_dns_update_dnskey_ttl:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_dnskey_ttl_test_zones[1].zone }}"  # This zone was created but not signed
+    ttl: 7200
+  register: unsigned_zone_result
+  ignore_errors: true
+
+- name: "Assert unsigned zone error"
+  ansible.builtin.assert:
+    that:
+      - unsigned_zone_result is failed
+      - "'not signed' in unsigned_zone_result.msg"
+    quiet: true
+    fail_msg: "Unsigned zone should have failed: {{ unsigned_zone_result }}"
+
+- name: "Negative test - Invalid TTL (negative value)"
+  technitium_dns_update_dnskey_ttl:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_dnskey_ttl_test_zones[0].zone }}"
+    ttl: -1
+  register: negative_ttl_result
+  ignore_errors: true
+
+- name: "Assert negative TTL error"
+  ansible.builtin.assert:
+    that:
+      - negative_ttl_result is failed
+      - "'positive integer' in negative_ttl_result.msg"
+    quiet: true
+    fail_msg: "Negative TTL should have failed: {{ negative_ttl_result }}"
+
+- name: "Negative test - Invalid TTL (zero)"
+  technitium_dns_update_dnskey_ttl:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_dnskey_ttl_test_zones[0].zone }}"
+    ttl: 0
+  register: zero_ttl_result
+  ignore_errors: true
+
+- name: "Assert zero TTL error"
+  ansible.builtin.assert:
+    that:
+      - zero_ttl_result is failed
+      - "'positive integer' in zero_ttl_result.msg"
+    quiet: true
+    fail_msg: "Zero TTL should have failed: {{ zero_ttl_result }}"
+
+- name: "Negative test - Invalid API token"
+  technitium_dns_update_dnskey_ttl:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "BADTOKEN"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ update_dnskey_ttl_test_zones[0].zone }}"
+    ttl: 7200
+  register: bad_token_result
+  ignore_errors: true
+
+- name: "Assert invalid token fails correctly"
+  ansible.builtin.assert:
+    that:
+      - bad_token_result is failed
+      - "'Invalid token' in bad_token_result.msg"
+    quiet: true
+    fail_msg: "Should fail with invalid API token"
+
+# Phase 8: Cleanup
+- name: "Cleanup - Delete test zones"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: cleanup_zone_deletion
+  loop: "{{ update_dnskey_ttl_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "cleanup: {{ zone_item.zone }}"
