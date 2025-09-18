@@ -1,0 +1,27 @@
+---
+# Configuration for technitium_dns_publish_all_keys integration tests
+
+# Test zone data for publish all keys testing
+publish_all_keys_test_zones:
+  - zone: "publish-keys-test1.{{ testing_suffix }}"
+  - zone: "publish-keys-test2.{{ testing_suffix }}"
+
+# DNSSEC signing parameters for initial zone setup
+# Using ECDSA P256 as default
+sign_parameters:
+  algorithm: "ECDSA"
+  curve: "P256"
+  kskKeySize: null
+  zskKeySize: null
+  dnsKeyTtl: 86400
+  zskRolloverDays: 30
+  nxProof: "NSEC"
+
+# Test key configuration to create a new generated key
+# This creates a key that will be in Generated state for testing
+test_key:
+  key_type: "ZoneSigningKey"
+  algorithm: "RSA"
+  hash_algorithm: "SHA256"
+  key_size: 1024
+  rollover_days: 0

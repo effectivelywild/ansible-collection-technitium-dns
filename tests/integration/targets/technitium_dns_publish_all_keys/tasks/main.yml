@@ -1,0 +1,274 @@
+# technitium_dns_publish_all_keys integration tests
+---
+# Phase 1: Load configuration and setup test zones
+- name: "Load test configuration"
+  include_vars: ../vars/config.yml
+
+- name: "Delete DNS zones (cleanup)"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_deletion_result
+  loop: "{{ publish_all_keys_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+  ignore_errors: true
+
+# Phase 2: Create and sign DNS zones for testing
+- name: "Create DNS zones for testing"
+  technitium_dns_create_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    type: Primary
+  register: zone_creation_results
+  loop: "{{ publish_all_keys_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+- name: "Sign first DNS zone with DNSSEC (leave second unsigned for error testing)"
+  technitium_dns_sign_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ publish_all_keys_test_zones[0].zone }}"
+    algorithm: "{{ sign_parameters.algorithm }}"
+    curve: "{{ sign_parameters.curve }}"
+    dnsKeyTtl: "{{ sign_parameters.dnsKeyTtl }}"
+    zskRolloverDays: "{{ sign_parameters.zskRolloverDays }}"
+    nxProof: "{{ sign_parameters.nxProof }}"
+  register: zone_signing_result
+
+- name: "Add new private key to create a Generated key for testing"
+  technitium_dns_add_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ publish_all_keys_test_zones[0].zone }}"
+    key_type: "{{ test_key.key_type }}"
+    algorithm: "{{ test_key.algorithm }}"
+    hash_algorithm: "{{ test_key.hash_algorithm }}"
+    key_size: "{{ test_key.key_size }}"
+    rollover_days: "{{ test_key.rollover_days }}"
+  register: add_key_result
+
+# Phase 3: Verify we have generated keys before testing
+- name: "Get DNSSEC properties to verify we have generated keys"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ publish_all_keys_test_zones[0].zone }}"
+  register: initial_dnssec_props
+
+- name: "Debug initial DNSSEC properties"
+  debug:
+    var: initial_dnssec_props
+  when: debug | default(false)
+
+- name: "Find generated keys"
+  set_fact:
+    generated_keys: "{{ initial_dnssec_props.dnssec_properties.dnssecPrivateKeys | selectattr('state', 'equalto', 'Generated') | list }}"
+
+- name: "Verify we have at least one generated key for testing"
+  ansible.builtin.assert:
+    that:
+      - generated_keys | length > 0
+    quiet: true
+    fail_msg: "No generated keys found in zone {{ publish_all_keys_test_zones[0].zone }}"
+    success_msg: "Found {{ generated_keys | length }} generated key(s) for testing"
+
+# Phase 4: Test check mode
+- name: "Check mode - Publish all generated keys"
+  technitium_dns_publish_all_keys:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ publish_all_keys_test_zones[0].zone }}"
+  check_mode: true
+  register: check_mode_result
+
+- name: "Assert check mode returns changed"
+  ansible.builtin.assert:
+    that:
+      - check_mode_result is changed
+      - "'check mode' in check_mode_result.msg"
+      - check_mode_result.published_keys_count == (generated_keys | length)
+      - check_mode_result.generated_keys_before | length == (generated_keys | length)
+    quiet: true
+
+- name: "Verify check mode didn't actually change anything"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ publish_all_keys_test_zones[0].zone }}"
+  register: check_verify_props
+
+- name: "Find generated keys after check mode"
+  set_fact:
+    generated_keys_after_check: "{{ check_verify_props.dnssec_properties.dnssecPrivateKeys | selectattr('state', 'equalto', 'Generated') | list }}"
+
+- name: "Assert check mode didn't publish keys"
+  ansible.builtin.assert:
+    that:
+      - generated_keys_after_check | length == (generated_keys | length)
+    quiet: true
+    fail_msg: "Check mode incorrectly published keys: {{ generated_keys_after_check | length }} generated keys remaining"
+    success_msg: "Successfully verified check mode didn't publish keys"
+
+# Phase 5: Test actual key publishing
+- name: "Publish all generated keys"
+  technitium_dns_publish_all_keys:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ publish_all_keys_test_zones[0].zone }}"
+  register: publish_result
+
+- name: debug publish_result
+  debug:
+    var: publish_result
+  when: debug | default(false)
+
+- name: "Assert key publishing was successful"
+  ansible.builtin.assert:
+    that:
+      - publish_result is changed
+      - publish_result.api_response.status == 'ok'
+      - publish_result.published_keys_count == (generated_keys | length)
+      - publish_result.generated_keys_before | length == (generated_keys | length)
+    quiet: true
+
+# Phase 6: Verify keys have moved from Generated to Published
+- name: "Get DNSSEC properties to verify keys were published"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ publish_all_keys_test_zones[0].zone }}"
+  register: published_dnssec_props
+
+- name: "Find keys after publishing"
+  set_fact:
+    generated_keys_after_publish: "{{ published_dnssec_props.dnssec_properties.dnssecPrivateKeys | selectattr('state', 'equalto', 'Generated') | list }}"
+    published_keys_after_publish: "{{ published_dnssec_props.dnssec_properties.dnssecPrivateKeys | selectattr('state', 'equalto', 'Published') | list }}"
+
+- name: "Verify no generated keys remain and published keys exist"
+  ansible.builtin.assert:
+    that:
+      - generated_keys_after_publish | length == 0
+      - published_keys_after_publish | length >= (generated_keys | length)
+    quiet: true
+    fail_msg: "Key publishing verification failed: {{ generated_keys_after_publish | length }} generated keys still exist"
+    success_msg: "Successfully verified all keys moved from Generated to Published state"
+
+# Phase 7: Test idempotency (no generated keys should remain)
+- name: "Test idempotency - try to publish keys when none are generated"
+  technitium_dns_publish_all_keys:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ publish_all_keys_test_zones[0].zone }}"
+  register: idempotent_result
+
+- name: "Verify idempotent behavior"
+  ansible.builtin.assert:
+    that:
+      - idempotent_result.changed == false
+      - "'no generated keys found' in idempotent_result.msg.lower()"
+      - idempotent_result.published_keys_count == 0
+    quiet: true
+    fail_msg: "Idempotency test failed: {{ idempotent_result }}"
+    success_msg: "Successfully verified idempotent behavior"
+
+# Phase 8: Test error scenarios
+- name: "Negative test - Publish keys in unsigned zone"
+  technitium_dns_publish_all_keys:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ publish_all_keys_test_zones[1].zone }}"  # This zone was created but not signed
+  register: unsigned_zone_result
+  ignore_errors: true
+
+- name: "Assert unsigned zone error"
+  ansible.builtin.assert:
+    that:
+      - unsigned_zone_result is failed
+      - "'not signed' in unsigned_zone_result.msg"
+    quiet: true
+    fail_msg: "Unsigned zone should have failed: {{ unsigned_zone_result }}"
+
+- name: "Negative test - Invalid API token"
+  technitium_dns_publish_all_keys:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "BADTOKEN"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ publish_all_keys_test_zones[0].zone }}"
+  register: bad_token_result
+  ignore_errors: true
+
+- name: "Assert invalid token fails correctly"
+  ansible.builtin.assert:
+    that:
+      - bad_token_result is failed
+      - "'Invalid token' in bad_token_result.msg"
+    quiet: true
+    fail_msg: "Should fail with invalid API token"
+
+- name: "Negative test - Publish keys when no generated keys are available"
+  technitium_dns_publish_all_keys:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ publish_all_keys_test_zones[0].zone }}"
+  register: no_generated_keys_result
+
+- name: debug no_generated_keys_result
+  debug:
+    var: no_generated_keys_result
+  when: debug | default(false)
+
+- name: "Assert no generated keys scenario returns unchanged"
+  ansible.builtin.assert:
+    that:
+      - no_generated_keys_result.changed == false
+      - "'no generated keys found' in no_generated_keys_result.msg.lower()"
+      - no_generated_keys_result.published_keys_count == 0
+      - no_generated_keys_result.generated_keys_before | length == 0
+    quiet: true
+    fail_msg: "No generated keys test failed: {{ no_generated_keys_result }}"
+    success_msg: "Successfully verified behavior when no generated keys are available"
+
+# Phase 9: Cleanup
+# - name: "Cleanup - Delete test zones"
+#   technitium_dns_delete_zone:
+#     api_url: "{{ technitium_api_url | default('http://localhost') }}"
+#     api_token: "{{ technitium_api_token }}"
+#     api_port: "{{ technitium_api_port | default(5380) | int }}"
+#     validate_certs: "{{ validate_certs | default(true) }}"
+#     zone: "{{ zone_item.zone }}"
+#   register: cleanup_zone_deletion
+#   loop: "{{ publish_all_keys_test_zones }}"
+#   loop_control:
+#     loop_var: zone_item
+#     label: "cleanup: {{ zone_item.zone }}"
