@@ -152,7 +152,7 @@ class RolloverDnskeyModule(TechnitiumModule):
             self.fail_json(msg=f"Zone '{zone}' has unexpected DNSSEC status: {dnssec_status}")
 
         # Find the specified key in the zone
-        key_info, _ = self.find_key_in_zone(zone, key_tag)
+        key_info, dnssec_props = self.find_key_in_zone(zone, key_tag)
         if not key_info:
             self.fail_json(msg=f"DNSKEY with tag {key_tag} not found in zone '{zone}'")
 
