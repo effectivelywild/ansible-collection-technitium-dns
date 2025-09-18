@@ -158,9 +158,11 @@ class RolloverDnskeyModule(TechnitiumModule):
 
         # Check key state - we don't need to be as restrictive as the TTL update
         key_state = key_info.get('state', '').lower()
+        is_retiring = key_info.get('isRetiring', False)
+
         if key_state in ['retired', 'revoked']:
             self.fail_json(msg=f"DNSKEY with tag {key_tag} is in '{key_state}' state and cannot be rolled over")
-        elif key_state == 'retiring':
+        elif key_state == 'retiring' or is_retiring:
             self.fail_json(msg=f"DNSKEY with tag {key_tag} is already set to retire and cannot be rolled over again")
 
         if self.check_mode:

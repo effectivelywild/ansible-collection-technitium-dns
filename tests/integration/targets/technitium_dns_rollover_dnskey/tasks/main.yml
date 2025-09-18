@@ -203,20 +203,26 @@
     fail_msg: "Rollover did not create new keys: before={{ keys_before_rollover }}, after={{ keys_after_rollover }}"
     success_msg: "Successfully verified rollover created new key(s): before={{ keys_before_rollover }}, after={{ keys_after_rollover }}"
 
-- name: "Find keys with different states after rollover"
+- name: "Find the rolled over key to verify isRetiring flag"
   set_fact:
-    generated_keys: "{{ rollover_verify_props.dnssec_properties.dnssecPrivateKeys | selectattr('state', 'equalto', 'Generated') | list }}"
-    published_keys: "{{ rollover_verify_props.dnssec_properties.dnssecPrivateKeys | selectattr('state', 'equalto', 'Published') | list }}"
-    retiring_keys: "{{ rollover_verify_props.dnssec_properties.dnssecPrivateKeys | selectattr('state', 'equalto', 'Retiring') | list }}"
+    rolled_over_key: "{{ rollover_verify_props.dnssec_properties.dnssecPrivateKeys | selectattr('keyTag', 'equalto', zsk_key_tag | int) | first }}"
 
-- name: "Verify expected key states after rollover"
+- name: "Verify the rolled over key is marked as retiring"
   ansible.builtin.assert:
     that:
-      # We should have at least one new key in Generated or Published state
-      - (generated_keys | length) > 0 or (published_keys | length) > (keys_before_rollover | int)
+      - rolled_over_key.isRetiring == true
+      - rolled_over_key.keyTag == (zsk_key_tag | int)
     quiet: true
-    fail_msg: "Expected new keys in Generated or Published state after rollover"
-    success_msg: "Successfully verified new keys exist after rollover"
+    fail_msg: "The rolled over key ({{ zsk_key_tag }}) should be marked as isRetiring: true, but got: {{ rolled_over_key }}"
+    success_msg: "Successfully verified key {{ zsk_key_tag }} is marked as isRetiring: true"
+
+- name: "Verify rollover created additional key(s)"
+  ansible.builtin.assert:
+    that:
+      - keys_after_rollover | int > (keys_before_rollover | int)
+    quiet: true
+    fail_msg: "Rollover did not create new keys: before={{ keys_before_rollover }}, after={{ keys_after_rollover }}"
+    success_msg: "Successfully verified rollover created new key(s): before={{ keys_before_rollover }}, after={{ keys_after_rollover }}"
 
 # Phase 6: Test error scenarios
 - name: "Negative test - Rollover non-existent key tag"
