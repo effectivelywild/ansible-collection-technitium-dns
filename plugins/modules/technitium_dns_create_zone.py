@@ -326,7 +326,7 @@ class CreateZoneModule(TechnitiumModule):
                 query[key] = val
 
         # Create the zone via the Technitium API
-        data = self.request('/api/zones/create', params=query)
+        data = self.request('/api/zones/create', params=query, method='POST')
         if data.get('status') != 'ok':
             error_msg = data.get('errorMessage') or "Unknown error"
             self.fail_json(

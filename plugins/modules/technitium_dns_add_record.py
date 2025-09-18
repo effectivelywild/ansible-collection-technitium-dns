@@ -1092,7 +1092,7 @@ class AddRecordModule(TechnitiumModule):
                     query[key] = val
         query['token'] = self.api_token
         query['domain'] = self.name
-        data = self.request('/api/zones/records/add', params=query)
+        data = self.request('/api/zones/records/add', params=query, method='POST')
         if data.get('status') != 'ok':
             error_msg = data.get('errorMessage') or "Unknown error"
             if 'record already exists' in error_msg.lower():

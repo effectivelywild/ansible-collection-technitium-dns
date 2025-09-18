@@ -147,7 +147,7 @@ class DeleteZoneModule(TechnitiumModule):
             self.exit_json(changed=False, msg=f"Zone '{zone}' does not exist.", api_response={'status': 'ok', 'msg': f"Zone '{zone}' does not exist."})
 
         # Delete the zone via the Technitium API
-        data = self.request('/api/zones/delete', params={'zone': zone})
+        data = self.request('/api/zones/delete', params={'zone': zone}, method='POST')
         if data.get('status') != 'ok':
             error_msg = data.get('errorMessage') or "Unknown error"
             self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)
