@@ -538,7 +538,7 @@ class SetZoneOptionsModule(TechnitiumModule):
                 set_query[k] = "|".join(policy_to_str(x) for x in v)
             else:
                 set_query[k] = v
-        data = self.request('/api/zones/options/set', params=set_query)
+        data = self.request('/api/zones/options/set', params=set_query, method='POST')
         if data.get('status') != 'ok':
             error_msg = data.get('errorMessage') or 'Unknown error'
             self.fail_json(

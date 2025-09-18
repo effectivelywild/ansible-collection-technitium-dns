@@ -984,7 +984,7 @@ class DeleteRecordModule(TechnitiumModule):
             delete_query['zone'] = params['zone']
 
         # Send the DELETE request
-        data = self.request('/api/zones/records/delete', params=delete_query)
+        data = self.request('/api/zones/records/delete', params=delete_query, method='POST')
 
         if data.get('status') != 'ok':
             error_msg = data.get('errorMessage') or "Unknown error"

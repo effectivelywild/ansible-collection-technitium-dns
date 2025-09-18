@@ -147,7 +147,7 @@ class DisableZoneModule(TechnitiumModule):
                 api_response={'status': 'ok', 'msg': f"Zone '{zone}' is already disabled."})
 
         # Disable the zone via the Technitium API
-        data = self.request('/api/zones/disable', params={'zone': zone})
+        data = self.request('/api/zones/disable', params={'zone': zone}, method='POST')
         if data.get('status') != 'ok':
             error_msg = data.get('errorMessage') or "Unknown error"
             self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)
