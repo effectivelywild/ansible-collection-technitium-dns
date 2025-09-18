@@ -1,0 +1,7 @@
+---
+# Configuration for technitium_dns_rollover_dnskey integration tests
+
+# Test zone data for DNSKEY rollover testing
+rollover_dnskey_test_zones:
+  - zone: "rollover-dnskey-test1.{{ testing_suffix }}"
+  - zone: "rollover-dnskey-test2.{{ testing_suffix }}"

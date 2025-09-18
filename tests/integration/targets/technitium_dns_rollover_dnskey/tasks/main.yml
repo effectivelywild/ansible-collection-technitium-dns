@@ -1,0 +1,310 @@
+# technitium_dns_rollover_dnskey integration tests
+---
+# Phase 1: Load configuration and setup test zones
+- name: "Load test configuration"
+  include_vars: ../vars/config.yml
+
+# Phase 2: Create test zones and sign the first one
+- name: "Create DNS zones for testing"
+  technitium_dns_create_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    type: Primary
+  register: zone_creation_results
+  loop: "{{ rollover_dnskey_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+- name: "Sign first DNS zone with DNSSEC"
+  technitium_dns_sign_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ rollover_dnskey_test_zones[0].zone }}"
+    algorithm: "ECDSA"
+    curve: "P256"
+    dnsKeyTtl: 86400
+    zskRolloverDays: 30
+    nxProof: "NSEC"
+  register: zone_signing_result
+
+- name: "Add secondary ZoneSigningKey for rollover testing"
+  technitium_dns_add_private_key:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ rollover_dnskey_test_zones[0].zone }}"
+    key_type: "ZoneSigningKey"
+    algorithm: "ECDSA"
+    curve: "P256"
+    rollover_days: 0
+  register: add_zsk_result
+
+- name: "Publish all generated keys to make them available"
+  technitium_dns_publish_all_keys:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ rollover_dnskey_test_zones[0].zone }}"
+  register: publish_keys_result
+
+- name: "Get DNSSEC properties after setup"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "rollover-dnskey-test1.{{ testing_suffix }}"
+  register: dnssec_properties_results
+
+- name: Debug dnssec_properties_results
+  debug:
+    var: dnssec_properties_results
+  when: debug | default(false)
+
+- name: "Wait for Active ZoneSigningKey to be available"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "rollover-dnskey-test1.{{ testing_suffix }}"
+  register: wait_dnssec_props
+  until: >
+    wait_dnssec_props.dnssec_properties.dnssecPrivateKeys |
+    selectattr('keyType', 'equalto', 'ZoneSigningKey') |
+    selectattr('state', 'equalto', 'Active') |
+    list |
+    length > 0
+  retries: 60
+  delay: 30
+
+- name: "Find Active ZoneSigningKey tag for rollover testing"
+  set_fact:
+    zsk_key_tag: "{{ item.keyTag }}"
+  loop: "{{ wait_dnssec_props.dnssec_properties.dnssecPrivateKeys }}"
+  when:
+    - item.keyType == "ZoneSigningKey"
+    - item.state == "Active"
+  loop_control:
+    label: "{{ item.keyTag }}: {{ item.keyType }} ({{ item.state }})"
+
+- name: debug zsk_key_tag
+  debug:
+    var: zsk_key_tag
+  when: debug | default(false)
+
+- name: "Verify we found the Active ZoneSigningKey"
+  ansible.builtin.assert:
+    that:
+      - zsk_key_tag is defined
+      - zsk_key_tag | int > 0
+    quiet: true
+    fail_msg: "Could not find Active ZoneSigningKey in zone rollover-dnskey-test1.{{ testing_suffix }}"
+
+# Phase 3: Test check mode
+- name: "Check mode - Rollover DNSKEY"
+  technitium_dns_rollover_dnskey:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ rollover_dnskey_test_zones[0].zone }}"
+    key_tag: "{{ zsk_key_tag | int }}"
+  check_mode: true
+  register: check_mode_result
+
+- name: "Assert check mode returns changed"
+  ansible.builtin.assert:
+    that:
+      - check_mode_result is changed
+      - "'check mode' in check_mode_result.msg"
+      - check_mode_result.key_tag == (zsk_key_tag | int)
+      - check_mode_result.zone == rollover_dnskey_test_zones[0].zone
+    quiet: true
+
+- name: "Verify check mode didn't actually change anything"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "rollover-dnskey-test1.{{ testing_suffix }}"
+  register: check_verify_props
+
+- name: "Count keys before rollover"
+  set_fact:
+    keys_before_rollover: "{{ check_verify_props.dnssec_properties.dnssecPrivateKeys | length }}"
+
+- name: "Assert check mode didn't add new keys"
+  ansible.builtin.assert:
+    that:
+      - keys_before_rollover | int == (wait_dnssec_props.dnssec_properties.dnssecPrivateKeys | length)
+    quiet: true
+    fail_msg: "Check mode incorrectly created new keys"
+    success_msg: "Successfully verified check mode didn't create new keys"
+
+# Phase 4: Test actual DNSKEY rollover
+- name: "Rollover DNSKEY"
+  technitium_dns_rollover_dnskey:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ rollover_dnskey_test_zones[0].zone }}"
+    key_tag: "{{ zsk_key_tag | int }}"
+  register: rollover_result
+
+- name: debug rollover_result
+  debug:
+    var: rollover_result
+  when: debug | default(false)
+
+- name: "Assert DNSKEY rollover was successful"
+  ansible.builtin.assert:
+    that:
+      - rollover_result is changed
+      - rollover_result.api_response.status == 'ok'
+      - rollover_result.key_tag == (zsk_key_tag | int)
+      - rollover_result.zone == rollover_dnskey_test_zones[0].zone
+    quiet: true
+
+# Phase 5: Verify rollover created new key(s)
+- name: "Get DNSSEC properties to verify rollover"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "rollover-dnskey-test1.{{ testing_suffix }}"
+  register: rollover_verify_props
+
+- name: debug rollover_verify_props
+  debug:
+    var: rollover_verify_props
+  when: debug | default(false)
+
+- name: "Count keys after rollover"
+  set_fact:
+    keys_after_rollover: "{{ rollover_verify_props.dnssec_properties.dnssecPrivateKeys | length }}"
+
+- name: "Verify rollover created additional key(s)"
+  ansible.builtin.assert:
+    that:
+      - keys_after_rollover | int > (keys_before_rollover | int)
+    quiet: true
+    fail_msg: "Rollover did not create new keys: before={{ keys_before_rollover }}, after={{ keys_after_rollover }}"
+    success_msg: "Successfully verified rollover created new key(s): before={{ keys_before_rollover }}, after={{ keys_after_rollover }}"
+
+- name: "Find keys with different states after rollover"
+  set_fact:
+    generated_keys: "{{ rollover_verify_props.dnssec_properties.dnssecPrivateKeys | selectattr('state', 'equalto', 'Generated') | list }}"
+    published_keys: "{{ rollover_verify_props.dnssec_properties.dnssecPrivateKeys | selectattr('state', 'equalto', 'Published') | list }}"
+    retiring_keys: "{{ rollover_verify_props.dnssec_properties.dnssecPrivateKeys | selectattr('state', 'equalto', 'Retiring') | list }}"
+
+- name: "Verify expected key states after rollover"
+  ansible.builtin.assert:
+    that:
+      # We should have at least one new key in Generated or Published state
+      - (generated_keys | length) > 0 or (published_keys | length) > (keys_before_rollover | int)
+    quiet: true
+    fail_msg: "Expected new keys in Generated or Published state after rollover"
+    success_msg: "Successfully verified new keys exist after rollover"
+
+# Phase 6: Test error scenarios
+- name: "Negative test - Rollover non-existent key tag"
+  technitium_dns_rollover_dnskey:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ rollover_dnskey_test_zones[0].zone }}"
+    key_tag: 99999  # Non-existent key tag
+  register: nonexistent_key_result
+  ignore_errors: true
+
+- name: "Assert non-existent key tag error"
+  ansible.builtin.assert:
+    that:
+      - nonexistent_key_result is failed
+      - "'not found' in nonexistent_key_result.msg"
+    quiet: true
+    fail_msg: "Non-existent key tag should have failed: {{ nonexistent_key_result }}"
+
+- name: "Negative test - Rollover key in unsigned zone"
+  technitium_dns_rollover_dnskey:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ rollover_dnskey_test_zones[1].zone }}"  # This zone was created but not signed
+    key_tag: 1234
+  register: unsigned_zone_result
+  ignore_errors: true
+
+- name: "Assert unsigned zone error"
+  ansible.builtin.assert:
+    that:
+      - unsigned_zone_result is failed
+      - "'not signed' in unsigned_zone_result.msg"
+    quiet: true
+    fail_msg: "Unsigned zone should have failed: {{ unsigned_zone_result }}"
+
+- name: "Negative test - Invalid API token"
+  technitium_dns_rollover_dnskey:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "BADTOKEN"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ rollover_dnskey_test_zones[0].zone }}"
+    key_tag: "{{ zsk_key_tag | int }}"
+  register: bad_token_result
+  ignore_errors: true
+
+- name: "Assert invalid token fails correctly"
+  ansible.builtin.assert:
+    that:
+      - bad_token_result is failed
+      - "'Invalid token' in bad_token_result.msg"
+    quiet: true
+    fail_msg: "Should fail with invalid API token"
+
+- name: "Negative test - Try to rollover the same key again (should be retiring)"
+  technitium_dns_rollover_dnskey:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ rollover_dnskey_test_zones[0].zone }}"
+    key_tag: "{{ zsk_key_tag | int }}"
+  register: already_retiring_result
+  ignore_errors: true
+
+- name: "Assert already retiring key error"
+  ansible.builtin.assert:
+    that:
+      - already_retiring_result is failed
+      - "'already set to retire' in already_retiring_result.msg"
+    quiet: true
+    fail_msg: "Already retiring key should have failed: {{ already_retiring_result }}"
+
+# Phase 7: Cleanup
+- name: "Cleanup - Delete test zones"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: cleanup_zone_deletion
+  loop: "{{ rollover_dnskey_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "cleanup: {{ zone_item.zone }}"

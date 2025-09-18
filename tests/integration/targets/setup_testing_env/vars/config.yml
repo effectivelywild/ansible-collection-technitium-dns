@@ -19,3 +19,5 @@ t1_zones_to_create:
 t2_zones_to_create:
   - name: update-dnskey-ttl-test1.{{ lookup('env', 'TESTING_SUFFIX') | default('example.com') }}
     type: Primary
+  - name: rollover-dnskey-test1.{{ lookup('env', 'TESTING_SUFFIX') | default('example.com') }}
+    type: Primary

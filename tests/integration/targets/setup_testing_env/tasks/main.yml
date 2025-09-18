@@ -74,3 +74,15 @@
   ansible.builtin.uri:
     url: "http://localhost:{{ dns_servers[technitium02_name].http_port }}/api/zones/dnssec/sign?token={{ technitium_tokens[technitium02_name].token }}&zone={{ item.name }}&dnsKeyTtl=1&algorithm=ECDSA&curve=P256&kskKeySize=&zskKeySize=&zskRolloverDays=30&nxProof=NSEC"
   loop: "{{ t2_zones_to_create }}"
+
+- name: Create new KSK key for rollover testing
+  ansible.builtin.uri:
+    url: http://localhost:{{ dns_servers[technitium02_name].http_port }}/api/zones/dnssec/properties/addPrivateKey?token={{ technitium_tokens[technitium02_name].token }}&zone=rollover-dnskey-test1.{{ lookup('env', 'TESTING_SUFFIX') | default('example.com') }}&keyType=KeySigningKey&algorithm=ECDSA&curve=P256&rolloverDays=0
+
+- name: Create new ZSK key for rollover testing
+  ansible.builtin.uri:
+    url: http://localhost:{{ dns_servers[technitium02_name].http_port }}/api/zones/dnssec/properties/addPrivateKey?token={{ technitium_tokens[technitium02_name].token }}&zone=rollover-dnskey-test1.{{ lookup('env', 'TESTING_SUFFIX') | default('example.com') }}&keyType=ZoneSigningKey&algorithm=ECDSA&curve=P256&rolloverDays=0
+
+- name: Publish new keys for rollover testing
+  ansible.builtin.uri:
+    url: http://localhost:{{ dns_servers[technitium02_name].http_port }}/api/zones/dnssec/properties/publishAllPrivateKeys?token={{ technitium_tokens[technitium02_name].token }}&zone=rollover-dnskey-test1.{{ lookup('env', 'TESTING_SUFFIX') | default('example.com') }}
