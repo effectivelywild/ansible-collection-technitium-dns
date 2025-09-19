@@ -1,0 +1,299 @@
+# technitium_dns_retire_dnskey integration tests
+---
+# Phase 1: Load configuration and setup test zones
+- name: "Load test configuration"
+  include_vars: ../vars/config.yml
+
+# Phase 2: Create additional DNS zones for testing
+- name: "Create DNS zones for testing"
+  technitium_dns_create_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    type: Primary
+  register: zone_creation_results
+  loop: "{{ retire_dnskey_test_zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+- name: "Get DNSSEC properties of first test zone"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ retire_dnskey_test_zones[0].zone }}"
+  register: dnssec_properties_results
+
+- name: Debug dnssec_properties_results
+  debug:
+    var: dnssec_properties_results
+  when: debug | default(false)
+
+# Additional key is added during setup_testing_env with rolloverDays=0 to identify it easily+
+- name: "Wait for additional ZoneSigningKey to be in Active state"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ retire_dnskey_test_zones[0].zone }}"
+  register: wait_dnssec_props
+  until: >
+    wait_dnssec_props.dnssec_properties.dnssecPrivateKeys |
+    selectattr('keyType', 'equalto', 'ZoneSigningKey') |
+    selectattr('rolloverDays', 'equalto', 0) |
+    selectattr('state', 'equalto', 'Active') |
+    list |
+    length > 0
+  retries: 60
+  delay: 30
+
+# The initial key made during signing has rolloverDays=30
+- name: "Get the active ZSK key tag that we will retire"
+  set_fact:
+    active_zsk_key_tag: >-
+      {{
+        wait_dnssec_props.dnssec_properties.dnssecPrivateKeys |
+        selectattr('keyType', 'equalto', 'ZoneSigningKey') |
+        selectattr('rolloverDays', 'equalto', 30) |
+        selectattr('state', 'equalto', 'Active') |
+        map(attribute='keyTag') |
+        list |
+        first
+      }}
+
+- name: Debug active ZSK key tag
+  debug:
+    var: active_zsk_key_tag
+  when: debug | default(false)
+
+- name: "Ensure we have an active ZSK to retire"
+  ansible.builtin.assert:
+    that:
+      - active_zsk_key_tag is defined
+      - active_zsk_key_tag | int > 0
+    quiet: true
+    fail_msg: "No active ZSK found to retire"
+
+# Phase 3: Test check mode
+- name: "Check mode - Retire DNSKEY"
+  technitium_dns_retire_dnskey:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ retire_dnskey_test_zones[0].zone }}"
+    key_tag: "{{ active_zsk_key_tag | int }}"
+  check_mode: true
+  register: check_mode_result
+
+- name: "Assert check mode returns changed"
+  ansible.builtin.assert:
+    that:
+      - check_mode_result is changed
+      - "'check mode' in check_mode_result.msg"
+      - check_mode_result.retired_key_tag == (active_zsk_key_tag | int)
+    quiet: true
+
+- name: "Verify check mode didn't actually change anything"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ retire_dnskey_test_zones[0].zone }}"
+  register: check_verify_props
+
+- name: "Assert check mode didn't retire the key"
+  ansible.builtin.assert:
+    that:
+      - >-
+        check_verify_props.dnssec_properties.dnssecPrivateKeys |
+        selectattr('keyTag', 'equalto', active_zsk_key_tag | int) |
+        map(attribute='state') |
+        list |
+        first != 'Retired'
+    quiet: true
+    fail_msg: "Check mode incorrectly retired DNSKEY"
+    success_msg: "Successfully verified check mode didn't retire DNSKEY"
+
+# Phase 4: Test actual key retirement
+- name: "Retire DNSKEY"
+  technitium_dns_retire_dnskey:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ retire_dnskey_test_zones[0].zone }}"
+    key_tag: "{{ active_zsk_key_tag | int }}"
+  register: retire_result
+
+- name: debug retire_result
+  debug:
+    var: retire_result
+  when: debug | default(false)
+
+- name: "Assert DNSKEY retirement was successful"
+  ansible.builtin.assert:
+    that:
+      - retire_result is changed
+      - retire_result.api_response.status == 'ok'
+      - retire_result.retired_key_tag == (active_zsk_key_tag | int)
+    quiet: true
+
+# Phase 5: Verify the key has been retired
+- name: "Get DNSSEC properties to verify key retirement"
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ retire_dnskey_test_zones[0].zone }}"
+  register: retired_dnssec_props
+
+- name: "Verify DNSKEY has been retired"
+  ansible.builtin.assert:
+    that:
+      - >-
+        retired_dnssec_props.dnssec_properties.dnssecPrivateKeys |
+        selectattr('keyTag', 'equalto', active_zsk_key_tag | int) |
+        map(attribute='state') |
+        list |
+        first == 'Retired'
+    quiet: true
+    fail_msg: "DNSKEY retirement verification failed"
+    success_msg: "Successfully verified DNSKEY retirement"
+
+# Phase 6: Test idempotency
+- name: "Test idempotency - retire same key twice"
+  technitium_dns_retire_dnskey:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ retire_dnskey_test_zones[0].zone }}"
+    key_tag: "{{ active_zsk_key_tag | int }}"
+  register: idempotent_result
+
+- name: "Verify idempotent behavior"
+  ansible.builtin.assert:
+    that:
+      - idempotent_result.changed == false
+      - "'already retired' in idempotent_result.msg"
+    quiet: true
+    fail_msg: "Idempotency test failed: {{ idempotent_result }}"
+    success_msg: "Successfully verified idempotent behavior"
+
+# Phase 7: Test error scenarios
+- name: "Negative test - Retire DNSKEY in unsigned zone"
+  technitium_dns_retire_dnskey:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ retire_dnskey_test_zones[1].zone }}"  # This zone was created but not signed
+    key_tag: 12345
+  register: unsigned_zone_result
+  ignore_errors: true
+
+- name: "Assert unsigned zone error"
+  ansible.builtin.assert:
+    that:
+      - unsigned_zone_result is failed
+      - "'not signed' in unsigned_zone_result.msg"
+    quiet: true
+    fail_msg: "Unsigned zone should have failed: {{ unsigned_zone_result }}"
+
+- name: "Negative test - Invalid key tag (negative value)"
+  technitium_dns_retire_dnskey:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ retire_dnskey_test_zones[0].zone }}"
+    key_tag: -1
+  register: negative_key_tag_result
+  ignore_errors: true
+
+- name: "Assert negative key tag error"
+  ansible.builtin.assert:
+    that:
+      - negative_key_tag_result is failed
+      - "'positive integer' in negative_key_tag_result.msg"
+    quiet: true
+    fail_msg: "Negative key tag should have failed: {{ negative_key_tag_result }}"
+
+- name: "Negative test - Invalid key tag (zero)"
+  technitium_dns_retire_dnskey:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ retire_dnskey_test_zones[0].zone }}"
+    key_tag: 0
+  register: zero_key_tag_result
+  ignore_errors: true
+
+- name: "Assert zero key tag error"
+  ansible.builtin.assert:
+    that:
+      - zero_key_tag_result is failed
+      - "'positive integer' in zero_key_tag_result.msg"
+    quiet: true
+    fail_msg: "Zero key tag should have failed: {{ zero_key_tag_result }}"
+
+- name: "Negative test - Non-existent key tag"
+  technitium_dns_retire_dnskey:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ retire_dnskey_test_zones[0].zone }}"
+    key_tag: 99999
+  register: nonexistent_key_result
+  ignore_errors: true
+
+- name: "Assert non-existent key tag error"
+  ansible.builtin.assert:
+    that:
+      - nonexistent_key_result is failed
+      - "'not found' in nonexistent_key_result.msg"
+    quiet: true
+    fail_msg: "Non-existent key tag should have failed: {{ nonexistent_key_result }}"
+
+- name: "Negative test - Invalid API token"
+  technitium_dns_retire_dnskey:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "BADTOKEN"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ retire_dnskey_test_zones[0].zone }}"
+    key_tag: "{{ active_zsk_key_tag | int }}"
+  register: bad_token_result
+  ignore_errors: true
+
+- name: "Assert invalid token fails correctly"
+  ansible.builtin.assert:
+    that:
+      - bad_token_result is failed
+      - "'Invalid token' in bad_token_result.msg"
+    quiet: true
+    fail_msg: "Should fail with invalid API token"
+
+# Phase 8: Cleanup
+- name: "Cleanup - Delete test zones"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: cleanup_zone_deletion
+  loop: "{{ retire_dnskey_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "cleanup: {{ zone_item.zone }}"
