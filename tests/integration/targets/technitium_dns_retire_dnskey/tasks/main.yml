@@ -66,6 +66,19 @@
         first
       }}
 
+- name: "Get the successor key tag that that will remain active"
+  set_fact:
+    new_active_zsk_key_tag: >-
+      {{
+        wait_dnssec_props.dnssec_properties.dnssecPrivateKeys |
+        selectattr('keyType', 'equalto', 'ZoneSigningKey') |
+        selectattr('rolloverDays', 'equalto', 0) |
+        selectattr('state', 'equalto', 'Active') |
+        map(attribute='keyTag') |
+        list |
+        first
+      }}
+
 - name: Debug active ZSK key tag
   debug:
     var: active_zsk_key_tag
@@ -284,16 +297,35 @@
     quiet: true
     fail_msg: "Should fail with invalid API token"
 
-# Phase 8: Cleanup
-- name: "Cleanup - Delete test zones"
-  technitium_dns_delete_zone:
+- name: "Negative test - Retire DNSKEY without another active key"
+  technitium_dns_retire_dnskey:
     api_url: "{{ technitium_api_url | default('http://localhost') }}"
     api_token: "{{ technitium_api_token }}"
     api_port: "{{ technitium_api_port | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
-    zone: "{{ zone_item.zone }}"
-  register: cleanup_zone_deletion
-  loop: "{{ retire_dnskey_test_zones }}"
-  loop_control:
-    loop_var: zone_item
-    label: "cleanup: {{ zone_item.zone }}"
+    zone: "{{ retire_dnskey_test_zones[0].zone }}"
+    key_tag: "{{ new_active_zsk_key_tag | int }}"
+  register: one_active_zsk_key_result
+  ignore_errors: true
+
+- name: "Assert invalid token fails correctly"
+  ansible.builtin.assert:
+    that:
+      - bad_token_result is one_active_zsk_key_result
+      - "'Invalid token' in bad_token_result.msg"
+    quiet: true
+    fail_msg: "Should fail with invalid API token"
+
+# # Phase 8: Cleanup
+# - name: "Cleanup - Delete test zones"
+#   technitium_dns_delete_zone:
+#     api_url: "{{ technitium_api_url | default('http://localhost') }}"
+#     api_token: "{{ technitium_api_token }}"
+#     api_port: "{{ technitium_api_port | default(5380) | int }}"
+#     validate_certs: "{{ validate_certs | default(true) }}"
+#     zone: "{{ zone_item.zone }}"
+#   register: cleanup_zone_deletion
+#   loop: "{{ retire_dnskey_test_zones }}"
+#   loop_control:
+#     loop_var: zone_item
+#     label: "cleanup: {{ zone_item.zone }}"
