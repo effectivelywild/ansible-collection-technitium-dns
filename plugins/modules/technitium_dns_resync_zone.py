@@ -13,7 +13,7 @@ author: Frank Muise (@effectivelywild)
 description:
   - Allows resyncing a Secondary or Stub zone using the Technitium DNS API.
   - This process will re-fetch all the records from the primary name server for the zone.
-  - The zone must not be expired and must not have sync failures to be eligible for resync.
+  - The zone will attempt to resync even if currently expired or has sync failures, as these may be resolved by the resync operation.
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_create_zone
     description: Create DNS zones
@@ -48,7 +48,7 @@ options:
     description:
       - The domain name of the zone to resync
       - Must be a Secondary or Stub zone
-      - Zone must not be expired and must not have sync failures
+      - Zone will attempt to resync even if currently expired or has sync failures
     required: true
     type: str
 '''
@@ -143,7 +143,7 @@ class ResyncZoneModule(TechnitiumModule):
         self.exit_json(changed=True, msg=f"Zone '{zone}' resynced successfully.", api_response=data)
 
     def validate_zone_type(self, zone):
-        """Validate that the zone exists, is a Secondary or Stub zone, and can be resynced"""
+        """Validate that the zone exists and is a Secondary or Stub zone"""
         # Get detailed zone information using zones/list API
         data = self.request('/api/zones/list')
         if data.get('status') != 'ok':
@@ -164,19 +164,9 @@ class ResyncZoneModule(TechnitiumModule):
                 msg=f"Zone '{zone}' is of type '{zone_type}'. Only Secondary and Stub zones can be resynced."
             )
 
-        # Check if zone is expired
-        is_expired = zone_info.get('isExpired', False)
-        if is_expired:
-            self.fail_json(
-                msg=f"Zone '{zone}' is expired and cannot be resynced."
-            )
-
-        # Check if zone sync has failed
-        sync_failed = zone_info.get('syncFailed', False)
-        if sync_failed:
-            self.fail_json(
-                msg=f"Zone '{zone}' has sync failures and cannot be resynced."
-            )
+        # Note: We don't check isExpired or syncFailed status here because
+        # the resync operation may actually resolve these issues if the
+        # underlying problems (like zone transfer permissions) have been fixed
 
 
 if __name__ == '__main__':

@@ -131,7 +131,8 @@ jobs:
           echo "JOB_ID=${SAFE_JOB_ID}" >> $GITHUB_ENV
           echo "TESTING_SUFFIX=${SAFE_JOB_ID}-${RUN_ID}.test" >> $GITHUB_ENV
           echo "CONTAINER_SUFFIX=-${SAFE_JOB_ID}-${RUN_ID}" >> $GITHUB_ENV
-          echo "TOKEN_FILE=/tmp/technitium02_token_${SAFE_JOB_ID}_${RUN_ID}" >> $GITHUB_ENV
+          echo "TOKEN_FILE_1=/tmp/technitium01_token_${SAFE_JOB_ID}_${RUN_ID}" >> $GITHUB_ENV
+          echo "TOKEN_FILE_2=/tmp/technitium02_token_${SAFE_JOB_ID}_${RUN_ID}" >> $GITHUB_ENV
           
           # Calculate unique ports using hash of job ID (guaranteed unique)
           JOB_HASH=$(echo "${SAFE_JOB_ID}" | shasum | cut -c1-4)
