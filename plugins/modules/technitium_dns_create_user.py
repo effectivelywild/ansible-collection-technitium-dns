@@ -173,19 +173,12 @@ class CreateUserModule(TechnitiumModule):
 
         # Check for existing user to ensure idempotent behavior
         # If user already exists, return success without changes
-        users_data = self.request('/api/admin/users/list')
-        if users_data.get('status') != 'ok':
-            error_msg = users_data.get('errorMessage') or "Unknown error"
-            self.fail_json(msg=f"Failed to check existing users: {error_msg}", api_response=users_data)
-
-        users = users_data.get('response', {}).get('users', [])
-        existing_user = next((u for u in users if u.get('username') == username), None)
-        if existing_user:
+        user_exists, existing_user = self.check_user_exists(username)
+        if user_exists:
             self.exit_json(
                 changed=False,
                 msg=f"User '{username}' already exists.",
-                user=existing_user,
-                api_response=users_data
+                user=existing_user
             )
 
         # Handle check mode - report what would be done without making changes
@@ -208,10 +201,7 @@ class CreateUserModule(TechnitiumModule):
 
         # Create the user via the Technitium API
         data = self.request('/api/admin/users/create', params=query, method='POST')
-        if data.get('status') != 'ok':
-            error_msg = data.get('errorMessage') or "Unknown error"
-            self.fail_json(
-                msg=f"Technitium API error: {error_msg}", api_response=data)
+        self.validate_api_response(data)
 
         # Return success - user was created
         self.exit_json(

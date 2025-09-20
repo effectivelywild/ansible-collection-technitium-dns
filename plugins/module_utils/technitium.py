@@ -113,5 +113,23 @@ class TechnitiumModule(AnsibleModule):
 
         return data.get('response', {})
 
+    def check_user_exists(self, username):
+        """Check if a user exists and return user data if found"""
+        users_data = self.request('/api/admin/users/list')
+        if users_data.get('status') != 'ok':
+            error_msg = users_data.get('errorMessage') or "Unknown error"
+            self.fail_json(msg=f"Failed to check existing users: {error_msg}", api_response=users_data)
+
+        users = users_data.get('response', {}).get('users', [])
+        existing_user = next((u for u in users if u.get('username') == username), None)
+        return existing_user is not None, existing_user
+
+    def validate_api_response(self, data, context=""):
+        """Validate API response status and fail with standardized error message"""
+        if data.get('status') != 'ok':
+            error_msg = data.get('errorMessage') or "Unknown error"
+            context_msg = f"{context}: " if context else ""
+            self.fail_json(msg=f"{context_msg}Technitium API error: {error_msg}", api_response=data)
+
     def __call__(self):
         self.run()

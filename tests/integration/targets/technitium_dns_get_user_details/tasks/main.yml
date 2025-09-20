@@ -77,7 +77,7 @@
   assert:
     that:
       - nonexistent_user_result.failed
-      - "'Technitium API error' in nonexistent_user_result.msg"
+      - "'does not exist' in nonexistent_user_result.msg"
     fail_msg: "Non-existent user should cause failure"
 
 - name: "Test with invalid API token"

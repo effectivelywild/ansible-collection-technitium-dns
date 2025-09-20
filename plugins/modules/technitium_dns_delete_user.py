@@ -114,18 +114,7 @@ class DeleteUserModule(TechnitiumModule):
 
         # Check if the user exists to ensure idempotent behavior
         # Idempotent delete: if user doesn't exist, report no changes made
-        users_data = self.request('/api/admin/users/list')
-        user_exists = True
-
-        # Parse the API response to determine if user exists
-        if users_data.get('status') != 'ok':
-            error_msg = users_data.get('errorMessage') or "Unknown error"
-            self.fail_json(msg=f"Failed to check existing users: {error_msg}", api_response=users_data)
-
-        users = users_data.get('response', {}).get('users', [])
-        existing_user = next((u for u in users if u.get('username') == username), None)
-        if existing_user is None:
-            user_exists = False
+        user_exists, existing_user = self.check_user_exists(username)
 
         # Handle check mode - report what would be done without making changes
         if self.check_mode:
@@ -145,9 +134,7 @@ class DeleteUserModule(TechnitiumModule):
 
         # Delete the user via the Technitium API
         data = self.request('/api/admin/users/delete', params={'user': username}, method='POST')
-        if data.get('status') != 'ok':
-            error_msg = data.get('errorMessage') or "Unknown error"
-            self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)
+        self.validate_api_response(data)
 
         # Return success - user was deleted
         self.exit_json(changed=True, msg=f"User '{username}' deleted.", api_response=data)

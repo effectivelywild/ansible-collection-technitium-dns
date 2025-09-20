@@ -198,6 +198,11 @@ class GetUserDetailsModule(TechnitiumModule):
     def run(self):
         username = self.params['username']
 
+        # Check if user exists by listing all users (avoids stack trace on non-existent user)
+        user_exists, existing_user = self.check_user_exists(username)
+        if not user_exists:
+            self.fail_json(msg=f"User '{username}' does not exist")
+
         # Build API parameters for user details request
         params = {
             'user': username,
@@ -208,9 +213,7 @@ class GetUserDetailsModule(TechnitiumModule):
         data = self.request('/api/admin/users/get', params=params)
 
         # Check API response status and handle errors
-        if data.get('status') != 'ok':
-            error_msg = data.get('errorMessage') or "Unknown error"
-            self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)
+        self.validate_api_response(data)
 
         # Extract user details from API response
         user_details = data.get('response', {})

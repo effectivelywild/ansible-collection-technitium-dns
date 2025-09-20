@@ -247,21 +247,13 @@ class SetUserDetailsModule(TechnitiumModule):
         username = params['username']
 
         # Check if user exists by listing all users (avoids stack trace on non-existent user)
-        users_data = self.request('/api/admin/users/list')
-        if users_data.get('status') != 'ok':
-            error_msg = users_data.get('errorMessage') or "Unknown error"
-            self.fail_json(msg=f"Failed to check existing users: {error_msg}", api_response=users_data)
-
-        users = users_data.get('response', {}).get('users', [])
-        existing_user = next((u for u in users if u.get('username') == username), None)
-        if existing_user is None:
+        user_exists, existing_user = self.check_user_exists(username)
+        if not user_exists:
             self.fail_json(msg=f"User '{username}' does not exist")
 
         # Fetch detailed user information including groups
         current_data = self.request('/api/admin/users/get', params={'user': username, 'includeGroups': 'true'})
-        if current_data.get('status') != 'ok':
-            error_msg = current_data.get('errorMessage') or "Unknown error"
-            self.fail_json(msg=f"Failed to get current user details: {error_msg}", api_response=current_data)
+        self.validate_api_response(current_data, "Failed to get current user details")
 
         current = current_data.get('response', {})
 
@@ -356,9 +348,7 @@ class SetUserDetailsModule(TechnitiumModule):
 
         # Make the API call to set user details
         data = self.request('/api/admin/users/set', params=set_query, method='POST')
-        if data.get('status') != 'ok':
-            error_msg = data.get('errorMessage') or "Unknown error"
-            self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)
+        self.validate_api_response(data)
 
         # Return success with changes made
         self.exit_json(

@@ -134,9 +134,7 @@ class ListUsersModule(TechnitiumModule):
     def run(self):
         # Fetch all users from the API
         data = self.request('/api/admin/users/list')
-        if data.get('status') != 'ok':
-            error_msg = data.get('errorMessage') or "Unknown error"
-            self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)
+        self.validate_api_response(data)
 
         users = data.get('response', {}).get('users', [])
         self.exit_json(changed=False, users=users)
