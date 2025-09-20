@@ -1,0 +1,146 @@
+---
+# Comprehensive integration test suite for technitium_dns_resync_zone
+# This test suite validates zone resync functionality for Secondary and Stub zones
+
+# Phase 1: Setup - Load configuration and prepare test environment
+- name: "Load test configuration"
+  include_vars: ../vars/config.yml
+
+- name: "Load integration configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Cleanup and prepare test zones
+- name: "Delete test zones if they exist (cleanup)"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_deletion_result
+  loop: "{{ resync_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+  ignore_errors: true
+
+# Phase 3: Create test zones for resync testing
+- name: "Create test zones (Secondary and Stub)"
+  technitium_dns_create_zone:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    zone: "{{ zone_item.zone }}"
+    type: "{{ zone_item.type }}"
+    primaryNameServerAddresses: "{{ zone_item.primaryNameServerAddresses }}"
+    zoneTransferProtocol: "{{ zone_item.zoneTransferProtocol | default(omit) }}"
+  register: zone_creation_results
+  loop: "{{ resync_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"
+
+- name: "Assert all test zones were created successfully"
+  ansible.builtin.assert:
+    that:
+      - item.changed
+      - not item.failed
+    quiet: true
+  loop: "{{ zone_creation_results.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+# Phase 4: Test failure cases first
+- name: "Test resync with non-existent zone"
+  technitium_dns_resync_zone:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    zone: "nonexistent.{{ testing_suffix }}"
+  register: nonexistent_zone_result
+  ignore_errors: true
+
+- name: "Assert non-existent zone fails appropriately"
+  assert:
+    that:
+      - nonexistent_zone_result.failed
+      - "'does not exist' in nonexistent_zone_result.msg or 'No such zone was found' in nonexistent_zone_result.msg"
+    fail_msg: "Non-existent zone should have failed validation"
+
+- name: "Create a Primary zone to test invalid type"
+  technitium_dns_create_zone:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    zone: "primary-test.{{ testing_suffix }}"
+    type: "Primary"
+  register: primary_zone_creation
+
+- name: "Test resync with Primary zone (should fail)"
+  technitium_dns_resync_zone:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    zone: "primary-test.{{ testing_suffix }}"
+  register: primary_zone_resync_result
+  ignore_errors: true
+
+- name: "Assert Primary zone resync fails appropriately"
+  assert:
+    that:
+      - primary_zone_resync_result.failed
+      - "'Only Secondary and Stub zones can be resynced' in primary_zone_resync_result.msg"
+    fail_msg: "Primary zone resync should have failed validation"
+
+# Phase 5: Test check mode functionality
+- name: "Check mode - Resync test zones"
+  technitium_dns_resync_zone:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    zone: "{{ zone_item.zone }}"
+  check_mode: true
+  register: resync_checkmode_results
+  loop: "{{ resync_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+- name: "Assert check mode indicates changes would be made"
+  ansible.builtin.assert:
+    that:
+      - item.changed
+      - not item.failed
+      - "'would be resynced' in item.msg"
+    quiet: true
+  loop: "{{ resync_checkmode_results.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+# Phase 6: Multiple resync operations with record additions
+# Repeat 3 times as requested to verify no timing issues
+- name: "Resync test cycle {{ item }}"
+  include_tasks: resync_cycle.yml
+  vars:
+    cycle_number: "{{ item }}"
+  loop: [1, 2, 3]
+
+# Phase 7: Clean up test zones
+- name: "Delete test zones (cleanup)"
+  technitium_dns_delete_zone:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_deletion_result
+  loop: "{{ resync_test_zones + [{'zone': 'primary-test.' + testing_suffix}] }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+  ignore_errors: true
