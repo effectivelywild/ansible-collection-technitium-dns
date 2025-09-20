@@ -1,0 +1,107 @@
+---
+# Integration test suite for technitium_dns_list_groups
+# This test validates group listing functionality
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Test basic group listing functionality
+- name: "List all groups from Technitium DNS"
+  technitium_dns_list_groups:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: list_groups_result
+
+- name: "Assert groups list operation succeeded"
+  assert:
+    that:
+      - not list_groups_result.changed
+      - not list_groups_result.failed
+      - list_groups_result.groups is defined
+      - list_groups_result.groups is iterable
+    fail_msg: "Groups list operation should succeed and return groups data"
+
+# Phase 3: Verify default groups exist
+- name: "Verify Administrators group exists"
+  assert:
+    that:
+      - list_groups_result.groups | selectattr('name', 'equalto', 'Administrators') | list | length > 0
+    fail_msg: "Administrators group should exist by default"
+
+- name: "Verify DHCP Administrators group exists"
+  assert:
+    that:
+      - list_groups_result.groups | selectattr('name', 'equalto', 'DHCP Administrators') | list | length > 0
+    fail_msg: "DHCP Administrators group should exist by default"
+
+- name: "Verify DNS Administrators group exists"
+  assert:
+    that:
+      - list_groups_result.groups | selectattr('name', 'equalto', 'DNS Administrators') | list | length > 0
+    fail_msg: "DNS Administrators group should exist by default"
+
+# Phase 4: Verify group structure and content
+- name: "Verify groups have required fields"
+  assert:
+    that:
+      - item.name is defined
+      - item.name | length > 0
+      - item.description is defined
+    fail_msg: "Each group should have name and description fields"
+  loop: "{{ list_groups_result.groups }}"
+
+- name: "Verify Administrators group has correct description"
+  assert:
+    that:
+      - (list_groups_result.groups | selectattr('name', 'equalto', 'Administrators') | first).description == "Super administrators"
+    fail_msg: "Administrators group should have 'Super administrators' description"
+
+- name: "Verify DHCP Administrators group has correct description"
+  assert:
+    that:
+      - (list_groups_result.groups | selectattr('name', 'equalto', 'DHCP Administrators') | first).description == "DHCP service administrators"
+    fail_msg: "DHCP Administrators group should have 'DHCP service administrators' description"
+
+- name: "Verify DNS Administrators group has correct description"
+  assert:
+    that:
+      - (list_groups_result.groups | selectattr('name', 'equalto', 'DNS Administrators') | first).description == "DNS service administrators"
+    fail_msg: "DNS Administrators group should have 'DNS service administrators' description"
+
+# Phase 5: Test failure cases
+- name: "Test with invalid API token"
+  technitium_dns_list_groups:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"
+
+# Phase 6: Test idempotency (same results on multiple calls)
+- name: "List groups again to test consistency"
+  technitium_dns_list_groups:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: list_groups_second_result
+
+- name: "Assert consistent results between calls"
+  assert:
+    that:
+      - not list_groups_second_result.changed
+      - not list_groups_second_result.failed
+      - list_groups_second_result.groups | length == list_groups_result.groups | length
+      - list_groups_second_result.groups | length >= 3
+    fail_msg: "Multiple calls should return consistent results"
