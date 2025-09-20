@@ -153,8 +153,10 @@ jobs:
         id: get_server_values
         run: |
           # Read token from the exported file
-          API_TOKEN=$(cat "${TOKEN_FILE}")
-          echo "api_token=$API_TOKEN" >> $GITHUB_OUTPUT
+          API_TOKEN_1=$(cat "${TOKEN_FILE_1}")
+          echo "api_token_1=$API_TOKEN_1" >> $GITHUB_OUTPUT
+          API_TOKEN_2=$(cat "${TOKEN_FILE_2}")
+          echo "api_token_2=$API_TOKEN_2" >> $GITHUB_OUTPUT
 
           # Get container IP for notify_name_server using dynamic container name
           CONTAINER_NAME="technitium01${CONTAINER_SUFFIX}"
@@ -165,8 +167,12 @@ jobs:
         run: |
           cat > tests/integration/integration_config.yml << EOF
           technitium_api_url: http://localhost
-          technitium_api_token: ${{ steps.get_server_values.outputs.api_token }}
+          technitium_api_token: ${{ steps.get_server_values.outputs.api_token_2 }}
           technitium_api_port: ${HTTP_PORT_2}
+          
+          technitium_api_url_2: http://localhost
+          technitium_api_token_2: ${{ steps.get_server_values.outputs.api_token_1 }}
+          technitium_api_port_2: ${HTTP_PORT_1}
           validate_certs: false
 
           # Notify Name Server (technitium01), used for Zone testing
