@@ -11,12 +11,16 @@ short_description: Create a user account in Technitium DNS server
 version_added: "0.4.0"
 description:
     - Create a new user account in Technitium DNS server using its API.
+    - This will not update existing users; it only creates new ones (see technitium_dns_set_user_details).
+    - Note that the password is passed in plaintext to the API and could be logged depending on your setup.
     - Requires Administration: Modify permissions.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_list_users
     description: List all users from Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_delete_user
+    description: Delete a user from Technitium DNS server
 options:
     api_port:
         description:
@@ -66,13 +70,6 @@ EXAMPLES = r'''
     username: "testuser"
     password: "securepassword"
     displayName: "Test User"
-
-- name: Create a user account with minimal parameters
-  technitium_dns_create_user:
-    api_url: "http://localhost"
-    api_token: "myapitoken"
-    username: "simpleuser"
-    password: "password123"
 
 - name: Create user in check mode
   technitium_dns_create_user:
