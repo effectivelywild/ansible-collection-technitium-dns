@@ -1,0 +1,27 @@
+---
+# Test zones for resync testing
+resync_test_zones:
+  - zone: "secondary.{{ testing_suffix }}"
+    type: "Secondary"
+    primaryNameServerAddresses: ["{{ notify_name_server }}:53"]
+    zoneTransferProtocol: "Tcp"
+    test_records: true  # Secondary zones sync all records
+  - zone: "stub.{{ testing_suffix }}"
+    type: "Stub"
+    primaryNameServerAddresses: ["{{ notify_name_server }}:53"]
+    test_records: false  # Stub zones only sync NS records
+
+# Test records to add to primary server for resync verification
+test_records:
+  - name: "test-record-1"
+    type: "A"
+    value: "192.168.1.1"
+    ttl: 3600
+  - name: "test-record-2"
+    type: "A"
+    value: "192.168.1.2"
+    ttl: 3600
+  - name: "test-record-3"
+    type: "A"
+    value: "192.168.1.3"
+    ttl: 3600

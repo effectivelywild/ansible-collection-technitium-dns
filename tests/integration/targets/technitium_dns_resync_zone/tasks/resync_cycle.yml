@@ -1,0 +1,107 @@
+---
+# Resync cycle task - adds records to primary server, resyncs, and verifies
+- name: "Cycle {{ cycle_number }}: Delete existing test record from primary server (cleanup)"
+  technitium_dns_delete_record:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    zone: "{{ zone_item.zone }}"
+    name: "{{ test_records[cycle_number - 1].name }}.{{ zone_item.zone }}"
+    type: "{{ test_records[cycle_number - 1].type }}"
+    ipAddress: "{{ test_records[cycle_number - 1].value }}"
+  register: record_deletion_results
+  loop: "{{ resync_test_zones | selectattr('test_records', 'equalto', true) | list }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+  ignore_errors: true
+
+- name: "Cycle {{ cycle_number }}: Add test record to primary server (server 2) - Secondary zones only"
+  technitium_dns_add_record:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    zone: "{{ zone_item.zone }}"
+    name: "{{ test_records[cycle_number - 1].name }}.{{ zone_item.zone }}"
+    type: "{{ test_records[cycle_number - 1].type }}"
+    ipAddress: "{{ test_records[cycle_number - 1].value }}"
+    ttl: "{{ test_records[cycle_number - 1].ttl }}"
+  register: record_addition_results
+  loop: "{{ resync_test_zones | selectattr('test_records', 'equalto', true) | list }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+- name: "Cycle {{ cycle_number }}: Assert records were added to primary server"
+  ansible.builtin.assert:
+    that:
+      - not record_result.failed
+      - record_result.changed or "already exists" in record_result.msg
+    quiet: true
+  loop: "{{ record_addition_results.results }}"
+  loop_control:
+    loop_var: record_result
+    label: "{{ record_result.zone_item.zone }}"
+  when: record_addition_results.results is defined
+
+- name: "Cycle {{ cycle_number }}: Perform resync on test zones"
+  technitium_dns_resync_zone:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    zone: "{{ zone_item.zone }}"
+  register: resync_results
+  loop: "{{ resync_test_zones }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+- name: "Cycle {{ cycle_number }}: Assert resync operations completed successfully"
+  ansible.builtin.assert:
+    that:
+      - resync_result.changed
+      - not resync_result.failed
+      - "'resynced successfully' in resync_result.msg"
+    quiet: true
+  loop: "{{ resync_results.results }}"
+  loop_control:
+    loop_var: resync_result
+    label: "{{ resync_result.zone_item.zone }}"
+
+- name: "Cycle {{ cycle_number }}: Wait a moment for zone transfer to complete"
+  pause:
+    seconds: 3
+
+- name: "Cycle {{ cycle_number }}: Verify records exist on secondary zones after resync (Secondary zones only)"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "{{ test_records[cycle_number - 1].name }}.{{ zone_item.zone }}"
+  register: record_verification_results
+  loop: "{{ resync_test_zones | selectattr('test_records', 'equalto', true) | list }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+- name: "Cycle {{ cycle_number }}: Assert records are present after resync"
+  ansible.builtin.assert:
+    that:
+      - verify_result.records is defined
+      - verify_result.records | length > 0
+      - verify_result.records | selectattr('type', 'equalto', test_records[cycle_number - 1].type) | list | length > 0
+    quiet: true
+  loop: "{{ record_verification_results.results }}"
+  loop_control:
+    loop_var: verify_result
+    label: "{{ verify_result.zone_item.zone }}"
+  when: record_verification_results.results is defined
+
+- name: "Cycle {{ cycle_number }}: Wait 5 seconds before next cycle"
+  pause:
+    seconds: 5
+  when: cycle_number < 3
