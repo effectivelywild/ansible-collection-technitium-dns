@@ -92,6 +92,14 @@
     quiet: true
     fail_msg: "No active ZSK found to retire"
 
+- name: "Ensure we have an successor ZSK key"
+  ansible.builtin.assert:
+    that:
+      - new_active_zsk_key_tag is defined
+      - new_active_zsk_key_tag | int > 0
+    quiet: true
+    fail_msg: "No active ZSK found to retire"
+
 # Phase 3: Test check mode
 - name: "Check mode - Retire DNSKEY"
   technitium_dns_retire_dnskey:
