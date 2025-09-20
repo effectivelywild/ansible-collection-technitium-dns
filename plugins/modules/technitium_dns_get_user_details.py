@@ -23,6 +23,8 @@ seealso:
     description: Delete a user from Technitium DNS server
   - module: effectivelywild.technitium_dns.technitium_dns_list_users
     description: List all users from Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_set_user_details
+    description: Set user account details on Technitium DNS server
 options:
     api_port:
         description:
