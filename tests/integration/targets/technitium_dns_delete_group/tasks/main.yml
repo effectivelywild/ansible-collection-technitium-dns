@@ -1,0 +1,195 @@
+---
+# Integration test suite for technitium_dns_delete_group
+# This test validates group deletion functionality including idempotency and check mode
+
+# Phase 1: Setup - Load configuration and define test data
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+- name: "Set test group data"
+  set_fact:
+    test_group:
+      name: "deletetest-{{ ansible_date_time.epoch }}"
+      description: "Test group for deletion testing"
+
+# Phase 2: Create test group for deletion testing
+- name: "Create test group for deletion testing"
+  technitium_dns_create_group:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "{{ test_group.name }}"
+    description: "{{ test_group.description }}"
+  register: group_creation_result
+
+- name: "Assert test group was created successfully"
+  assert:
+    that:
+      - group_creation_result.changed
+      - not group_creation_result.failed
+      - "'created' in group_creation_result.msg"
+    fail_msg: "Test group should have been created successfully"
+
+# Phase 3: Test check mode functionality
+- name: "Check mode - Delete test group"
+  technitium_dns_delete_group:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "{{ test_group.name }}"
+  check_mode: true
+  register: checkmode_result
+
+- name: "Assert check mode indicates changes would be made"
+  assert:
+    that:
+      - checkmode_result.changed
+      - not checkmode_result.failed
+      - "'would be deleted' in checkmode_result.msg"
+    fail_msg: "Check mode should show that group would be deleted"
+
+# Phase 4: Verify group still exists after check mode
+- name: "List groups after check mode"
+  technitium_dns_list_groups:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: groups_after_checkmode
+
+- name: "Assert group still exists after check mode"
+  assert:
+    that:
+      - groups_after_checkmode.groups | selectattr('name', 'equalto', test_group.name) | list | length == 1
+    fail_msg: "Group should still exist after check mode"
+
+# Phase 5: Test actual group deletion
+- name: "Delete test group"
+  technitium_dns_delete_group:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "{{ test_group.name }}"
+  register: delete_result
+
+- name: "Assert group deletion succeeded"
+  assert:
+    that:
+      - delete_result.changed
+      - not delete_result.failed
+      - "'deleted' in delete_result.msg"
+      - delete_result.api_response.status == "ok"
+    fail_msg: "Group deletion should succeed"
+
+# Phase 6: Verify group no longer exists using list_groups
+- name: "List groups after deletion"
+  technitium_dns_list_groups:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: groups_after_deletion
+
+- name: "Assert deleted group no longer exists in list"
+  assert:
+    that:
+      - groups_after_deletion.groups | selectattr('name', 'equalto', test_group.name) | list | length == 0
+    fail_msg: "Deleted group should not exist in groups list"
+
+# Phase 7: Test idempotency - attempt to delete same group again
+- name: "Attempt to delete same group again (idempotency test)"
+  technitium_dns_delete_group:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "{{ test_group.name }}"
+  register: idempotent_result
+
+- name: "Assert idempotency - no changes when group doesn't exist"
+  assert:
+    that:
+      - not idempotent_result.changed
+      - not idempotent_result.failed
+      - "'does not exist' in idempotent_result.msg"
+    fail_msg: "Module should be idempotent when group doesn't exist"
+
+# Phase 8: Test check mode with non-existent group
+- name: "Check mode with non-existent group"
+  technitium_dns_delete_group:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "nonexistent-{{ ansible_date_time.epoch }}"
+  check_mode: true
+  register: checkmode_nonexistent_result
+
+- name: "Assert check mode with non-existent group shows no changes"
+  assert:
+    that:
+      - not checkmode_nonexistent_result.changed
+      - not checkmode_nonexistent_result.failed
+      - "'does not exist' in checkmode_nonexistent_result.msg"
+    fail_msg: "Check mode should show no changes for non-existent group"
+
+# Phase 9: Test failure cases
+- name: "Test with invalid API token"
+  technitium_dns_delete_group:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "somegroup"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Failed to check existing groups' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"
+
+# Phase 10: Test deleting built-in groups (should fail cleanly)
+- name: "Attempt to delete built-in Administrators group"
+  technitium_dns_delete_group:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "Administrators"
+  register: delete_builtin_result
+  ignore_errors: true
+
+- name: "Assert deletion of built-in group fails with clean error message"
+  assert:
+    that:
+      - delete_builtin_result.failed
+      - "'Cannot delete built-in group' in delete_builtin_result.msg"
+      - "'Administrators' in delete_builtin_result.msg"
+    fail_msg: "Built-in groups should fail with clean error message (no stack trace)"
+
+- name: "Test deleting other built-in groups"
+  technitium_dns_delete_group:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "{{ item }}"
+  register: delete_other_builtin_results
+  ignore_errors: true
+  loop:
+    - "DHCP Administrators"
+    - "DNS Administrators"
+
+- name: "Assert other built-in groups also fail cleanly"
+  assert:
+    that:
+      - item.failed
+      - "'Cannot delete built-in group' in item.msg"
+    fail_msg: "All built-in groups should fail with clean error message"
+  loop: "{{ delete_other_builtin_results.results }}"

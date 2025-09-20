@@ -15,16 +15,10 @@ description:
 author:
     - Frank Muise (@effectivelywild)
 seealso:
-  - module: effectivelywild.technitium_dns.technitium_dns_create_user
-    description: Create a user account in Technitium DNS server
-  - module: effectivelywild.technitium_dns.technitium_dns_delete_user
-    description: Delete a user account from Technitium DNS server
-  - module: effectivelywild.technitium_dns.technitium_dns_get_user_details
-    description: Get user account details from Technitium DNS server
-  - module: effectivelywild.technitium_dns.technitium_dns_list_users
-    description: List all users from Technitium DNS server
-  - module: effectivelywild.technitium_dns.technitium_dns_set_user_details
-    description: Set user account details on Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_create_group
+    description: Create a group in Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_delete_group
+    description: Delete a group from Technitium DNS server
 options:
     api_port:
         description:
