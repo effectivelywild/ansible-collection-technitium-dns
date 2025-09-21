@@ -11,7 +11,6 @@ short_description: Delete a group from Technitium DNS server
 version_added: "0.4.0"
 description:
     - Delete a group from Technitium DNS server using its API.
-    - Requires Administration: Modify permissions.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
@@ -19,6 +18,10 @@ seealso:
     description: Create a group in Technitium DNS server
   - module: effectivelywild.technitium_dns.technitium_dns_list_groups
     description: List all groups from Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_get_group_details
+    description: Get group details from Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_set_group_details
+    description: Set group details in Technitium DNS server
 options:
     api_port:
         description:

@@ -13,7 +13,6 @@ description:
     - Retrieve detailed information about a user account from Technitium DNS server.
     - Returns user profile, session information, and group memberships.
     - Groups information is always included in the response.
-    - Requires Administration: View permissions.
 author:
     - Frank Muise (@effectivelywild)
 seealso:

@@ -13,7 +13,6 @@ description:
     - Create a new user account in Technitium DNS server using its API.
     - This will not update existing users; it only creates new ones (see technitium_dns_set_user_details).
     - Note that the password is passed in plaintext to the API and could be logged depending on your setup.
-    - Requires Administration: Modify permissions.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
@@ -58,7 +57,6 @@ options:
             - A password for the user account
         required: true
         type: str
-        no_log: true
     displayName:
         description:
             - The display name for the user account

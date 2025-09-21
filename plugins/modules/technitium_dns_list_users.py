@@ -11,7 +11,6 @@ short_description: List all users from Technitium DNS server
 version_added: "0.4.0"
 description:
     - Retrieve a list of all users from a Technitium DNS server.
-    - Requires Administration: View permissions.
 author:
     - Frank Muise (@effectivelywild)
 seealso:

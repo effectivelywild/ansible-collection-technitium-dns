@@ -12,7 +12,6 @@ version_added: "0.4.0"
 description:
     - Change user account profile details in Technitium DNS server.
     - Allows modifying display name, username, password, enabled/disabled status, session timeout, and group memberships.
-    - Requires Administration: Modify permissions.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
@@ -77,7 +76,6 @@ options:
             - A new password to reset the user account password
         required: false
         type: str
-        no_log: true
     iterations:
         description:
             - The number of iterations for PBKDF2 SHA256 password hashing. Only used with newPassword option.

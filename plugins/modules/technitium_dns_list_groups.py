@@ -11,7 +11,6 @@ short_description: List all groups from Technitium DNS server
 version_added: "0.4.0"
 description:
     - Retrieve a list of all groups from a Technitium DNS server.
-    - Requires Administration: View permissions.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
@@ -19,6 +18,10 @@ seealso:
     description: Create a group in Technitium DNS server
   - module: effectivelywild.technitium_dns.technitium_dns_delete_group
     description: Delete a group from Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_get_group_details
+    description: Get group details from Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_set_group_details
+    description: Set group details in Technitium DNS server
 options:
     api_port:
         description:

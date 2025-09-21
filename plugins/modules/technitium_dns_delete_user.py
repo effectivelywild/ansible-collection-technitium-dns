@@ -11,7 +11,6 @@ short_description: Delete a user account from Technitium DNS server
 version_added: "0.4.0"
 description:
     - Delete a user account from Technitium DNS server using its API.
-    - Requires Administration: Delete permissions.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
