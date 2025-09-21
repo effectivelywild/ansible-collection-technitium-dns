@@ -89,6 +89,11 @@ jobs:
         antsibull-docs sphinx-init --use-current --dest-dir ./build effectivelywild.technitium_dns
         cd ./build && pip install -r requirements.txt && ./build.sh
 
+    - name: Inject Google Site Verification Meta Tag
+      run: |
+        META_TAG='<meta name="google-site-verification" content="${{ secrets.GOOGLE_SITE_VERIFICATION }}" />'
+        find ./build/build/html -name "*.html" -exec sed -i "s|</head>|$META_TAG\n</head>|g" {} +
+
     - name: Setup Pages
       if: github.ref == 'refs/heads/main'
       uses: actions/configure-pages@v4

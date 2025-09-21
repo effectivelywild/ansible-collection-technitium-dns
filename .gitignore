@@ -5,6 +5,9 @@ tests/output/
 # Python virtual environments
 .venv/
 
+# sphinx doc builds
+build/
+
 # antsibull-docs output
 dest/
 
