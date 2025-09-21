@@ -4,6 +4,26 @@ effectivelywild.technitium\_dns Release Notes
 
 .. contents:: Topics
 
+v0.4.0
+======
+
+New Modules
+-----------
+
+- effectivelywild.technitium_dns.technitium_dns_create_group - Create a group in Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_create_user - Create a user account in Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_delete_group - Delete a group from Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_delete_user - Delete a user account from Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_get_group_details - Get group details from Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_get_user_details - Get user account profile details from Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_list_groups - List all groups from Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_list_users - List all users from Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_publish_all_keys - Publish all generated DNSSEC private keys in a zone.
+- effectivelywild.technitium_dns.technitium_dns_resync_zone - Resync a Secondary or Stub zone.
+- effectivelywild.technitium_dns.technitium_dns_rollover_dnskey - Rollover DNSKEY for a DNSSEC-signed zone.
+- effectivelywild.technitium_dns.technitium_dns_set_group_details - Set group details in Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_set_user_details - Set user account profile details in Technitium DNS server.
+
 v0.3.0
 ======
 
