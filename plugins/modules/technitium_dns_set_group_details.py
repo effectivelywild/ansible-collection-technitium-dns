@@ -12,7 +12,6 @@ version_added: "0.4.0"
 description:
     - Change group details in Technitium DNS server.
     - Allows modifying description, renaming groups, and setting group members.
-    - Requires Administration: Modify permissions.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
