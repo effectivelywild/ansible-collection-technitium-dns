@@ -11,7 +11,7 @@ short_description: Create a group in Technitium DNS server
 version_added: "0.4.0"
 description:
     - Create a new group in Technitium DNS server using its API.
-    - This will not update existing groups; it only creates new ones.
+    - This will not update existing groups; it only creates new ones (see technitium_dns_set_group_details).
 author:
     - Frank Muise (@effectivelywild)
 seealso:
