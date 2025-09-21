@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.4.0](https://github.com/effectivelywild/ansible-collection-technitium-dns/compare/v0.3.0...v0.4.0) (2025-09-21)
+
+
+### Features
+
+* add dns_publish_all_keys module ([#19](https://github.com/effectivelywild/ansible-collection-technitium-dns/issues/19)) ([d023620](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/d0236202b38d891e9b176d98e0dcddb18acbdbcb))
+* add dns_resync_zone module ([#23](https://github.com/effectivelywild/ansible-collection-technitium-dns/issues/23)) ([7634891](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/7634891abc15fba6eb0ba61542b4fb75ed10ae5d))
+* add dns_rollover_dnskey module ([76f9e55](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/76f9e556ea6a8477712c87d25ac5877efca7e598))
+* add dns_rollover_dnskey module ([#21](https://github.com/effectivelywild/ansible-collection-technitium-dns/issues/21)) ([76f9e55](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/76f9e556ea6a8477712c87d25ac5877efca7e598))
+* Add technitium_dns_create_group module ([7f3d185](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/7f3d185241f31dcde5bcc74053a2879e79741a65))
+* Add technitium_dns_create_user module ([7f3d185](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/7f3d185241f31dcde5bcc74053a2879e79741a65))
+* Add technitium_dns_delete_group module ([7f3d185](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/7f3d185241f31dcde5bcc74053a2879e79741a65))
+* Add technitium_dns_delete_user module ([7f3d185](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/7f3d185241f31dcde5bcc74053a2879e79741a65))
+* Add technitium_dns_get_group_details module ([7f3d185](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/7f3d185241f31dcde5bcc74053a2879e79741a65))
+* Add technitium_dns_get_user_details module ([7f3d185](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/7f3d185241f31dcde5bcc74053a2879e79741a65))
+* Add technitium_dns_list_groups module ([7f3d185](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/7f3d185241f31dcde5bcc74053a2879e79741a65))
+* Add technitium_dns_list_users module ([7f3d185](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/7f3d185241f31dcde5bcc74053a2879e79741a65))
+* Add technitium_dns_set_group_details module ([7f3d185](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/7f3d185241f31dcde5bcc74053a2879e79741a65))
+* Add technitium_dns_set_user_details module ([7f3d185](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/7f3d185241f31dcde5bcc74053a2879e79741a65))
+* Adding list/set/get/create modules for users and groups ([#24](https://github.com/effectivelywild/ansible-collection-technitium-dns/issues/24)) ([7f3d185](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/7f3d185241f31dcde5bcc74053a2879e79741a65))
+
+
+### Bug Fixes
+
+* Update some modules to use POST method ([#20](https://github.com/effectivelywild/ansible-collection-technitium-dns/issues/20)) ([a98ea08](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/a98ea0810c770a3f2dbf1e87e1284c7b9ea908dd))
+
+
+### Documentation
+
+* Add google-site-verification tag to docs site ([f9d86d7](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/f9d86d7c9024a1cd34fdea1d147a95ebb909c953))
+
 ## [0.3.0](https://github.com/effectivelywild/ansible-collection-technitium-dns/compare/v0.2.1...v0.3.0) (2025-09-18)
 
 

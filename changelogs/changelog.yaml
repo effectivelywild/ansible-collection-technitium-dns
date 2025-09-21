@@ -73,3 +73,45 @@ releases:
       name: technitium_dns_update_private_key
       namespace: ''
     release_date: '2025-09-18'
+  0.4.0:
+    modules:
+    - description: Create a group in Technitium DNS server.
+      name: technitium_dns_create_group
+      namespace: ''
+    - description: Create a user account in Technitium DNS server.
+      name: technitium_dns_create_user
+      namespace: ''
+    - description: Delete a group from Technitium DNS server.
+      name: technitium_dns_delete_group
+      namespace: ''
+    - description: Delete a user account from Technitium DNS server.
+      name: technitium_dns_delete_user
+      namespace: ''
+    - description: Get group details from Technitium DNS server.
+      name: technitium_dns_get_group_details
+      namespace: ''
+    - description: Get user account profile details from Technitium DNS server.
+      name: technitium_dns_get_user_details
+      namespace: ''
+    - description: List all groups from Technitium DNS server.
+      name: technitium_dns_list_groups
+      namespace: ''
+    - description: List all users from Technitium DNS server.
+      name: technitium_dns_list_users
+      namespace: ''
+    - description: Publish all generated DNSSEC private keys in a zone.
+      name: technitium_dns_publish_all_keys
+      namespace: ''
+    - description: Resync a Secondary or Stub zone.
+      name: technitium_dns_resync_zone
+      namespace: ''
+    - description: Rollover DNSKEY for a DNSSEC-signed zone.
+      name: technitium_dns_rollover_dnskey
+      namespace: ''
+    - description: Set group details in Technitium DNS server.
+      name: technitium_dns_set_group_details
+      namespace: ''
+    - description: Set user account profile details in Technitium DNS server.
+      name: technitium_dns_set_user_details
+      namespace: ''
+    release_date: '2025-09-21'
