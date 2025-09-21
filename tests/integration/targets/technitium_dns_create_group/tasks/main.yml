@@ -1,0 +1,178 @@
+---
+# Integration test suite for technitium_dns_create_group
+# This test validates group creation functionality including idempotency and check mode
+
+# Phase 1: Setup - Load configuration and define test data
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+- name: "Set test group data"
+  set_fact:
+    test_group:
+      name: "testgroup-{{ ansible_date_time.epoch }}"
+      description: "Test group for integration testing"
+
+# Phase 2: Test check mode functionality
+- name: "Check mode - Create test group"
+  technitium_dns_create_group:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "{{ test_group.name }}"
+    description: "{{ test_group.description }}"
+  check_mode: true
+  register: checkmode_result
+
+- name: "Assert check mode indicates changes would be made"
+  assert:
+    that:
+      - checkmode_result.changed
+      - not checkmode_result.failed
+      - "'would be created' in checkmode_result.msg"
+      - checkmode_result.api_response.check_mode == true
+    fail_msg: "Check mode should show that group would be created"
+
+# Phase 3: Verify group doesn't exist after check mode
+- name: "List groups after check mode"
+  technitium_dns_list_groups:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: groups_after_checkmode
+
+- name: "Assert group doesn't exist after check mode"
+  assert:
+    that:
+      - groups_after_checkmode.groups | selectattr('name', 'equalto', test_group.name) | list | length == 0
+    fail_msg: "Group should not exist after check mode"
+
+# Phase 4: Test actual group creation
+- name: "Create test group"
+  technitium_dns_create_group:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "{{ test_group.name }}"
+    description: "{{ test_group.description }}"
+  register: create_result
+
+- name: "Assert group creation succeeded"
+  assert:
+    that:
+      - create_result.changed
+      - not create_result.failed
+      - "'created' in create_result.msg"
+      - create_result.api_response.status == "ok"
+      - create_result.api_response.response.name == test_group.name
+      - create_result.api_response.response.description == test_group.description
+    fail_msg: "Group creation should succeed"
+
+# Phase 5: Verify group exists using list_groups
+- name: "List groups after creation"
+  technitium_dns_list_groups:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: groups_after_creation
+
+- name: "Assert created group exists in list"
+  assert:
+    that:
+      - groups_after_creation.groups | selectattr('name', 'equalto', test_group.name) | list | length == 1
+      - (groups_after_creation.groups | selectattr('name', 'equalto', test_group.name) | first).description == test_group.description
+    fail_msg: "Created group should exist in groups list with correct details"
+
+# Phase 6: Test idempotency - attempt to create same group again
+- name: "Attempt to create same group again (idempotency test)"
+  technitium_dns_create_group:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "{{ test_group.name }}"
+    description: "{{ test_group.description }}"
+  register: idempotent_result
+
+- name: "Assert idempotency - no changes when group exists"
+  assert:
+    that:
+      - not idempotent_result.changed
+      - not idempotent_result.failed
+      - "'already exists' in idempotent_result.msg"
+      - idempotent_result.group.name == test_group.name
+    fail_msg: "Module should be idempotent when group already exists"
+
+# Phase 7: Test group creation without description
+- name: "Set test group without description"
+  set_fact:
+    test_group_no_desc:
+      name: "testgroup-nodesc-{{ ansible_date_time.epoch }}"
+
+- name: "Create group without description"
+  technitium_dns_create_group:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "{{ test_group_no_desc.name }}"
+  register: create_no_desc_result
+
+- name: "Assert group creation without description succeeded"
+  assert:
+    that:
+      - create_no_desc_result.changed
+      - not create_no_desc_result.failed
+      - "'created' in create_no_desc_result.msg"
+      - create_no_desc_result.api_response.response.name == test_group_no_desc.name
+    fail_msg: "Group creation without description should succeed"
+
+# Phase 8: Verify group without description exists
+- name: "List groups after creating group without description"
+  technitium_dns_list_groups:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: groups_after_no_desc
+
+- name: "Assert group without description exists"
+  assert:
+    that:
+      - groups_after_no_desc.groups | selectattr('name', 'equalto', test_group_no_desc.name) | list | length == 1
+    fail_msg: "Group created without description should exist"
+
+# Phase 9: Test failure cases
+- name: "Test with invalid API token"
+  technitium_dns_create_group:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "shouldfail-{{ ansible_date_time.epoch }}"
+    description: "Should fail"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"
+
+# Phase 10: Cleanup - Delete test groups
+- name: "Cleanup test groups"
+  technitium_dns_delete_group:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "{{ item }}"
+  loop:
+    - "{{ test_group.name }}"
+    - "{{ test_group_no_desc.name }}"
+  ignore_errors: true

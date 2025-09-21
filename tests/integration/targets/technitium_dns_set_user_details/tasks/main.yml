@@ -1,0 +1,309 @@
+---
+# Integration test suite for technitium_dns_set_user_details
+# This test validates user details modification functionality including idempotency and check mode
+
+# Phase 1: Setup - Load configuration and define test data
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+- name: "Set test user data"
+  set_fact:
+    test_user:
+      username: "setdetailstest-{{ ansible_date_time.epoch }}"
+      password: "InitialPass123!"
+      displayName: "Initial Test User"
+
+# Phase 2: Create test user for modification testing
+- name: "Create test user for modification testing"
+  technitium_dns_create_user:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ test_user.username }}"
+    password: "{{ test_user.password }}"
+    displayName: "{{ test_user.displayName }}"
+  register: user_creation_result
+
+- name: "Assert test user was created successfully"
+  assert:
+    that:
+      - user_creation_result.changed
+      - not user_creation_result.failed
+      - "'created' in user_creation_result.msg"
+    fail_msg: "Test user should have been created successfully"
+
+# Phase 3: Test idempotency - no changes when current state matches desired
+- name: "Test idempotency - set same display name"
+  technitium_dns_set_user_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ test_user.username }}"
+    displayName: "{{ test_user.displayName }}"
+  register: idempotent_result
+
+- name: "Assert idempotency - no changes when state matches"
+  assert:
+    that:
+      - not idempotent_result.changed
+      - not idempotent_result.failed
+      - "'already match desired state' in idempotent_result.msg"
+    fail_msg: "Module should be idempotent when no changes are needed"
+
+# Phase 4: Test check mode functionality
+- name: "Check mode - Update display name"
+  technitium_dns_set_user_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ test_user.username }}"
+    displayName: "Updated Test User"
+  check_mode: true
+  register: checkmode_result
+
+- name: "Assert check mode indicates changes would be made"
+  assert:
+    that:
+      - checkmode_result.changed
+      - not checkmode_result.failed
+      - "'would be updated' in checkmode_result.msg"
+      - checkmode_result.diff is defined
+      - checkmode_result.diff.displayName is defined
+      - checkmode_result.diff.displayName.current == test_user.displayName
+      - checkmode_result.diff.displayName.desired == "Updated Test User"
+    fail_msg: "Check mode should show what would change"
+
+# Phase 5: Verify user details haven't changed after check mode
+- name: "Get user details after check mode"
+  technitium_dns_get_user_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ test_user.username }}"
+  register: user_after_checkmode
+
+- name: "Assert user details unchanged after check mode"
+  assert:
+    that:
+      - user_after_checkmode.user_details.displayName == test_user.displayName
+      - user_after_checkmode.user_details.disabled == false
+    fail_msg: "User details should not change in check mode"
+
+# Phase 6: Test actual display name update
+- name: "Update display name"
+  technitium_dns_set_user_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ test_user.username }}"
+    displayName: "Updated Test User"
+  register: update_display_result
+
+- name: "Assert display name update succeeded"
+  assert:
+    that:
+      - update_display_result.changed
+      - not update_display_result.failed
+      - "'updated successfully' in update_display_result.msg"
+      - update_display_result.diff is defined
+      - update_display_result.diff.displayName is defined
+    fail_msg: "Display name update should succeed"
+
+# Phase 7: Verify display name change
+- name: "Get user details after display name update"
+  technitium_dns_get_user_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ test_user.username }}"
+  register: user_after_display_update
+
+- name: "Assert display name was updated"
+  assert:
+    that:
+      - user_after_display_update.user_details.displayName == "Updated Test User"
+      - user_after_display_update.user_details.username == test_user.username
+    fail_msg: "Display name should be updated correctly"
+
+# Phase 8: Test multiple parameter updates
+- name: "Update multiple user properties"
+  technitium_dns_set_user_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ test_user.username }}"
+    displayName: "Multi-Update Test User"
+    disabled: false
+    sessionTimeoutSeconds: 3600
+    memberOfGroups:
+      - "DNS Administrators"
+  register: multi_update_result
+
+- name: "Assert multiple property update succeeded"
+  assert:
+    that:
+      - multi_update_result.changed
+      - not multi_update_result.failed
+      - "'updated successfully' in multi_update_result.msg"
+      - multi_update_result.diff is defined
+    fail_msg: "Multiple property update should succeed"
+
+# Phase 9: Verify multiple property changes
+- name: "Get user details after multiple updates"
+  technitium_dns_get_user_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ test_user.username }}"
+  register: user_after_multi_update
+
+- name: "Assert multiple properties were updated"
+  assert:
+    that:
+      - user_after_multi_update.user_details.displayName == "Multi-Update Test User"
+      - user_after_multi_update.user_details.disabled == false
+      - user_after_multi_update.user_details.sessionTimeoutSeconds == 3600
+      - user_after_multi_update.user_details.memberOfGroups | select('equalto', 'DNS Administrators') | list | length > 0
+    fail_msg: "All updated properties should be reflected in user details"
+
+# Phase 10: Test password update (we can't verify the password but can test the operation)
+- name: "Update password"
+  technitium_dns_set_user_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ test_user.username }}"
+    newPassword: "NewSecurePassword456!"
+    iterations: 100000
+  register: password_update_result
+
+- name: "Assert password update succeeded"
+  assert:
+    that:
+      - password_update_result.changed
+      - not password_update_result.failed
+      - "'updated successfully' in password_update_result.msg"
+      - password_update_result.diff is defined
+      - password_update_result.diff.newPassword is defined
+      - password_update_result.diff.newPassword.current == "[HIDDEN]"
+      - password_update_result.diff.newPassword.desired == "[HIDDEN]"
+    fail_msg: "Password update should succeed and diff should hide sensitive data"
+
+# Phase 11: Test username change (rename)
+- name: "Set renamed username variable"
+  set_fact:
+    renamed_username: "renamed-{{ test_user.username }}"
+
+- name: "Rename user account"
+  technitium_dns_set_user_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ test_user.username }}"
+    newUsername: "{{ renamed_username }}"
+  register: rename_result
+
+- name: "Assert username change succeeded"
+  assert:
+    that:
+      - rename_result.changed
+      - not rename_result.failed
+      - "'updated successfully' in rename_result.msg"
+    fail_msg: "Username change should succeed"
+
+# Phase 12: Verify username was changed using the new name
+- name: "Get user details with new username"
+  technitium_dns_get_user_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ renamed_username }}"
+  register: user_after_rename
+
+- name: "Assert username was changed correctly"
+  assert:
+    that:
+      - user_after_rename.user_details.username == renamed_username
+      - user_after_rename.user_details.displayName == "Multi-Update Test User"
+    fail_msg: "Username should be changed while preserving other details"
+
+# Phase 13: Test failure cases
+- name: "Test with non-existent user"
+  technitium_dns_set_user_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "nonexistentuser-{{ ansible_date_time.epoch }}"
+    displayName: "Should Fail"
+  register: nonexistent_user_result
+  ignore_errors: true
+
+- name: "Assert failure with non-existent user"
+  assert:
+    that:
+      - nonexistent_user_result.failed
+      - "'does not exist' in nonexistent_user_result.msg"
+    fail_msg: "Non-existent user should cause failure"
+
+- name: "Test with invalid API token"
+  technitium_dns_set_user_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ renamed_username }}"
+    displayName: "Should Fail"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Failed to get current user details' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"
+
+# Phase 14: Test idempotency after changes
+- name: "Test idempotency after changes - set same values again"
+  technitium_dns_set_user_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ renamed_username }}"
+    displayName: "Multi-Update Test User"
+    disabled: false
+    sessionTimeoutSeconds: 3600
+    memberOfGroups:
+      - "DNS Administrators"
+  register: final_idempotent_result
+
+- name: "Assert final idempotency test"
+  assert:
+    that:
+      - not final_idempotent_result.changed
+      - not final_idempotent_result.failed
+      - "'already match desired state' in final_idempotent_result.msg"
+    fail_msg: "Module should be idempotent after all changes"
+
+# Phase 15: Cleanup - Delete test user
+- name: "Delete test user (cleanup)"
+  technitium_dns_delete_user:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ renamed_username }}"
+  ignore_errors: true

@@ -1,0 +1,139 @@
+---
+# Integration test suite for technitium_dns_get_user_details
+# This test validates user details retrieval functionality
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Test getting administrator user details
+- name: "Get administrator user details"
+  technitium_dns_get_user_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "admin"
+  register: admin_user_result
+
+- name: "Debug administrator user details"
+  debug:
+    var: admin_user_result
+  when: debug | default(false)
+
+- name: "Assert administrator user details retrieval succeeded"
+  assert:
+    that:
+      - not admin_user_result.failed
+      - not admin_user_result.changed
+      - admin_user_result.user_details is defined
+    fail_msg: "Administrator user details retrieval should have succeeded"
+
+# Phase 3: Validate expected administrator user properties
+- name: "Validate administrator user basic properties"
+  assert:
+    that:
+      - admin_user_result.user_details.displayName == "Administrator"
+      - admin_user_result.user_details.username == "admin"
+      - admin_user_result.user_details.disabled == false
+    fail_msg: "Administrator user should have correct basic properties"
+
+- name: "Validate administrator user has required properties"
+  assert:
+    that:
+      - admin_user_result.user_details.previousSessionLoggedOn is defined
+      - admin_user_result.user_details.previousSessionRemoteAddress is defined
+      - admin_user_result.user_details.recentSessionLoggedOn is defined
+      - admin_user_result.user_details.recentSessionRemoteAddress is defined
+      - admin_user_result.user_details.sessionTimeoutSeconds is defined
+      - admin_user_result.user_details.sessionTimeoutSeconds is number
+      - admin_user_result.user_details.memberOfGroups is defined
+      - admin_user_result.user_details.memberOfGroups is iterable
+      - admin_user_result.user_details.sessions is defined
+      - admin_user_result.user_details.sessions is iterable
+    fail_msg: "Administrator user should have all required properties with correct types"
+
+# Phase 4: Validate groups are always included
+- name: "Validate groups are always included in user details"
+  assert:
+    that:
+      - admin_user_result.user_details.groups is defined
+      - admin_user_result.user_details.groups is iterable
+      - admin_user_result.user_details.groups | length > 0
+    fail_msg: "Groups should always be included in user details"
+
+# Phase 5: Test failure cases
+- name: "Test with non-existent user"
+  technitium_dns_get_user_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "nonexistentuser-{{ ansible_date_time.epoch }}"
+  register: nonexistent_user_result
+  ignore_errors: true
+
+- name: "Assert failure with non-existent user"
+  assert:
+    that:
+      - nonexistent_user_result.failed
+      - "'does not exist' in nonexistent_user_result.msg"
+    fail_msg: "Non-existent user should cause failure"
+
+- name: "Test with invalid API token"
+  technitium_dns_get_user_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "admin"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"
+
+# Phase 6: Test creating a user and getting their details
+- name: "Create a test user for details testing"
+  technitium_dns_create_user:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "detailstest-{{ ansible_date_time.epoch }}"
+    password: "TestPass123!"
+    displayName: "Details Test User"
+  register: test_user_creation
+
+- name: "Get details for the test user"
+  technitium_dns_get_user_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ test_user_creation.api_response.response.username }}"
+  register: test_user_details
+
+- name: "Validate test user details"
+  assert:
+    that:
+      - not test_user_details.failed
+      - not test_user_details.changed
+      - test_user_details.user_details.username == test_user_creation.api_response.response.username
+      - test_user_details.user_details.displayName == "Details Test User"
+      - test_user_details.user_details.disabled == false
+    fail_msg: "Test user details should match creation parameters"
+
+# Phase 7: Cleanup - Delete test user
+- name: "Delete test user (cleanup)"
+  technitium_dns_delete_user:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ test_user_creation.api_response.response.username }}"
+  ignore_errors: true

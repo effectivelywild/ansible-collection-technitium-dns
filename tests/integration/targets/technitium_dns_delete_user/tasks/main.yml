@@ -1,0 +1,215 @@
+---
+# Integration test suite for technitium_dns_delete_user
+# This test validates user deletion functionality including idempotency and check mode
+
+# Phase 1: Setup - Load configuration and define test data
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+- name: "Set test user data"
+  set_fact:
+    test_users:
+      - username: "deleteuser1-{{ ansible_date_time.epoch }}"
+        password: "DeletePass123!"
+        displayName: "Delete Test User 1"
+      - username: "deleteuser2-{{ ansible_date_time.epoch }}"
+        password: "DeletePass456!"
+        displayName: "Delete Test User 2"
+
+# Phase 2: Create test users for deletion testing
+- name: "Create test users for deletion testing"
+  technitium_dns_create_user:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ user_item.username }}"
+    password: "{{ user_item.password }}"
+    displayName: "{{ user_item.displayName }}"
+  register: user_creation_results
+  loop: "{{ test_users }}"
+  loop_control:
+    loop_var: user_item
+    label: "{{ user_item.username }}"
+
+- name: "Assert all test users were created successfully"
+  assert:
+    that:
+      - item.changed
+      - not item.failed
+      - "'created' in item.msg"
+    quiet: true
+  loop: "{{ user_creation_results.results }}"
+  loop_control:
+    label: "{{ item.user_item.username }}"
+
+# Phase 3: Verify users exist before deletion
+- name: "List users to verify they exist before deletion"
+  technitium_dns_list_users:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: users_before_deletion
+
+- name: "Verify test users exist before deletion"
+  assert:
+    that:
+      - users_before_deletion.users | selectattr('username', 'equalto', user_item.username) | list | length == 1
+    fail_msg: "Test user '{{ user_item.username }}' should exist before deletion"
+  loop: "{{ test_users }}"
+  loop_control:
+    loop_var: user_item
+    label: "{{ user_item.username }}"
+
+# Phase 4: Test check mode functionality
+- name: "Check mode - Delete test users"
+  technitium_dns_delete_user:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ user_item.username }}"
+  check_mode: true
+  register: user_checkmode_deletion_results
+  loop: "{{ test_users }}"
+  loop_control:
+    loop_var: user_item
+    label: "{{ user_item.username }}"
+
+- name: "Assert all users would have been deleted in check mode"
+  assert:
+    that:
+      - item.changed
+      - not item.failed
+      - "'would be deleted' in item.msg"
+    quiet: true
+  loop: "{{ user_checkmode_deletion_results.results }}"
+  loop_control:
+    label: "{{ item.user_item.username }}"
+
+# Phase 5: Verify users still exist after check mode
+- name: "List users to verify they still exist after check mode"
+  technitium_dns_list_users:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: users_after_checkmode
+
+- name: "Verify test users still exist after check mode"
+  assert:
+    that:
+      - users_after_checkmode.users | selectattr('username', 'equalto', user_item.username) | list | length == 1
+    fail_msg: "Test user '{{ user_item.username }}' should still exist after check mode"
+  loop: "{{ test_users }}"
+  loop_control:
+    loop_var: user_item
+    label: "{{ user_item.username }}"
+
+# Phase 6: Actually delete test users
+- name: "Delete test users"
+  technitium_dns_delete_user:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ user_item.username }}"
+  register: user_deletion_results
+  loop: "{{ test_users }}"
+  loop_control:
+    loop_var: user_item
+    label: "{{ user_item.username }}"
+
+- name: "Assert all test users were deleted successfully"
+  assert:
+    that:
+      - item.changed
+      - not item.failed
+      - "'deleted' in item.msg"
+      - item.api_response.status == 'ok'
+    quiet: true
+  loop: "{{ user_deletion_results.results }}"
+  loop_control:
+    label: "{{ item.user_item.username }}"
+
+# Phase 7: Verify users no longer exist using list_users module
+- name: "List users to verify deletion"
+  technitium_dns_list_users:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: users_after_deletion
+
+- name: "Verify each test user no longer exists in the users list"
+  assert:
+    that:
+      - users_after_deletion.users | selectattr('username', 'equalto', user_item.username) | list | length == 0
+    fail_msg: "Test user '{{ user_item.username }}' should not exist after deletion"
+  loop: "{{ test_users }}"
+  loop_control:
+    loop_var: user_item
+    label: "{{ user_item.username }}"
+
+# Phase 8: Test idempotency - attempt to delete users again
+- name: "Test idempotency - Delete same users again"
+  technitium_dns_delete_user:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ user_item.username }}"
+  register: user_idempotency_results
+  loop: "{{ test_users }}"
+  loop_control:
+    loop_var: user_item
+    label: "{{ user_item.username }}"
+
+- name: "Assert idempotency - users should not be deleted again"
+  assert:
+    that:
+      - not item.changed
+      - not item.failed
+      - "'does not exist' in item.msg"
+    quiet: true
+  loop: "{{ user_idempotency_results.results }}"
+  loop_control:
+    label: "{{ item.user_item.username }}"
+
+# Phase 9: Test check mode on non-existent user
+- name: "Check mode - Delete non-existent user"
+  technitium_dns_delete_user:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "nonexistent-user-{{ ansible_date_time.epoch }}"
+  check_mode: true
+  register: nonexistent_user_checkmode_result
+
+- name: "Assert check mode on non-existent user returns no changes"
+  assert:
+    that:
+      - not nonexistent_user_checkmode_result.changed
+      - not nonexistent_user_checkmode_result.failed
+      - "'does not exist' in nonexistent_user_checkmode_result.msg"
+    fail_msg: "Check mode on non-existent user should return no changes"
+
+# Phase 10: Test failure cases
+- name: "Test invalid API token"
+  technitium_dns_delete_user:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "someuser"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"

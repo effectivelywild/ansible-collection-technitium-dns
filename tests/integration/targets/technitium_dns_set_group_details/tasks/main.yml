@@ -1,0 +1,388 @@
+---
+# Integration test suite for technitium_dns_set_group_details
+# This test validates group details modification functionality including idempotency and check mode
+
+# Phase 1: Setup - Load configuration and define test data
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+- name: "Set test data"
+  set_fact:
+    test_group:
+      name: "setdetailstest-{{ ansible_date_time.epoch }}"
+      description: "Initial test group"
+    test_users:
+      - username: "groupuser1-{{ ansible_date_time.epoch }}"
+        password: "TestPass123!"
+        displayName: "Group Test User 1"
+      - username: "groupuser2-{{ ansible_date_time.epoch }}"
+        password: "TestPass456!"
+        displayName: "Group Test User 2"
+
+# Phase 2: Create test group for modification testing
+- name: "Create test group for modification testing"
+  technitium_dns_create_group:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "{{ test_group.name }}"
+    description: "{{ test_group.description }}"
+  register: group_creation_result
+
+- name: "Assert test group was created successfully"
+  assert:
+    that:
+      - group_creation_result.changed
+      - not group_creation_result.failed
+      - "'created' in group_creation_result.msg"
+    fail_msg: "Test group should have been created successfully"
+
+# Phase 3: Create test users for membership testing
+- name: "Create test users for membership testing"
+  technitium_dns_create_user:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ item.username }}"
+    password: "{{ item.password }}"
+    displayName: "{{ item.displayName }}"
+  loop: "{{ test_users }}"
+  register: user_creation_results
+
+- name: "Assert test users were created successfully"
+  assert:
+    that:
+      - item.changed
+      - not item.failed
+      - "'created' in item.msg"
+    fail_msg: "All test users should have been created successfully"
+  loop: "{{ user_creation_results.results }}"
+
+# Phase 4: Test idempotency - no changes when current state matches desired
+- name: "Test idempotency - set same description"
+  technitium_dns_set_group_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "{{ test_group.name }}"
+    description: "{{ test_group.description }}"
+  register: idempotent_result
+
+- name: "Assert idempotency - no changes when state matches"
+  assert:
+    that:
+      - not idempotent_result.changed
+      - not idempotent_result.failed
+      - "'already match desired state' in idempotent_result.msg"
+    fail_msg: "Module should be idempotent when no changes are needed"
+
+# Phase 5: Test check mode functionality
+- name: "Check mode - Update description"
+  technitium_dns_set_group_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "{{ test_group.name }}"
+    description: "Updated test group description"
+  check_mode: true
+  register: checkmode_result
+
+- name: "Assert check mode indicates changes would be made"
+  assert:
+    that:
+      - checkmode_result.changed
+      - not checkmode_result.failed
+      - "'would be updated' in checkmode_result.msg"
+      - checkmode_result.diff is defined
+      - checkmode_result.diff.description is defined
+      - checkmode_result.diff.description.current == test_group.description
+      - checkmode_result.diff.description.desired == "Updated test group description"
+    fail_msg: "Check mode should show what would change"
+
+# Phase 6: Verify group details haven't changed after check mode
+- name: "Get group details after check mode"
+  technitium_dns_get_group_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "{{ test_group.name }}"
+  register: group_after_checkmode
+
+- name: "Assert group details unchanged after check mode"
+  assert:
+    that:
+      - group_after_checkmode.group_details.description == test_group.description
+      - group_after_checkmode.group_details.members | length == 0
+    fail_msg: "Group details should not change in check mode"
+
+# Phase 7: Test actual description update
+- name: "Update description"
+  technitium_dns_set_group_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "{{ test_group.name }}"
+    description: "Updated test group description"
+  register: update_description_result
+
+- name: "Assert description update succeeded"
+  assert:
+    that:
+      - update_description_result.changed
+      - not update_description_result.failed
+      - "'updated successfully' in update_description_result.msg"
+      - update_description_result.diff is defined
+      - update_description_result.diff.description is defined
+    fail_msg: "Description update should succeed"
+
+# Phase 8: Verify description change
+- name: "Get group details after description update"
+  technitium_dns_get_group_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "{{ test_group.name }}"
+  register: group_after_description_update
+
+- name: "Assert description was updated"
+  assert:
+    that:
+      - group_after_description_update.group_details.description == "Updated test group description"
+      - group_after_description_update.group_details.name == test_group.name
+    fail_msg: "Description should be updated correctly"
+
+# Phase 9: Test setting group members
+- name: "Set group members"
+  technitium_dns_set_group_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "{{ test_group.name }}"
+    members:
+      - "{{ test_users[0].username }}"
+  register: set_members_result
+
+- name: "Assert set members succeeded"
+  assert:
+    that:
+      - set_members_result.changed
+      - not set_members_result.failed
+      - "'updated successfully' in set_members_result.msg"
+      - set_members_result.diff is defined
+      - set_members_result.diff.members is defined
+    fail_msg: "Set members should succeed"
+
+# Phase 10: Verify members were set
+- name: "Get group details after setting members"
+  technitium_dns_get_group_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "{{ test_group.name }}"
+  register: group_after_set_members
+
+- name: "Assert members were set correctly"
+  assert:
+    that:
+      - test_users[0].username in group_after_set_members.group_details.members
+      - group_after_set_members.group_details.members | length == 1
+    fail_msg: "Members should be set correctly"
+
+# Phase 11: Test multiple parameter updates
+- name: "Update multiple group properties"
+  technitium_dns_set_group_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "{{ test_group.name }}"
+    description: "Multi-update test group"
+    members:
+      - "{{ test_users[0].username }}"
+      - "{{ test_users[1].username }}"
+  register: multi_update_result
+
+- name: "Assert multiple property update succeeded"
+  assert:
+    that:
+      - multi_update_result.changed
+      - not multi_update_result.failed
+      - "'updated successfully' in multi_update_result.msg"
+      - multi_update_result.diff is defined
+    fail_msg: "Multiple property update should succeed"
+
+# Phase 12: Verify multiple property changes
+- name: "Get group details after multiple updates"
+  technitium_dns_get_group_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "{{ test_group.name }}"
+  register: group_after_multi_update
+
+- name: "Assert multiple properties were updated"
+  assert:
+    that:
+      - group_after_multi_update.group_details.description == "Multi-update test group"
+      - test_users[0].username in group_after_multi_update.group_details.members
+      - test_users[1].username in group_after_multi_update.group_details.members
+      - group_after_multi_update.group_details.members | length == 2
+    fail_msg: "All updated properties should be reflected in group details"
+
+# Phase 13: Test group rename
+- name: "Set renamed group name variable"
+  set_fact:
+    renamed_group_name: "renamed-{{ test_group.name }}"
+
+- name: "Rename group"
+  technitium_dns_set_group_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "{{ test_group.name }}"
+    newGroup: "{{ renamed_group_name }}"
+  register: rename_result
+
+- name: "Assert group rename succeeded"
+  assert:
+    that:
+      - rename_result.changed
+      - not rename_result.failed
+      - "'updated successfully' in rename_result.msg"
+    fail_msg: "Group rename should succeed"
+
+# Phase 14: Verify group was renamed using the new name
+- name: "Get group details with new name"
+  technitium_dns_get_group_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "{{ renamed_group_name }}"
+  register: group_after_rename
+
+- name: "Assert group was renamed correctly"
+  assert:
+    that:
+      - group_after_rename.group_details.name == renamed_group_name
+      - group_after_rename.group_details.description == "Multi-update test group"
+      - group_after_rename.group_details.members | length == 2
+    fail_msg: "Group should be renamed while preserving other details"
+
+# Phase 15: Test failure cases
+- name: "Test with non-existent group"
+  technitium_dns_set_group_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "nonexistentgroup-{{ ansible_date_time.epoch }}"
+    description: "Should Fail"
+  register: nonexistent_group_result
+  ignore_errors: true
+
+- name: "Assert failure with non-existent group"
+  assert:
+    that:
+      - nonexistent_group_result.failed
+      - "'does not exist' in nonexistent_group_result.msg"
+    fail_msg: "Non-existent group should cause failure"
+
+- name: "Test updating built-in group description (should succeed)"
+  technitium_dns_set_group_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "Administrators"
+    description: "Updated super administrators"
+  register: builtin_group_description_result
+
+- name: "Assert built-in group description update succeeded"
+  assert:
+    that:
+      - builtin_group_description_result.changed
+      - not builtin_group_description_result.failed
+      - "'updated successfully' in builtin_group_description_result.msg"
+    fail_msg: "Built-in group description update should succeed"
+
+- name: "Test renaming built-in group (should fail)"
+  technitium_dns_set_group_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "Administrators"
+    newGroup: "NewAdministrators"
+  register: builtin_group_rename_result
+  ignore_errors: true
+
+- name: "Assert failure when renaming built-in group"
+  assert:
+    that:
+      - builtin_group_rename_result.failed
+      - "'Cannot rename built-in group' in builtin_group_rename_result.msg"
+    fail_msg: "Built-in group renaming should fail cleanly"
+
+- name: "Restore original Administrators description"
+  technitium_dns_set_group_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "Administrators"
+    description: "Super administrators"
+  ignore_errors: true
+
+# Phase 16: Test idempotency after changes
+- name: "Test idempotency after changes - set same values again"
+  technitium_dns_set_group_details:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "{{ renamed_group_name }}"
+    description: "Multi-update test group"
+    members:
+      - "{{ test_users[0].username }}"
+      - "{{ test_users[1].username }}"
+  register: final_idempotent_result
+
+- name: "Assert final idempotency test"
+  assert:
+    that:
+      - not final_idempotent_result.changed
+      - not final_idempotent_result.failed
+      - "'already match desired state' in final_idempotent_result.msg"
+    fail_msg: "Module should be idempotent after all changes"
+
+# Phase 17: Cleanup - Delete test users and group
+- name: "Delete test users (cleanup)"
+  technitium_dns_delete_user:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ item.username }}"
+  loop: "{{ test_users }}"
+  ignore_errors: true
+
+- name: "Delete test group (cleanup)"
+  technitium_dns_delete_group:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "{{ renamed_group_name }}"
+  ignore_errors: true

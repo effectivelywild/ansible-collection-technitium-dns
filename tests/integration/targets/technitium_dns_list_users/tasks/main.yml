@@ -1,0 +1,69 @@
+---
+# Integration test suite for technitium_dns_list_users
+# This test validates user listing functionality
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Test successful user listing
+- name: "List all users from Technitium DNS"
+  technitium_dns_list_users:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: users_result
+
+- name: "Debug users result"
+  debug:
+    var: users_result
+  when: debug | default(false)
+
+- name: "Assert user listing succeeded"
+  assert:
+    that:
+      - not users_result.failed
+      - users_result.users is defined
+      - users_result.users | length > 0
+      - not users_result.changed
+    fail_msg: "User listing should have succeeded"
+
+# Phase 3: Verify Administrator user exists
+- name: "Check if Administrator user exists"
+  assert:
+    that:
+      - users_result.users | selectattr('displayName', 'equalto', 'Administrator') | list | length > 0
+    fail_msg: "Administrator user should exist in the user list"
+
+- name: "Verify Administrator user has expected properties"
+  assert:
+    that:
+      - admin_user.username is defined
+      - admin_user.displayName == 'Administrator'
+      - admin_user.disabled is defined
+      - admin_user.disabled is boolean
+      - admin_user.previousSessionLoggedOn is defined
+      - admin_user.previousSessionRemoteAddress is defined
+      - admin_user.recentSessionLoggedOn is defined
+      - admin_user.recentSessionRemoteAddress is defined
+    fail_msg: "Administrator user should have all expected properties"
+  vars:
+    admin_user: "{{ users_result.users | selectattr('displayName', 'equalto', 'Administrator') | first }}"
+
+# Phase 4: Test failure cases
+- name: "Test invalid API token"
+  technitium_dns_list_users:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"

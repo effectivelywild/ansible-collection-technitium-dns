@@ -113,5 +113,39 @@ class TechnitiumModule(AnsibleModule):
 
         return data.get('response', {})
 
+    def check_user_exists(self, username):
+        """Check if a user exists and return user data if found"""
+        users_data = self.request('/api/admin/users/list')
+        if users_data.get('status') != 'ok':
+            error_msg = users_data.get('errorMessage') or "Unknown error"
+            self.fail_json(msg=f"Failed to check existing users: {error_msg}", api_response=users_data)
+
+        users = users_data.get('response', {}).get('users', [])
+        existing_user = next((u for u in users if u.get('username') == username), None)
+        return existing_user is not None, existing_user
+
+    def check_group_exists(self, group_name):
+        """Check if a group exists and return group data if found"""
+        groups_data = self.request('/api/admin/groups/list')
+        if groups_data.get('status') != 'ok':
+            error_msg = groups_data.get('errorMessage') or "Unknown error"
+            self.fail_json(msg=f"Failed to check existing groups: {error_msg}", api_response=groups_data)
+
+        groups = groups_data.get('response', {}).get('groups', [])
+        existing_group = next((g for g in groups if g.get('name') == group_name), None)
+        return existing_group is not None, existing_group
+
+    def check_builtin_group(self, group_name):
+        """Check if a group is a built-in/protected group that cannot be deleted"""
+        builtin_groups = ['Administrators', 'DHCP Administrators', 'DNS Administrators']
+        return group_name in builtin_groups
+
+    def validate_api_response(self, data, context=""):
+        """Validate API response status and fail with standardized error message"""
+        if data.get('status') != 'ok':
+            error_msg = data.get('errorMessage') or "Unknown error"
+            context_msg = f"{context}: " if context else ""
+            self.fail_json(msg=f"{context_msg}Technitium API error: {error_msg}", api_response=data)
+
     def __call__(self):
         self.run()

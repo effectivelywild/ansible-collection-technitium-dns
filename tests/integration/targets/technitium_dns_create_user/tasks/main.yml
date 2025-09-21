@@ -1,0 +1,242 @@
+---
+# Integration test suite for technitium_dns_create_user
+# This test validates user creation functionality including idempotency and check mode
+
+# Phase 1: Setup - Load configuration and define test data
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+- name: "Set test user data"
+  set_fact:
+    test_users:
+      - username: "testuser1-{{ ansible_date_time.epoch }}"
+        password: "SecurePass123!"
+        displayName: "Test User 1"
+      - username: "testuser2-{{ ansible_date_time.epoch }}"
+        password: "AnotherPass456!"
+        displayName: "Test User 2"
+      - username: "minimal-{{ ansible_date_time.epoch }}"
+        password: "MinimalPass789!"
+        displayName: "minimal"
+
+# Phase 2: Cleanup - Delete test users if they exist
+- name: "Delete test users (cleanup)"
+  technitium_dns_delete_user:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ user_item.username }}"
+  register: user_deletion_result
+  loop: "{{ test_users }}"
+  loop_control:
+    loop_var: user_item
+    label: "{{ user_item.username }}"
+  ignore_errors: true
+
+# Phase 3: Test check mode functionality
+- name: "Check mode - Create test users"
+  technitium_dns_create_user:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ user_item.username }}"
+    password: "{{ user_item.password }}"
+    displayName: "{{ user_item.displayName | default(omit) }}"
+  check_mode: true
+  register: user_checkmode_creation_results
+  loop: "{{ test_users }}"
+  loop_control:
+    loop_var: user_item
+    label: "{{ user_item.username }}"
+
+- name: "Assert all users would have been created in check mode"
+  assert:
+    that:
+      - item.changed
+      - not item.failed
+      - "'would be created' in item.msg"
+    quiet: true
+  loop: "{{ user_checkmode_creation_results.results }}"
+  loop_control:
+    label: "{{ item.user_item.username }}"
+
+# Phase 4: Actually create test users
+- name: "Create test users"
+  technitium_dns_create_user:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ user_item.username }}"
+    password: "{{ user_item.password }}"
+    displayName: "{{ user_item.displayName | default(omit) }}"
+  register: user_creation_results
+  loop: "{{ test_users }}"
+  loop_control:
+    loop_var: user_item
+    label: "{{ user_item.username }}"
+
+- name: "Assert all test users were created successfully"
+  assert:
+    that:
+      - item.changed
+      - not item.failed
+      - "'created' in item.msg"
+      - item.api_response.status == 'ok'
+      - item.api_response.response.username == item.user_item.username
+    quiet: true
+  loop: "{{ user_creation_results.results }}"
+  loop_control:
+    label: "{{ item.user_item.username }}"
+
+# Phase 5: Test idempotency - attempt to create users again
+- name: "Test idempotency - Create same users again"
+  technitium_dns_create_user:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ user_item.username }}"
+    password: "{{ user_item.password }}"
+    displayName: "{{ user_item.displayName | default(omit) }}"
+  register: user_idempotency_results
+  loop: "{{ test_users }}"
+  loop_control:
+    loop_var: user_item
+    label: "{{ user_item.username }}"
+
+- name: "Assert idempotency - users should not be created again"
+  assert:
+    that:
+      - not item.changed
+      - not item.failed
+      - "'already exists' in item.msg"
+    quiet: true
+  loop: "{{ user_idempotency_results.results }}"
+  loop_control:
+    label: "{{ item.user_item.username }}"
+
+- name: "Checkmode - Test idempotency - Create same users again"
+  technitium_dns_create_user:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ user_item.username }}"
+    password: "{{ user_item.password }}"
+    displayName: "{{ user_item.displayName | default(omit) }}"
+  check_mode: true
+  register: user_idempotency_results
+  loop: "{{ test_users }}"
+  loop_control:
+    loop_var: user_item
+    label: "{{ user_item.username }}"
+
+- name: "Checkmode - Assert idempotency - users should not be created again"
+  assert:
+    that:
+      - not item.changed
+      - not item.failed
+      - "'already exists' in item.msg"
+    quiet: true
+  loop: "{{ user_idempotency_results.results }}"
+  loop_control:
+    label: "{{ item.user_item.username }}"
+
+# Phase 6: Verify users exist using list_users module
+- name: "List all users to verify creation"
+  technitium_dns_list_users:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: users_list_result
+
+- name: "Debug users list result"
+  debug:
+    var: users_list_result
+  when: debug | default(false)
+
+- name: "Verify each test user exists in the users list"
+  assert:
+    that:
+      - users_list_result.users | selectattr('username', 'equalto', user_item.username) | list | length == 1
+    fail_msg: "Test user '{{ user_item.username }}' should exist in the users list"
+  loop: "{{ test_users }}"
+  loop_control:
+    loop_var: user_item
+    label: "{{ user_item.username }}"
+
+- name: "Verify user properties"
+  assert:
+    that:
+      - found_user.username == user_item.username
+      - found_user.displayName == (user_item.displayName | default(user_item.username))
+      - found_user.disabled == false
+      - found_user.previousSessionLoggedOn is defined
+      - found_user.previousSessionRemoteAddress is defined
+      - found_user.recentSessionLoggedOn is defined
+      - found_user.recentSessionRemoteAddress is defined
+    fail_msg: "User '{{ user_item.username }}' should have correct properties"
+  vars:
+    found_user: "{{ users_list_result.users | selectattr('username', 'equalto', user_item.username) | first }}"
+  loop: "{{ test_users }}"
+  loop_control:
+    loop_var: user_item
+    label: "{{ user_item.username }}"
+
+# Phase 7: Test failure cases
+- name: "Test invalid API token"
+  technitium_dns_create_user:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "failuser"
+    password: "password123"
+    displayName: "Fail User"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"
+
+- name: "Test duplicate username creation (should be idempotent)"
+  technitium_dns_create_user:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ test_users[0].username }}"
+    password: "DifferentPassword123!"
+    displayName: "Different Display Name"
+  register: duplicate_user_result
+
+- name: "Assert duplicate user creation is handled correctly"
+  assert:
+    that:
+      - not duplicate_user_result.changed
+      - not duplicate_user_result.failed
+      - "'already exists' in duplicate_user_result.msg"
+    fail_msg: "Duplicate user creation should be idempotent"
+
+# Phase 8: Cleanup - Delete test users
+- name: "Delete test users (cleanup)"
+  technitium_dns_delete_user:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "{{ user_item.username }}"
+  register: user_cleanup_result
+  loop: "{{ test_users }}"
+  loop_control:
+    loop_var: user_item
+    label: "{{ user_item.username }}"
+  ignore_errors: true
