@@ -9,9 +9,9 @@
 
 - name: "Delete DNS zones (cleanup)"
   technitium_dns_delete_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
   register: zone_deletion_result
@@ -24,9 +24,9 @@
 # Phase 2: Create and sign DNS zones for testing
 - name: "Create DNS zones for testing"
   technitium_dns_create_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
     type: Primary
@@ -38,9 +38,9 @@
 
 - name: "Sign DNS zones with DNSSEC"
   technitium_dns_sign_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
     algorithm: "{{ sign_parameters.algorithm }}"
@@ -58,9 +58,9 @@
 
 - name: "Verify zones are signed with DNSSEC"
   technitium_dns_get_zone_options:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
   register: pre_test_zone_status
@@ -82,9 +82,9 @@
 # Phase 3: Test check mode
 - name: "Check mode - Add RSA private key"
   technitium_dns_add_private_key:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ add_private_key_test_zones[0].zone }}"
     key_type: "KeySigningKey"
@@ -105,9 +105,9 @@
 # Phase 4: Test all key type and algorithm combinations
 - name: "Add private keys - test all algorithm combinations"
   technitium_dns_add_private_key:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ add_private_key_test_zones[0].zone }}"
     key_type: "{{ config_item.key_type }}"
@@ -138,9 +138,9 @@
 # Verify the added keys by counting total keys
 - name: "Get DNSSEC properties to verify keys were added"
   technitium_dns_get_dnssec_properties:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ add_private_key_test_zones[0].zone }}"
   register: post_add_keys_dnssec_properties
@@ -170,9 +170,9 @@
 # Phase 5: Test user-provided private keys
 - name: "Add user-provided RSA private key"
   technitium_dns_add_private_key:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ add_private_key_test_zones[1].zone }}"
     key_type: "KeySigningKey"
@@ -184,9 +184,9 @@
 
 - name: "Add user-provided ECDSA P256 private key"  
   technitium_dns_add_private_key:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ add_private_key_test_zones[1].zone }}"
     key_type: "ZoneSigningKey"
@@ -198,9 +198,9 @@
 
 - name: "Get DNSSEC properties after user key addition"
   technitium_dns_get_dnssec_properties:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ add_private_key_test_zones[1].zone }}"
   register: post_user_key_dnssec_properties
@@ -239,9 +239,9 @@
 # Relies on API validation error messages for checking key types
 - name: "Negative test - Invalid pem_private_key for algorithm"
   technitium_dns_add_private_key:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ add_private_key_test_zones[0].zone }}"
     key_type: "KeySigningKey"
@@ -261,9 +261,9 @@
 
 - name: "Negative test - Missing hash_algorithm for RSA"
   technitium_dns_add_private_key:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ add_private_key_test_zones[0].zone }}"
     key_type: "KeySigningKey"
@@ -282,9 +282,9 @@
 
 - name: "Negative test - Missing curve for ECDSA"
   technitium_dns_add_private_key:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ add_private_key_test_zones[0].zone }}"
     key_type: "KeySigningKey"
@@ -302,9 +302,9 @@
 
 - name: "Negative test - Invalid curve for ECDSA"
   technitium_dns_add_private_key:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ add_private_key_test_zones[0].zone }}"
     key_type: "KeySigningKey"
@@ -323,9 +323,9 @@
 
 - name: "Negative test - Hash algorithm with ECDSA"
   technitium_dns_add_private_key:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ add_private_key_test_zones[0].zone }}"
     key_type: "KeySigningKey"
@@ -345,9 +345,9 @@
 
 - name: "Negative test - Add key to unsigned zone"
   technitium_dns_create_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "unsigned-test.{{ testing_suffix }}"
     type: Primary
@@ -355,9 +355,9 @@
 
 - name: "Negative test - Try to add key to unsigned zone"
   technitium_dns_add_private_key:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "unsigned-test.{{ testing_suffix }}"
     key_type: "KeySigningKey"
@@ -376,9 +376,9 @@
 
 - name: "Negative test - Invalid API token"
   technitium_dns_add_private_key:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "BADTOKEN"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ add_private_key_test_zones[0].zone }}"
     key_type: "KeySigningKey"
@@ -398,9 +398,9 @@
 # # Phase 8: Cleanup
 # - name: "Cleanup - Delete test zones"
 #   technitium_dns_delete_zone:
-#     api_url: "{{ technitium_api_url | default('http://localhost') }}"
-#     api_token: "{{ technitium_api_token }}"
-#     api_port: "{{ technitium_api_port | default(5380) | int }}"
+#     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+#     api_token: "{{ technitium_api_token_2 }}"
+#     api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
 #     validate_certs: "{{ validate_certs | default(true) }}"
 #     zone: "{{ zone_item.zone }}"
 #   register: cleanup_zone_deletion
@@ -411,8 +411,8 @@
 
 # - name: "Cleanup - Delete unsigned test zone"
 #   technitium_dns_delete_zone:
-#     api_url: "{{ technitium_api_url | default('http://localhost') }}"
-#     api_token: "{{ technitium_api_token }}"
-#     api_port: "{{ technitium_api_port | default(5380) | int }}"
+#     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+#     api_token: "{{ technitium_api_token_2 }}"
+#     api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
 #     validate_certs: "{{ validate_certs | default(true) }}"
 #     zone: "unsigned-test.{{ testing_suffix }}"

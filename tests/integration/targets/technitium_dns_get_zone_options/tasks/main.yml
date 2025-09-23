@@ -10,9 +10,9 @@
 
 - name: "Delete DNS zones (cleanup)"
   technitium_dns_delete_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
   register: zone_deletion_result
@@ -24,9 +24,9 @@
 # Phase 2: Create DNS zones for testing
 - name: "Create DNS zones for testing"
   technitium_dns_create_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
     type: "{{ zone_item.type }}"
@@ -57,9 +57,9 @@
 
 - name: "Sign DNSSEC-enabled zones"
   technitium_dns_sign_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
     algorithm: "{{ zone_item.dnssec_algorithm | default('RSA') }}"
@@ -89,9 +89,9 @@
 # Primary Zone
 - name: "Set zone options for primary.{{ testing_suffix }}"
   technitium_dns_set_zone_options:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "primary.{{ testing_suffix }}"
     update: UseSpecifiedNetworkACL
@@ -125,9 +125,9 @@
 
 - name: "Get zone options for primary.{{ testing_suffix }}"
   technitium_dns_get_zone_options:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "primary.{{ testing_suffix }}"
   register: get_primary_zone_options_results
@@ -165,9 +165,9 @@
 # Primary DNSSEC Enabled Zone
 - name: "Set zone options for dnssec-primary.{{ testing_suffix }}"
   technitium_dns_set_zone_options:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "dnssec-primary.{{ testing_suffix }}"
     update: AllowZoneNameServersAndUseSpecifiedNetworkACL
@@ -201,9 +201,9 @@
 
 - name: "Get zone options for dnssec-primary.{{ testing_suffix }}"
   technitium_dns_get_zone_options:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "dnssec-primary.{{ testing_suffix }}"
   register: get_dnssec_primary_zone_options_results
@@ -241,9 +241,9 @@
 # Secondary Zone
 - name: "Set zone options for secondary.{{ testing_suffix }}"
   technitium_dns_set_zone_options:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "secondary.{{ testing_suffix }}"
     zoneTransfer: "UseSpecifiedNetworkACL"
@@ -274,9 +274,9 @@
 
 - name: "Get zone options for secondary.{{ testing_suffix }}"
   technitium_dns_get_zone_options:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "secondary.{{ testing_suffix }}"
   register: get_secondary_zone_options_results
@@ -312,9 +312,9 @@
 # Stub Zone
 - name: "Set zone options for stub.{{ testing_suffix }}"
   technitium_dns_set_zone_options:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "stub.{{ testing_suffix }}"
     queryAccess: "UseSpecifiedNetworkACL"
@@ -329,9 +329,9 @@
 
 - name: "Get zone options for stub.{{ testing_suffix }}"
   technitium_dns_get_zone_options:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "stub.{{ testing_suffix }}"
   register: get_stub_zone_options_results
@@ -359,9 +359,9 @@
 # Forwarder Zone
 - name: "Set zone options for forwarder.{{ testing_suffix }}"
   technitium_dns_set_zone_options:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "forwarder.{{ testing_suffix }}"
     disabled: false
@@ -382,9 +382,9 @@
 
 - name: "Get zone options for forwarder.{{ testing_suffix }}"
   technitium_dns_get_zone_options:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "forwarder.{{ testing_suffix }}"
   register: get_forwarder_zone_options_results
@@ -414,9 +414,9 @@
 # Catalog Zone
 - name: "Set zone options for catalog.{{ testing_suffix }}"
   technitium_dns_set_zone_options:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "catalog.{{ testing_suffix }}"
     disabled: false
@@ -438,9 +438,9 @@
 
 - name: "Get zone options for catalog.{{ testing_suffix }}"
   technitium_dns_get_zone_options:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "catalog.{{ testing_suffix }}"
   register: get_catalog_zone_options_results
@@ -471,9 +471,9 @@
 # Secondary Forwarder
 - name: "Set zone options for secondary-forwarder.{{ testing_suffix }}"
   technitium_dns_set_zone_options:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "secondary-forwarder.{{ testing_suffix }}"
     disabled: false
@@ -489,9 +489,9 @@
 
 - name: "Get zone options for secondary-forwarder.{{ testing_suffix }}"
   technitium_dns_get_zone_options:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "secondary-forwarder.{{ testing_suffix }}"
   register: get_secondary_forwarder_zone_options_results
@@ -519,9 +519,9 @@
 # Secondary Catalog
 - name: "Set zone options for secondary-catalog.{{ testing_suffix }}"
   technitium_dns_set_zone_options:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "secondary-catalog.{{ testing_suffix }}"
     disabled: false
@@ -539,9 +539,9 @@
 
 - name: "Get zone options for secondary-catalog.{{ testing_suffix }}"
   technitium_dns_get_zone_options:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "secondary-catalog.{{ testing_suffix }}"
   register: get_secondary_catalog_zone_options_results
@@ -567,9 +567,9 @@
 # Failure tests
 - name: "Failure Test: Set zone options with invalid API token"
   technitium_dns_set_zone_options:
-    api_url: "{{ technitium_api_url }}"
+    api_url: "{{ technitium_api_url_2 }}"
     api_token: BADTOKEN
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "secondary-forwarder.{{ testing_suffix }}"
   register: fail_bad_token
@@ -583,9 +583,9 @@
 
 - name: "Failure Test: Get zone options for non-existent zone"
   technitium_dns_get_zone_options:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: badzone.com
   register: fail_bad_zone
@@ -599,9 +599,9 @@
 
 - name: "Failure Test: Invalid parameter option"
   technitium_dns_get_zone_options:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: forwarder.{{ testing_suffix }}
     zoneTransfer: AllowZoneNameServersAndUseSpecifiedNetworkACL
@@ -615,9 +615,9 @@
 
 - name: "Failure Test: Invalid parameter option"
   technitium_dns_get_zone_options:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: forwarder.{{ testing_suffix }}
     primaryNameServerAddresses: 

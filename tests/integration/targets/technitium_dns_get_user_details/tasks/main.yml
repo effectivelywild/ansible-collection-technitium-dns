@@ -9,9 +9,9 @@
 # Phase 2: Test getting administrator user details
 - name: "Get administrator user details"
   technitium_dns_get_user_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "admin"
   register: admin_user_result
@@ -65,9 +65,9 @@
 # Phase 5: Test failure cases
 - name: "Test with non-existent user"
   technitium_dns_get_user_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "nonexistentuser-{{ ansible_date_time.epoch }}"
   register: nonexistent_user_result
@@ -82,9 +82,9 @@
 
 - name: "Test with invalid API token"
   technitium_dns_get_user_details:
-    api_url: "{{ technitium_api_url }}"
+    api_url: "{{ technitium_api_url_2 }}"
     api_token: "invalid_token_12345"
-    api_port: "{{ technitium_api_port | int }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "admin"
   register: invalid_token_result
@@ -100,9 +100,9 @@
 # Phase 6: Test creating a user and getting their details
 - name: "Create a test user for details testing"
   technitium_dns_create_user:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "detailstest-{{ ansible_date_time.epoch }}"
     password: "TestPass123!"
@@ -111,9 +111,9 @@
 
 - name: "Get details for the test user"
   technitium_dns_get_user_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "{{ test_user_creation.api_response.response.username }}"
   register: test_user_details
@@ -131,9 +131,9 @@
 # Phase 7: Cleanup - Delete test user
 - name: "Delete test user (cleanup)"
   technitium_dns_delete_user:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "{{ test_user_creation.api_response.response.username }}"
   ignore_errors: true

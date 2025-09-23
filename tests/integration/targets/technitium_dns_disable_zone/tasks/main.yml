@@ -11,9 +11,9 @@
 
 - name: "Delete DNS zones (cleanup)"
   technitium_dns_delete_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
   register: zone_deletion_result
@@ -25,9 +25,9 @@
 # Phase 2: Create zones
 - name: "Create DNS zones for testing"
   technitium_dns_create_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
     type: "{{ zone_item.type }}"
@@ -64,9 +64,9 @@
 # Phase 3: Verify zones are enabled by default
 - name: "Get zones to verify zones are enabled by default"
   technitium_dns_get_zone_options:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
   register: zone_default_info_result
@@ -94,9 +94,9 @@
 # Phase 4: Check mode
 - name: "Check mode - Disable zones"
   technitium_dns_disable_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
   check_mode: true
@@ -117,9 +117,9 @@
 
 - name: "Get zones to verify Check mode didn't disable zones"
   technitium_dns_get_zone_options:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
   register: zone_checkmode_info_result
@@ -142,9 +142,9 @@
 # Phase 5 - Disable zones
 - name: "Disable zones"
   technitium_dns_disable_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
   register: zone_disable_result
@@ -164,9 +164,9 @@
 
 - name: "Get zones to verify zones have been disabled"
   technitium_dns_get_zone_options:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
   register: zone_info_result
@@ -189,9 +189,9 @@
 # Phase 6: Idempotency Testing
 - name: "Idempotency - Check mode - Disable zones"
   technitium_dns_disable_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
   check_mode: true
@@ -212,9 +212,9 @@
 
 - name: "Idempotency - Disable zones"
   technitium_dns_disable_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
   register: zone_disable_result
@@ -235,9 +235,9 @@
 # Phase 7: Negative tests
 - name: "Test disable with empty zone name"
   technitium_dns_disable_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: ""
   register: empty_zone_disable_result
@@ -250,9 +250,9 @@
 
 - name: "Test disable with nonexistent zone"
   technitium_dns_disable_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "nonexistent-zone.{{ testing_suffix }}"
   register: nonexistent_zone_disable_result
@@ -265,9 +265,9 @@
 
 - name: "Test disable with invalid API credentials"
   technitium_dns_disable_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "invalid-token-12345"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "test-invalid-auth.{{ testing_suffix }}"
   register: invalid_auth_result
@@ -281,9 +281,9 @@
 # Phase 8: Cleanup
 - name: "Delete DNS zones (cleanup)"
   technitium_dns_delete_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
   register: zone_deletion_result

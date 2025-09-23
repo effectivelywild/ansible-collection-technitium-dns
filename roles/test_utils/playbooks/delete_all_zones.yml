@@ -6,9 +6,9 @@
   tasks:
     - name: Get all zones
       technitium_dns_get_zone_info:
-        api_url: "{{ technitium_api_url }}"
-        api_token: "{{ technitium_api_token }}"
-        api_port: "{{ technitium_api_port }}"
+        api_url: "{{ technitium_api_url_2 }}"
+        api_token: "{{ technitium_api_token_2 }}"
+        api_port: "{{ technitium_api_port_2 }}"
         validate_certs: false
       register: zone_info
 
@@ -22,9 +22,9 @@
 
     - name: Delete all non-internal zones
       technitium_dns_delete_zone:
-        api_url: "{{ technitium_api_url }}"
-        api_token: "{{ technitium_api_token }}"
-        api_port: "{{ technitium_api_port }}"
+        api_url: "{{ technitium_api_url_2 }}"
+        api_token: "{{ technitium_api_token_2 }}"
+        api_port: "{{ technitium_api_port_2 }}"
         zone: "{{ item }}"
         validate_certs: false
       loop: "{{ non_internal_zones }}"

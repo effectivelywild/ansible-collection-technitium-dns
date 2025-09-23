@@ -22,9 +22,9 @@
 # Phase 2: Create test group for modification testing
 - name: "Create test group for modification testing"
   technitium_dns_create_group:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "{{ test_group.name }}"
     description: "{{ test_group.description }}"
@@ -41,9 +41,9 @@
 # Phase 3: Create test users for membership testing
 - name: "Create test users for membership testing"
   technitium_dns_create_user:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "{{ item.username }}"
     password: "{{ item.password }}"
@@ -63,9 +63,9 @@
 # Phase 4: Test idempotency - no changes when current state matches desired
 - name: "Test idempotency - set same description"
   technitium_dns_set_group_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "{{ test_group.name }}"
     description: "{{ test_group.description }}"
@@ -82,9 +82,9 @@
 # Phase 5: Test check mode functionality
 - name: "Check mode - Update description"
   technitium_dns_set_group_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "{{ test_group.name }}"
     description: "Updated test group description"
@@ -106,9 +106,9 @@
 # Phase 6: Verify group details haven't changed after check mode
 - name: "Get group details after check mode"
   technitium_dns_get_group_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "{{ test_group.name }}"
   register: group_after_checkmode
@@ -123,9 +123,9 @@
 # Phase 7: Test actual description update
 - name: "Update description"
   technitium_dns_set_group_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "{{ test_group.name }}"
     description: "Updated test group description"
@@ -144,9 +144,9 @@
 # Phase 8: Verify description change
 - name: "Get group details after description update"
   technitium_dns_get_group_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "{{ test_group.name }}"
   register: group_after_description_update
@@ -161,9 +161,9 @@
 # Phase 9: Test setting group members
 - name: "Set group members"
   technitium_dns_set_group_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "{{ test_group.name }}"
     members:
@@ -183,9 +183,9 @@
 # Phase 10: Verify members were set
 - name: "Get group details after setting members"
   technitium_dns_get_group_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "{{ test_group.name }}"
   register: group_after_set_members
@@ -200,9 +200,9 @@
 # Phase 11: Test multiple parameter updates
 - name: "Update multiple group properties"
   technitium_dns_set_group_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "{{ test_group.name }}"
     description: "Multi-update test group"
@@ -223,9 +223,9 @@
 # Phase 12: Verify multiple property changes
 - name: "Get group details after multiple updates"
   technitium_dns_get_group_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "{{ test_group.name }}"
   register: group_after_multi_update
@@ -246,9 +246,9 @@
 
 - name: "Rename group"
   technitium_dns_set_group_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "{{ test_group.name }}"
     newGroup: "{{ renamed_group_name }}"
@@ -265,9 +265,9 @@
 # Phase 14: Verify group was renamed using the new name
 - name: "Get group details with new name"
   technitium_dns_get_group_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "{{ renamed_group_name }}"
   register: group_after_rename
@@ -283,9 +283,9 @@
 # Phase 15: Test failure cases
 - name: "Test with non-existent group"
   technitium_dns_set_group_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "nonexistentgroup-{{ ansible_date_time.epoch }}"
     description: "Should Fail"
@@ -301,9 +301,9 @@
 
 - name: "Test updating built-in group description (should succeed)"
   technitium_dns_set_group_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "Administrators"
     description: "Updated super administrators"
@@ -319,9 +319,9 @@
 
 - name: "Test renaming built-in group (should fail)"
   technitium_dns_set_group_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "Administrators"
     newGroup: "NewAdministrators"
@@ -337,9 +337,9 @@
 
 - name: "Restore original Administrators description"
   technitium_dns_set_group_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "Administrators"
     description: "Super administrators"
@@ -348,9 +348,9 @@
 # Phase 16: Test idempotency after changes
 - name: "Test idempotency after changes - set same values again"
   technitium_dns_set_group_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "{{ renamed_group_name }}"
     description: "Multi-update test group"
@@ -370,9 +370,9 @@
 # Phase 17: Cleanup - Delete test users and group
 - name: "Delete test users (cleanup)"
   technitium_dns_delete_user:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "{{ item.username }}"
   loop: "{{ test_users }}"
@@ -380,9 +380,9 @@
 
 - name: "Delete test group (cleanup)"
   technitium_dns_delete_group:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "{{ renamed_group_name }}"
   ignore_errors: true

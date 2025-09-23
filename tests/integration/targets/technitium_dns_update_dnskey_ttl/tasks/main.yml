@@ -7,9 +7,9 @@
 # Phase 2: Create and sign DNS zones for testing
 - name: "Create DNS zones for testing"
   technitium_dns_create_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
     type: Primary
@@ -21,9 +21,9 @@
 
 - name: "Get DNSSEC properties of created zones"
   technitium_dns_get_dnssec_properties:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "update-dnskey-ttl-test1.{{ testing_suffix }}"
   register: dnssec_properties_results
@@ -35,9 +35,9 @@
 
 - name: "Wait for KeySigningKey to be in Ready state"
   technitium_dns_get_dnssec_properties:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "update-dnskey-ttl-test1.{{ testing_suffix }}"
   register: wait_dnssec_props
@@ -53,9 +53,9 @@
 # Phase 3: Test check mode
 - name: "Check mode - Update DNSKEY TTL"
   technitium_dns_update_dnskey_ttl:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ update_dnskey_ttl_test_zones[0].zone }}"
     ttl: "{{ dnskey_ttl.check_mode }}"
@@ -72,9 +72,9 @@
 
 - name: "Verify check mode didn't actually change anything"
   technitium_dns_get_dnssec_properties:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ update_dnskey_ttl_test_zones[0].zone }}"
   register: check_verify_props
@@ -90,9 +90,9 @@
 # Phase 4: Test actual TTL update
 - name: "Update DNSKEY TTL"
   technitium_dns_update_dnskey_ttl:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ update_dnskey_ttl_test_zones[0].zone }}"
     ttl: "{{ dnskey_ttl.updated }}"
@@ -114,9 +114,9 @@
 # Phase 5: Verify the TTL has the expected new value
 - name: "Get DNSSEC properties to verify TTL update"
   technitium_dns_get_dnssec_properties:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ update_dnskey_ttl_test_zones[0].zone }}"
   register: updated_dnssec_props
@@ -132,9 +132,9 @@
 # Phase 6: Test idempotency
 - name: "Test idempotency - run same update twice"
   technitium_dns_update_dnskey_ttl:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ update_dnskey_ttl_test_zones[0].zone }}"
     ttl: "{{ dnskey_ttl.updated }}"
@@ -152,9 +152,9 @@
 # Phase 7: Test error scenarios
 - name: "Negative test - Update TTL in unsigned zone"
   technitium_dns_update_dnskey_ttl:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ update_dnskey_ttl_test_zones[1].zone }}"  # This zone was created but not signed
     ttl: 7200
@@ -171,9 +171,9 @@
 
 - name: "Negative test - Invalid TTL (negative value)"
   technitium_dns_update_dnskey_ttl:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ update_dnskey_ttl_test_zones[0].zone }}"
     ttl: -1
@@ -190,9 +190,9 @@
 
 - name: "Negative test - Invalid TTL (zero)"
   technitium_dns_update_dnskey_ttl:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ update_dnskey_ttl_test_zones[0].zone }}"
     ttl: 0
@@ -209,9 +209,9 @@
 
 - name: "Negative test - Invalid API token"
   technitium_dns_update_dnskey_ttl:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "BADTOKEN"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ update_dnskey_ttl_test_zones[0].zone }}"
     ttl: 7200
@@ -229,9 +229,9 @@
 # Phase 8: Cleanup
 - name: "Cleanup - Delete test zones"
   technitium_dns_delete_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
   register: cleanup_zone_deletion

@@ -9,9 +9,9 @@
 
 - name: "Delete DNS zones (cleanup)"
   technitium_dns_delete_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
   register: zone_deletion_result
@@ -24,9 +24,9 @@
 # Phase 2: Create DNS zones for testing
 - name: "Create DNS zones for testing"
   technitium_dns_create_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
     type: Primary
@@ -39,9 +39,9 @@
 # Phase 3: Sign zones with NSEC (source zones)
 - name: "Sign DNS zones with NSEC"
   technitium_dns_sign_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
     algorithm: "{{ sign_parameters.algorithm }}"
@@ -59,9 +59,9 @@
 
 - name: "Verify zones are signed with NSEC"
   technitium_dns_get_zone_options:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
   register: pre_convert_zone_status
@@ -83,9 +83,9 @@
 # Phase 4: Test check mode conversion
 - name: "Check mode - Convert NSEC zones to NSEC3"
   technitium_dns_convert_to_nsec3:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
   check_mode: true
@@ -108,9 +108,9 @@
 # Phase 5: Test actual conversion
 - name: "Convert NSEC zones to NSEC3"
   technitium_dns_convert_to_nsec3:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
   register: convert_to_nsec3_results
@@ -132,9 +132,9 @@
 # Phase 6: Verify conversions worked
 - name: "Verify zones have NSEC3 proof type after conversion"
   technitium_dns_get_zone_options:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
   register: post_convert_zone_status
@@ -157,9 +157,9 @@
 # Phase 7: Idempotency tests
 - name: "Idempotency - Convert already NSEC3 zones to NSEC3"
   technitium_dns_convert_to_nsec3:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
   register: idempotency_nsec3_results
@@ -181,9 +181,9 @@
 # Phase 8: Negative tests
 - name: "Negative test - Convert with invalid API token"
   technitium_dns_convert_to_nsec3:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "BADTOKEN"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ convert_to_nsec3_test_zones[0].zone }}"
   register: fail_bad_token
@@ -202,9 +202,9 @@
 
 - name: "Negative test - Convert non-existent zone"
   technitium_dns_convert_to_nsec3:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "nonexistent999.{{ testing_suffix }}"
   ignore_errors: true
@@ -223,9 +223,9 @@
 
 - name: "Negative test - Convert unsigned zone"
   technitium_dns_create_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "unsigned999.{{ testing_suffix }}"
     type: Primary
@@ -233,9 +233,9 @@
 
 - name: "Negative test - Try to convert unsigned zone to NSEC3"
   technitium_dns_convert_to_nsec3:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "unsigned999.{{ testing_suffix }}"
   ignore_errors: true

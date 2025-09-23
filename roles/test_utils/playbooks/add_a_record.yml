@@ -4,15 +4,15 @@
   vars_files:
     - "{{ playbook_dir }}/../../../tests/integration/integration_config.yml"
   tasks:
-    - name: Debug technitium_api_url
+    - name: Debug technitium_api_url_2
       debug:
-        var: technitium_api_url
+        var: technitium_api_url_2
         
     - name: Add record
       technitium_dns_add_record:
-        api_url: "{{ technitium_api_url }}"
-        api_token: "{{ technitium_api_token }}"
-        api_port: "{{ technitium_api_port }}"
+        api_url: "{{ technitium_api_url_2 }}"
+        api_token: "{{ technitium_api_token_2 }}"
+        api_port: "{{ technitium_api_port_2 }}"
         name: "arecord.test-primary.example.com"
         type: "A"
         ipAddress: "192.0.2.1"

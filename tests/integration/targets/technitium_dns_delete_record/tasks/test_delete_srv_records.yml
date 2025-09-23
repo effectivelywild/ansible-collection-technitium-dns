@@ -12,9 +12,9 @@
 # Phase 1: Create the records (using add module)
 - name: "Create SRV records to be deleted"
   technitium_dns_add_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "_sip._tcp.{{ rec.name }}.{{ rec.zone }}"
     zone: "{{ rec.zone }}"
     type: SRV
@@ -38,9 +38,9 @@
 # Phase 2: Check mode - plan deletion
 - name: "Plan delete SRV records (check mode)"
   technitium_dns_delete_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "_sip._tcp.{{ rec.name }}.{{ rec.zone }}"
     zone: "{{ rec.zone }}"
     type: SRV
@@ -65,9 +65,9 @@
 # Phase 3: Delete the records
 - name: "Delete SRV records"
   technitium_dns_delete_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "_sip._tcp.{{ rec.name }}.{{ rec.zone }}"
     zone: "{{ rec.zone }}"
     type: SRV
@@ -91,9 +91,9 @@
 # Phase 4: Check mode - plan deletion again (should be no changes)
 - name: "Plan delete SRV records again (check mode, after deletion)"
   technitium_dns_delete_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "_sip._tcp.{{ rec.name }}.{{ rec.zone }}"
     zone: "{{ rec.zone }}"
     type: SRV
@@ -118,9 +118,9 @@
 # Phase 5: Verify record doesn't exist with get_record
 - name: "Fetch records for absence (get_records)"
   technitium_dns_get_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "{{ rec.zone }}"
   loop: "{{ delete_srv_test_records }}"
   loop_control:
@@ -149,9 +149,9 @@
 # Phase 6: Idempotency - rerun delete (should be no changes)
 - name: "Idempotency: Re-run delete SRV records"
   technitium_dns_delete_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "_sip._tcp.{{ rec.name }}.{{ rec.zone }}"
     zone: "{{ rec.zone }}"
     type: SRV
@@ -175,9 +175,9 @@
 # Phase 7: Negative tests
 - name: "Negative: missing required priority param"
   technitium_dns_delete_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "_sip._tcp.neg-missing-priority.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
     type: SRV
@@ -195,9 +195,9 @@
 
 - name: "Negative: unsupported param for SRV (ipAddress)"
   technitium_dns_delete_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "_sip._tcp.bad-param-srv.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
     type: SRV
@@ -217,9 +217,9 @@
 
 - name: "Negative: invalid API token"
   technitium_dns_delete_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: BADTOKEN
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "_sip._tcp.bad-token-srv.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
     type: SRV

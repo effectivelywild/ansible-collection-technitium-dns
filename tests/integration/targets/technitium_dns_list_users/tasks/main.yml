@@ -9,9 +9,9 @@
 # Phase 2: Test successful user listing
 - name: "List all users from Technitium DNS"
   technitium_dns_list_users:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
   register: users_result
 
@@ -54,9 +54,9 @@
 # Phase 4: Test failure cases
 - name: "Test invalid API token"
   technitium_dns_list_users:
-    api_url: "{{ technitium_api_url }}"
+    api_url: "{{ technitium_api_url_2 }}"
     api_token: "invalid_token_12345"
-    api_port: "{{ technitium_api_port | int }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
   register: invalid_token_result
   ignore_errors: true

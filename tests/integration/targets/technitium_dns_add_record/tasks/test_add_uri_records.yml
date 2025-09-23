@@ -20,9 +20,9 @@
 # Phase 1: Check mode - Add URI records
 - name: "Check mode - Add URI records"
   technitium_dns_add_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "{{ rec.name }}.{{ rec.zone }}"
     zone: "{{ rec.zone }}"
     type: URI
@@ -46,9 +46,9 @@
 # Phase 2: external verify absence via get_records
 - name: "Verify check_mode didn't add records"
   technitium_dns_get_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "{{ rec.name }}.{{ rec.zone }}"
     zone: "{{ rec.zone }}"
   loop: "{{ add_uri_test_records }}"
@@ -67,9 +67,9 @@
 # Phase 3: real creation
 - name: "Add URI records"
   technitium_dns_add_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "{{ rec.name }}.{{ rec.zone }}"
     zone: "{{ rec.zone }}"
     type: URI
@@ -92,9 +92,9 @@
 # Phase 4: external verify presence via get_records
 - name: "Verify records were created"
   technitium_dns_get_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "{{ rec.name }}.{{ rec.zone }}"
     zone: "{{ rec.zone }}"
   loop: "{{ add_uri_test_records }}"
@@ -165,9 +165,9 @@
 # Phase 5: Check mode - re-plan (no change)
 - name: "Check mode - Re-add URI records"
   technitium_dns_add_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "{{ rec.name }}.{{ rec.zone }}"
     zone: "{{ rec.zone }}"
     type: URI
@@ -191,9 +191,9 @@
 # Phase 6: idempotency check (no change)
 - name: "Idempotency - Re-add URI records"
   technitium_dns_add_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "{{ rec.name }}.{{ rec.zone }}"
     zone: "{{ rec.zone }}"
     type: URI
@@ -216,9 +216,9 @@
 # Phase 7: overwrite tests
 - name: "Overwrite URI record (basic-uri) with new values"
   technitium_dns_add_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "{{ overwrite_uri_record.name }}.{{ overwrite_uri_record.zone }}"
     zone: "{{ overwrite_uri_record.zone }}"
     type: URI
@@ -240,9 +240,9 @@
 
 - name: "Fetch overwritten URI record for presence (get_records)"
   technitium_dns_get_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "{{ overwrite_uri_record.name }}.{{ overwrite_uri_record.zone }}"
     zone: "{{ overwrite_uri_record.zone }}"
   register: overwritten_uri_get_result
@@ -278,9 +278,9 @@
 # Phase 8: negative tests (URI specific)
 - name: "Negative test - URI missing uriPriority"
   technitium_dns_add_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "neg-missing-pri-uri.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
     type: URI
@@ -301,9 +301,9 @@
 
 - name: "Negative test - URI missing uriWeight"
   technitium_dns_add_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "neg-missing-weight-uri.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
     type: URI
@@ -324,9 +324,9 @@
 
 - name: "Negative test - URI missing uri"
   technitium_dns_add_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "neg-missing-uri.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
     type: URI
@@ -347,9 +347,9 @@
 
 - name: "Negative test - URI unsupported param (ipAddress)"
   technitium_dns_add_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "bad-param-uri.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
     type: URI
@@ -372,9 +372,9 @@
 
 - name: "Negative test - URI invalid API token"
   technitium_dns_add_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: BADTOKEN
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "bad-token-uri.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
     type: URI

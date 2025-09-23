@@ -2,9 +2,9 @@
 # Resync cycle task - adds records to primary server, resyncs, and verifies
 - name: "Cycle {{ cycle_number }}: Delete existing test record from primary server (cleanup)"
   technitium_dns_delete_record:
-    api_url: "{{ technitium_api_url_2 }}"
-    api_token: "{{ technitium_api_token_2 }}"
-    api_port: "{{ technitium_api_port_2 | int }}"
+    api_url: "{{ technitium_api_url_1 }}"
+    api_token: "{{ technitium_api_token_1 }}"
+    api_port: "{{ technitium_api_port_1 | int }}"
     validate_certs: "{{ validate_certs }}"
     zone: "{{ zone_item.zone }}"
     name: "{{ test_records[cycle_number - 1].name }}.{{ zone_item.zone }}"
@@ -19,9 +19,9 @@
 
 - name: "Cycle {{ cycle_number }}: Add test record to primary server (server 2) - Secondary zones only"
   technitium_dns_add_record:
-    api_url: "{{ technitium_api_url_2 }}"
-    api_token: "{{ technitium_api_token_2 }}"
-    api_port: "{{ technitium_api_port_2 | int }}"
+    api_url: "{{ technitium_api_url_1 }}"
+    api_token: "{{ technitium_api_token_1 }}"
+    api_port: "{{ technitium_api_port_1 | int }}"
     validate_certs: "{{ validate_certs }}"
     zone: "{{ zone_item.zone }}"
     name: "{{ test_records[cycle_number - 1].name }}.{{ zone_item.zone }}"
@@ -48,9 +48,9 @@
 
 - name: "Cycle {{ cycle_number }}: Perform resync on test zones"
   technitium_dns_resync_zone:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     zone: "{{ zone_item.zone }}"
   register: resync_results
@@ -77,9 +77,9 @@
 
 - name: "Cycle {{ cycle_number }}: Verify records exist on secondary zones after resync (Secondary zones only)"
   technitium_dns_get_record:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     name: "{{ test_records[cycle_number - 1].name }}.{{ zone_item.zone }}"
   register: record_verification_results

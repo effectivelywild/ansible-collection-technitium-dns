@@ -12,9 +12,9 @@
 # Phase 2: Cleanup and prepare test zones
 - name: "Delete test zones if they exist (cleanup)"
   technitium_dns_delete_zone:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     zone: "{{ zone_item.zone }}"
   register: zone_deletion_result
@@ -27,9 +27,9 @@
 # Phase 3: Create test zones for resync testing
 - name: "Create test zones (Secondary and Stub)"
   technitium_dns_create_zone:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     zone: "{{ zone_item.zone }}"
     type: "{{ zone_item.type }}"
@@ -54,9 +54,9 @@
 # Phase 4: Test failure cases first
 - name: "Test resync with non-existent zone"
   technitium_dns_resync_zone:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     zone: "nonexistent.{{ testing_suffix }}"
   register: nonexistent_zone_result
@@ -71,9 +71,9 @@
 
 - name: "Create a Primary zone to test invalid type"
   technitium_dns_create_zone:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     zone: "primary-test.{{ testing_suffix }}"
     type: "Primary"
@@ -81,9 +81,9 @@
 
 - name: "Test resync with Primary zone (should fail)"
   technitium_dns_resync_zone:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     zone: "primary-test.{{ testing_suffix }}"
   register: primary_zone_resync_result
@@ -99,9 +99,9 @@
 # Phase 5: Test check mode functionality
 - name: "Check mode - Resync test zones"
   technitium_dns_resync_zone:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     zone: "{{ zone_item.zone }}"
   check_mode: true
@@ -133,9 +133,9 @@
 # Phase 7: Clean up test zones
 - name: "Delete test zones (cleanup)"
   technitium_dns_delete_zone:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     zone: "{{ zone_item.zone }}"
   register: zone_deletion_result

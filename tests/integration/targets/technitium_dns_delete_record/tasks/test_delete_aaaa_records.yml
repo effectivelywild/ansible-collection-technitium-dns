@@ -13,9 +13,9 @@
 # Phase 1: Create the records (using add module)
 - name: "Create AAAA records to be deleted"
   technitium_dns_add_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "{{ rec.name }}.{{ rec.zone }}"
     zone: "{{ rec.zone }}"
     type: AAAA
@@ -36,9 +36,9 @@
 # Phase 2: Check mode - plan deletion
 - name: "Plan delete AAAA records (check mode)"
   technitium_dns_delete_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "{{ rec.name }}.{{ rec.zone }}"
     zone: "{{ rec.zone }}"
     type: AAAA
@@ -58,9 +58,9 @@
 # Phase 3: Delete the records
 - name: "Delete AAAA records"
   technitium_dns_delete_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "{{ rec.name }}.{{ rec.zone }}"
     zone: "{{ rec.zone }}"
     type: AAAA
@@ -79,9 +79,9 @@
 # Phase 4: Check mode - plan deletion again (should be no changes)
 - name: "Plan delete AAAA records again (check mode, after deletion)"
   technitium_dns_delete_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "{{ rec.name }}.{{ rec.zone }}"
     zone: "{{ rec.zone }}"
     type: AAAA
@@ -101,9 +101,9 @@
 # Phase 5: Verify record doesn't exist with get_record
 - name: "Fetch records for absence (get_records)"
   technitium_dns_get_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "{{ rec.zone }}"
   loop: "{{ delete_aaaa_test_records }}"
   loop_control:
@@ -132,9 +132,9 @@
 # Phase 6: Idempotency - rerun delete (should be no changes)
 - name: "Idempotency: Re-run delete AAAA records"
   technitium_dns_delete_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "{{ rec.name }}.{{ rec.zone }}"
     zone: "{{ rec.zone }}"
     type: AAAA
@@ -153,9 +153,9 @@
 # Phase 7: Negative tests
 - name: "Negative: missing required ipAddress"
   technitium_dns_delete_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "neg-missing-ipv6.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
     type: AAAA
@@ -170,9 +170,9 @@
 
 - name: "Negative: unsupported param for AAAA (cname)"
   technitium_dns_delete_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "bad-param-aaaa.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
     type: AAAA
@@ -188,9 +188,9 @@
 
 - name: "Negative: invalid API token"
   technitium_dns_delete_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: BADTOKEN
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "bad-token-aaaa.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
     type: AAAA

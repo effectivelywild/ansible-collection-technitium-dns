@@ -15,9 +15,9 @@
 # Phase 2: Create test group for deletion testing
 - name: "Create test group for deletion testing"
   technitium_dns_create_group:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "{{ test_group.name }}"
     description: "{{ test_group.description }}"
@@ -34,9 +34,9 @@
 # Phase 3: Test check mode functionality
 - name: "Check mode - Delete test group"
   technitium_dns_delete_group:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "{{ test_group.name }}"
   check_mode: true
@@ -53,9 +53,9 @@
 # Phase 4: Verify group still exists after check mode
 - name: "List groups after check mode"
   technitium_dns_list_groups:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
   register: groups_after_checkmode
 
@@ -68,9 +68,9 @@
 # Phase 5: Test actual group deletion
 - name: "Delete test group"
   technitium_dns_delete_group:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "{{ test_group.name }}"
   register: delete_result
@@ -87,9 +87,9 @@
 # Phase 6: Verify group no longer exists using list_groups
 - name: "List groups after deletion"
   technitium_dns_list_groups:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
   register: groups_after_deletion
 
@@ -102,9 +102,9 @@
 # Phase 7: Test idempotency - attempt to delete same group again
 - name: "Attempt to delete same group again (idempotency test)"
   technitium_dns_delete_group:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "{{ test_group.name }}"
   register: idempotent_result
@@ -120,9 +120,9 @@
 # Phase 8: Test check mode with non-existent group
 - name: "Check mode with non-existent group"
   technitium_dns_delete_group:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "nonexistent-{{ ansible_date_time.epoch }}"
   check_mode: true
@@ -139,9 +139,9 @@
 # Phase 9: Test failure cases
 - name: "Test with invalid API token"
   technitium_dns_delete_group:
-    api_url: "{{ technitium_api_url }}"
+    api_url: "{{ technitium_api_url_2 }}"
     api_token: "invalid_token_12345"
-    api_port: "{{ technitium_api_port | int }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "somegroup"
   register: invalid_token_result
@@ -157,9 +157,9 @@
 # Phase 10: Test deleting built-in groups (should fail cleanly)
 - name: "Attempt to delete built-in Administrators group"
   technitium_dns_delete_group:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "Administrators"
   register: delete_builtin_result
@@ -175,9 +175,9 @@
 
 - name: "Test deleting other built-in groups"
   technitium_dns_delete_group:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     group: "{{ item }}"
   register: delete_other_builtin_results

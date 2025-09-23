@@ -16,9 +16,9 @@
 # Phase 2: Create test user for modification testing
 - name: "Create test user for modification testing"
   technitium_dns_create_user:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "{{ test_user.username }}"
     password: "{{ test_user.password }}"
@@ -36,9 +36,9 @@
 # Phase 3: Test idempotency - no changes when current state matches desired
 - name: "Test idempotency - set same display name"
   technitium_dns_set_user_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "{{ test_user.username }}"
     displayName: "{{ test_user.displayName }}"
@@ -55,9 +55,9 @@
 # Phase 4: Test check mode functionality
 - name: "Check mode - Update display name"
   technitium_dns_set_user_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "{{ test_user.username }}"
     displayName: "Updated Test User"
@@ -79,9 +79,9 @@
 # Phase 5: Verify user details haven't changed after check mode
 - name: "Get user details after check mode"
   technitium_dns_get_user_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "{{ test_user.username }}"
   register: user_after_checkmode
@@ -96,9 +96,9 @@
 # Phase 6: Test actual display name update
 - name: "Update display name"
   technitium_dns_set_user_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "{{ test_user.username }}"
     displayName: "Updated Test User"
@@ -117,9 +117,9 @@
 # Phase 7: Verify display name change
 - name: "Get user details after display name update"
   technitium_dns_get_user_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "{{ test_user.username }}"
   register: user_after_display_update
@@ -134,9 +134,9 @@
 # Phase 8: Test multiple parameter updates
 - name: "Update multiple user properties"
   technitium_dns_set_user_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "{{ test_user.username }}"
     displayName: "Multi-Update Test User"
@@ -158,9 +158,9 @@
 # Phase 9: Verify multiple property changes
 - name: "Get user details after multiple updates"
   technitium_dns_get_user_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "{{ test_user.username }}"
   register: user_after_multi_update
@@ -177,9 +177,9 @@
 # Phase 10: Test password update (we can't verify the password but can test the operation)
 - name: "Update password"
   technitium_dns_set_user_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "{{ test_user.username }}"
     newPassword: "NewSecurePassword456!"
@@ -205,9 +205,9 @@
 
 - name: "Rename user account"
   technitium_dns_set_user_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "{{ test_user.username }}"
     newUsername: "{{ renamed_username }}"
@@ -224,9 +224,9 @@
 # Phase 12: Verify username was changed using the new name
 - name: "Get user details with new username"
   technitium_dns_get_user_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "{{ renamed_username }}"
   register: user_after_rename
@@ -241,9 +241,9 @@
 # Phase 13: Test failure cases
 - name: "Test with non-existent user"
   technitium_dns_set_user_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "nonexistentuser-{{ ansible_date_time.epoch }}"
     displayName: "Should Fail"
@@ -259,9 +259,9 @@
 
 - name: "Test with invalid API token"
   technitium_dns_set_user_details:
-    api_url: "{{ technitium_api_url }}"
+    api_url: "{{ technitium_api_url_2 }}"
     api_token: "invalid_token_12345"
-    api_port: "{{ technitium_api_port | int }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "{{ renamed_username }}"
     displayName: "Should Fail"
@@ -278,9 +278,9 @@
 # Phase 14: Test idempotency after changes
 - name: "Test idempotency after changes - set same values again"
   technitium_dns_set_user_details:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "{{ renamed_username }}"
     displayName: "Multi-Update Test User"
@@ -301,9 +301,9 @@
 # Phase 15: Cleanup - Delete test user
 - name: "Delete test user (cleanup)"
   technitium_dns_delete_user:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "{{ renamed_username }}"
   ignore_errors: true
