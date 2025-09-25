@@ -53,9 +53,9 @@
 # Phase 1: Check mode
 - name: "Check mode - Add TLSA records"
   technitium_dns_add_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "_443._tcp.{{ rec.name }}.{{ rec.zone }}"  # typical TLSA owner name pattern
     zone: "{{ rec.zone }}"
     type: TLSA
@@ -82,9 +82,9 @@
 # Phase 2: external verify absence via get_records
 - name: "Verify check_mode didn't add records"
   technitium_dns_get_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "_443._tcp.{{ rec.name }}.{{ rec.zone }}"
   loop: "{{ add_tlsa_test_records }}"
   loop_control:
@@ -106,9 +106,9 @@
 # Phase 3: real creation
 - name: "Create TLSA records"
   technitium_dns_add_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "_443._tcp.{{ rec.name }}.{{ rec.zone }}"
     zone: "{{ rec.zone }}"
     type: TLSA
@@ -134,9 +134,9 @@
 # Phase 4: verify presence via get_records
 - name: "Get TLSA records"
   technitium_dns_get_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "_443._tcp.{{ rec.name }}.{{ rec.zone }}"
     zone: "{{ rec.zone }}"
   loop: "{{ add_tlsa_test_records }}"
@@ -191,9 +191,9 @@
 # Phase 5: re-plan (no change)
 - name: "Check mode: Re-add TLSA records"
   technitium_dns_add_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "_443._tcp.{{ rec.name }}.{{ rec.zone }}"
     zone: "{{ rec.zone }}"
     type: TLSA
@@ -220,9 +220,9 @@
 # Phase 6: re-run real (no change)
 - name: "Idempotency: Re-run add TLSA records"
   technitium_dns_add_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "_443._tcp.{{ rec.name }}.{{ rec.zone }}"
     zone: "{{ rec.zone }}"
     type: TLSA
@@ -248,9 +248,9 @@
 # Phase 7: overwrite tests
 - name: "Overwrite TLSA record (tlsa-1) with new values"
   technitium_dns_add_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "_443._tcp.{{ overwrite_tlsa_record.name }}.{{ overwrite_tlsa_record.zone }}"
     zone: "{{ overwrite_tlsa_record.zone }}"
     type: TLSA
@@ -268,9 +268,9 @@
 
 - name: "Fetch overwritten TLSA record for presence (get_records)"
   technitium_dns_get_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "_443._tcp.{{ overwrite_tlsa_record.name }}.{{ overwrite_tlsa_record.zone }}"
     zone: "{{ overwrite_tlsa_record.zone }}"
   register: overwritten_tlsa_get_result
@@ -308,9 +308,9 @@
 # Phase 8: negative tests
 - name: "Negative: missing required param (tlsaCertificateAssociationData)"
   technitium_dns_add_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "_443._tcp.neg-missing-tlsa.{{ primary_sec_zone_name }}"
     zone: "{{ primary_sec_zone_name }}"
     type: TLSA
@@ -333,9 +333,9 @@
 
 - name: "Negative: unsupported param for TLSA (ipAddress)"
   technitium_dns_add_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "_443._tcp.neg-badparam-tlsa.{{ primary_sec_zone_name }}"
     zone: "{{ primary_sec_zone_name }}"
     type: TLSA
@@ -355,9 +355,9 @@
 
 - name: "Negative: invalid API token"
   technitium_dns_add_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: BADTOKEN
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "_443._tcp.neg-badtoken-tlsa.{{ primary_sec_zone_name }}"
     zone: "{{ primary_sec_zone_name }}"
     type: TLSA

@@ -7,9 +7,9 @@
 # Phase 2: Create test zones and sign the first one
 - name: "Create DNS zones for testing"
   technitium_dns_create_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
     type: Primary
@@ -21,9 +21,9 @@
 
 - name: "Sign first DNS zone with DNSSEC"
   technitium_dns_sign_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ rollover_dnskey_test_zones[0].zone }}"
     algorithm: "ECDSA"
@@ -35,9 +35,9 @@
 
 - name: "Add secondary ZoneSigningKey for rollover testing"
   technitium_dns_add_private_key:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ rollover_dnskey_test_zones[0].zone }}"
     key_type: "ZoneSigningKey"
@@ -48,18 +48,18 @@
 
 - name: "Publish all generated keys to make them available"
   technitium_dns_publish_all_keys:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ rollover_dnskey_test_zones[0].zone }}"
   register: publish_keys_result
 
 - name: "Get DNSSEC properties after setup"
   technitium_dns_get_dnssec_properties:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "rollover-dnskey-test1.{{ testing_suffix }}"
   register: dnssec_properties_results
@@ -71,9 +71,9 @@
 
 - name: "Wait for Active ZoneSigningKey to be available"
   technitium_dns_get_dnssec_properties:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "rollover-dnskey-test1.{{ testing_suffix }}"
   register: wait_dnssec_props
@@ -112,9 +112,9 @@
 # Phase 3: Test check mode
 - name: "Check mode - Rollover DNSKEY"
   technitium_dns_rollover_dnskey:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ rollover_dnskey_test_zones[0].zone }}"
     key_tag: "{{ zsk_key_tag | int }}"
@@ -132,9 +132,9 @@
 
 - name: "Verify check mode didn't actually change anything"
   technitium_dns_get_dnssec_properties:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "rollover-dnskey-test1.{{ testing_suffix }}"
   register: check_verify_props
@@ -154,9 +154,9 @@
 # Phase 4: Test actual DNSKEY rollover
 - name: "Rollover DNSKEY"
   technitium_dns_rollover_dnskey:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ rollover_dnskey_test_zones[0].zone }}"
     key_tag: "{{ zsk_key_tag | int }}"
@@ -179,9 +179,9 @@
 # Phase 5: Verify rollover created new key(s)
 - name: "Get DNSSEC properties to verify rollover"
   technitium_dns_get_dnssec_properties:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "rollover-dnskey-test1.{{ testing_suffix }}"
   register: rollover_verify_props
@@ -227,9 +227,9 @@
 # Phase 6: Test error scenarios
 - name: "Negative test - Rollover non-existent key tag"
   technitium_dns_rollover_dnskey:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ rollover_dnskey_test_zones[0].zone }}"
     key_tag: 99999  # Non-existent key tag
@@ -246,9 +246,9 @@
 
 - name: "Negative test - Rollover key in unsigned zone"
   technitium_dns_rollover_dnskey:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ rollover_dnskey_test_zones[1].zone }}"  # This zone was created but not signed
     key_tag: 1234
@@ -265,9 +265,9 @@
 
 - name: "Negative test - Invalid API token"
   technitium_dns_rollover_dnskey:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "BADTOKEN"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ rollover_dnskey_test_zones[0].zone }}"
     key_tag: "{{ zsk_key_tag | int }}"
@@ -284,9 +284,9 @@
 
 - name: "Negative test - Try to rollover the same key again (should be retiring)"
   technitium_dns_rollover_dnskey:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ rollover_dnskey_test_zones[0].zone }}"
     key_tag: "{{ zsk_key_tag | int }}"
@@ -304,9 +304,9 @@
 # Phase 7: Cleanup
 - name: "Cleanup - Delete test zones"
   technitium_dns_delete_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
   register: cleanup_zone_deletion

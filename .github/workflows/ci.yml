@@ -166,13 +166,13 @@ jobs:
       - name: Create integration config
         run: |
           cat > tests/integration/integration_config.yml << EOF
-          technitium_api_url: http://localhost
-          technitium_api_token: ${{ steps.get_server_values.outputs.api_token_2 }}
-          technitium_api_port: ${HTTP_PORT_2}
-          
+          technitium_api_url_1: http://localhost
+          technitium_api_token_1: ${{ steps.get_server_values.outputs.api_token_1 }}
+          technitium_api_port_1: ${HTTP_PORT_1}
+
           technitium_api_url_2: http://localhost
-          technitium_api_token_2: ${{ steps.get_server_values.outputs.api_token_1 }}
-          technitium_api_port_2: ${HTTP_PORT_1}
+          technitium_api_token_2: ${{ steps.get_server_values.outputs.api_token_2 }}
+          technitium_api_port_2: ${HTTP_PORT_2}
           validate_certs: false
 
           # Notify Name Server (technitium01), used for Zone testing

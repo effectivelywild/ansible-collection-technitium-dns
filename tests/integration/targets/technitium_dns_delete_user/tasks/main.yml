@@ -19,9 +19,9 @@
 # Phase 2: Create test users for deletion testing
 - name: "Create test users for deletion testing"
   technitium_dns_create_user:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "{{ user_item.username }}"
     password: "{{ user_item.password }}"
@@ -46,9 +46,9 @@
 # Phase 3: Verify users exist before deletion
 - name: "List users to verify they exist before deletion"
   technitium_dns_list_users:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
   register: users_before_deletion
 
@@ -65,9 +65,9 @@
 # Phase 4: Test check mode functionality
 - name: "Check mode - Delete test users"
   technitium_dns_delete_user:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "{{ user_item.username }}"
   check_mode: true
@@ -91,9 +91,9 @@
 # Phase 5: Verify users still exist after check mode
 - name: "List users to verify they still exist after check mode"
   technitium_dns_list_users:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
   register: users_after_checkmode
 
@@ -110,9 +110,9 @@
 # Phase 6: Actually delete test users
 - name: "Delete test users"
   technitium_dns_delete_user:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "{{ user_item.username }}"
   register: user_deletion_results
@@ -136,9 +136,9 @@
 # Phase 7: Verify users no longer exist using list_users module
 - name: "List users to verify deletion"
   technitium_dns_list_users:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
   register: users_after_deletion
 
@@ -155,9 +155,9 @@
 # Phase 8: Test idempotency - attempt to delete users again
 - name: "Test idempotency - Delete same users again"
   technitium_dns_delete_user:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "{{ user_item.username }}"
   register: user_idempotency_results
@@ -180,9 +180,9 @@
 # Phase 9: Test check mode on non-existent user
 - name: "Check mode - Delete non-existent user"
   technitium_dns_delete_user:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "nonexistent-user-{{ ansible_date_time.epoch }}"
   check_mode: true
@@ -199,9 +199,9 @@
 # Phase 10: Test failure cases
 - name: "Test invalid API token"
   technitium_dns_delete_user:
-    api_url: "{{ technitium_api_url }}"
+    api_url: "{{ technitium_api_url_2 }}"
     api_token: "invalid_token_12345"
-    api_port: "{{ technitium_api_port | int }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "someuser"
   register: invalid_token_result

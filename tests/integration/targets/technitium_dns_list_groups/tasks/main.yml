@@ -9,9 +9,9 @@
 # Phase 2: Test basic group listing functionality
 - name: "List all groups from Technitium DNS"
   technitium_dns_list_groups:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
   register: list_groups_result
 
@@ -74,9 +74,9 @@
 # Phase 5: Test failure cases
 - name: "Test with invalid API token"
   technitium_dns_list_groups:
-    api_url: "{{ technitium_api_url }}"
+    api_url: "{{ technitium_api_url_2 }}"
     api_token: "invalid_token_12345"
-    api_port: "{{ technitium_api_port | int }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
   register: invalid_token_result
   ignore_errors: true
@@ -91,9 +91,9 @@
 # Phase 6: Test idempotency (same results on multiple calls)
 - name: "List groups again to test consistency"
   technitium_dns_list_groups:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | int }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
   register: list_groups_second_result
 

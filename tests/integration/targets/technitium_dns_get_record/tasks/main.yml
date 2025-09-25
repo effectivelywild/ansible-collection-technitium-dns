@@ -21,9 +21,9 @@
 # Phase 1 - Create Records
 - name: "Create 5 records in primary zone"
   technitium_dns_add_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     domain: "rec{{ item }}.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
     type: A
@@ -35,9 +35,9 @@
 
 - name: "Create 5 records in security (signed) zone"
   technitium_dns_add_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "rec{{ item }}.{{ primary_sec_zone_name }}"
     zone: "{{ primary_sec_zone_name }}"
     type: A
@@ -50,9 +50,9 @@
 # Phase 2: Get one record from each zone and assert
 - name: "Get one record from primary zone"
   technitium_dns_get_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "rec1.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
   register: get_one_primary
@@ -69,9 +69,9 @@
 
 - name: "Get one record from primary zone without zone defined"
   technitium_dns_get_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "rec2.{{ primary_zone_name }}"
   register: get_second_primary
 
@@ -87,9 +87,9 @@
 
 - name: "Get one record from security zone"
   technitium_dns_get_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "rec1.{{ primary_sec_zone_name }}"
     zone: "{{ primary_sec_zone_name }}"
   register: get_one_sec
@@ -107,9 +107,9 @@
 # Phase 3: Get all records from each zone and assert
 - name: "Get all records from primary zone without using zone"
   technitium_dns_get_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "{{ primary_zone_name }}"
     listZone: true
   register: get_all_primary
@@ -127,9 +127,9 @@
 
 - name: "Get all records from security zone using zone"
   technitium_dns_get_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "{{ primary_sec_zone_name }}"
     zone: "{{ primary_sec_zone_name }}"
     listZone: true
@@ -149,9 +149,9 @@
 # Phase 4: Negative tests
 - name: "Get non-existent record"
   technitium_dns_get_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "doesnotexist.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
   register: get_nonexistent
@@ -170,9 +170,9 @@
 
 - name: "Negative: bad API token"
   technitium_dns_get_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: BADTOKEN
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
   register: get_bad_token

@@ -4,9 +4,9 @@
 
 - name: "Get DNSKEY records for digest derivation (sec zone)"
   technitium_dns_get_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     zone: "{{ primary_sec_zone_name }}"
     name: "{{ primary_sec_zone_name }}"
   register: ds_dnskey_query
@@ -68,9 +68,9 @@
 # Phase 1: Create the records (using add module)
 - name: "Create DS records to be deleted"
   technitium_dns_add_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "{{ rec.name }}.{{ primary_sec_zone_name }}"
     zone: "{{ primary_sec_zone_name }}"
     type: DS
@@ -92,9 +92,9 @@
 # Phase 2: Check mode - plan deletion
 - name: "Plan delete DS records (check mode)"
   technitium_dns_delete_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "{{ rec.name }}.{{ primary_sec_zone_name }}"
     zone: "{{ primary_sec_zone_name }}"
     type: DS
@@ -117,9 +117,9 @@
 # Phase 3: Delete the records
 - name: "Delete DS records"
   technitium_dns_delete_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "{{ rec.name }}.{{ primary_sec_zone_name }}"
     zone: "{{ primary_sec_zone_name }}"
     type: DS
@@ -141,9 +141,9 @@
 # Phase 4: Check mode - plan deletion again (should be no changes)
 - name: "Plan delete DS records again (check mode, after deletion)"
   technitium_dns_delete_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "{{ rec.name }}.{{ primary_sec_zone_name }}"
     zone: "{{ primary_sec_zone_name }}"
     type: DS
@@ -166,9 +166,9 @@
 # Phase 5: Verify record doesn't exist with get_record
 - name: "Fetch records for absence (get_records)"
   technitium_dns_get_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "{{ primary_sec_zone_name }}"
   loop: "{{ delete_ds_test_records }}"
   loop_control:
@@ -197,9 +197,9 @@
 # Phase 6: Idempotency - rerun delete (should be no changes)
 - name: "Idempotency: Re-run delete DS records"
   technitium_dns_delete_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "{{ rec.name }}.{{ primary_sec_zone_name }}"
     zone: "{{ primary_sec_zone_name }}"
     type: DS
@@ -221,9 +221,9 @@
 # Phase 7: Negative tests
 - name: "Negative: missing required keyTag param"
   technitium_dns_delete_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "neg-missing-keytag.{{ primary_sec_zone_name }}"
     zone: "{{ primary_sec_zone_name }}"
     type: DS
@@ -241,9 +241,9 @@
 
 - name: "Negative: unsupported param for DS (cname)"
   technitium_dns_delete_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "bad-param-ds.{{ primary_sec_zone_name }}"
     zone: "{{ primary_sec_zone_name }}"
     type: DS
@@ -263,9 +263,9 @@
 
 - name: "Negative: invalid API token"
   technitium_dns_delete_record:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: BADTOKEN
-    api_port: "{{ technitium_api_port | default(5380) }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
     name: "bad-token-ds.{{ primary_sec_zone_name }}"
     zone: "{{ primary_sec_zone_name }}"
     type: DS

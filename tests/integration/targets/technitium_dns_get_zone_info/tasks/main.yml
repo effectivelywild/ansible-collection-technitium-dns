@@ -10,9 +10,9 @@
 
 - name: "Delete DNS zones (cleanup)"
   technitium_dns_delete_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
   register: zone_deletion_result
@@ -24,9 +24,9 @@
 # Phase 2: Create DNS zones for testing
 - name: "Create DNS zones for testing"
   technitium_dns_create_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
     type: "{{ zone_item.type }}"
@@ -57,9 +57,9 @@
 
 - name: Sign DNSSEC-enabled zones
   technitium_dns_sign_zone:
-    api_url: "{{ technitium_api_url | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port | default(5380) | int }}"
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
     validate_certs: "{{ validate_certs | default(true) }}"
     zone: "{{ zone_item.zone }}"
     algorithm: "{{ zone_item.dnssec_algorithm | default('RSA') }}"
@@ -88,9 +88,9 @@
 # Phase 3: Individual Zone Info Retrieval Testing
 - name: "Get zone information for each individual test zone"
   technitium_dns_get_zone_info:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 }}"
     validate_certs: "{{ validate_certs }}"
     zone: "{{ zone_item.zone }}"
   register: individual_zone_results
@@ -119,9 +119,9 @@
 
 - name: "Get all Primary zones using zone_type filter"
   technitium_dns_get_zone_info:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 }}"
     validate_certs: "{{ validate_certs }}"
     zone_type: "Primary"
   register: primary_zones_result
@@ -143,9 +143,9 @@
 
 - name: "Get all Forwarder zones using zone_type filter"
   technitium_dns_get_zone_info:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 }}"
     validate_certs: "{{ validate_certs }}"
     zone_type: "Forwarder"
   register: forwarder_zones_result
@@ -167,9 +167,9 @@
 
 - name: "Get all Secondary zones using zone_type filter"
   technitium_dns_get_zone_info:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 }}"
     validate_certs: "{{ validate_certs }}"
     zone_type: "Secondary"
   register: secondary_zones_result
@@ -191,9 +191,9 @@
 
 - name: "Get all Stub zones using zone_type filter"
   technitium_dns_get_zone_info:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 }}"
     validate_certs: "{{ validate_certs }}"
     zone_type: "Stub"
   register: stub_zones_result
@@ -215,9 +215,9 @@
 
 - name: "Get all Catalog zones using zone_type filter"
   technitium_dns_get_zone_info:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 }}"
     validate_certs: "{{ validate_certs }}"
     zone_type: "Catalog"
   register: catalog_zones_result
@@ -239,9 +239,9 @@
 
 - name: "Get all SecondaryForwarder zones using zone_type filter"
   technitium_dns_get_zone_info:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 }}"
     validate_certs: "{{ validate_certs }}"
     zone_type: "SecondaryForwarder"
   register: secondary_forwarder_zones_result
@@ -263,9 +263,9 @@
 
 - name: "Get all SecondaryCatalog zones using zone_type filter"
   technitium_dns_get_zone_info:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 }}"
     validate_certs: "{{ validate_certs }}"
     zone_type: "SecondaryCatalog"
   register: secondary_catalog_zones_result
@@ -287,9 +287,9 @@
 
 - name: "Test getting all zones (no filters)"
   technitium_dns_get_zone_info:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 }}"
     validate_certs: "{{ validate_certs }}"
   register: all_zones_result
 
@@ -320,9 +320,9 @@
 
 - name: "Verify zone info retrieval for signed zones"
   technitium_dns_get_zone_info:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 }}"
     validate_certs: "{{ validate_certs }}"
     zone: "{{ dnssec_zone.zone }}"
   register: dnssec_zone_results
@@ -352,9 +352,9 @@
 # Phase 4: Failure Testing
 - name: "Test zone info retrieval for non-existent zones"
   technitium_dns_get_zone_info:
-    api_url: "{{ technitium_api_url }}"
-    api_token: "{{ technitium_api_token }}"
-    api_port: "{{ technitium_api_port }}"
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 }}"
     validate_certs: "{{ validate_certs }}"
     zone: thiszone.doesnotexist.{{ testing_suffix }}
   register: nonexistent_zone_results
@@ -367,9 +367,9 @@
 
 - name: "Test invalid API token"
   technitium_dns_get_zone_info:
-    api_url: "{{ technitium_api_url }}"
+    api_url: "{{ technitium_api_url_2 }}"
     api_token: "invalid_token_12345"
-    api_port: "{{ technitium_api_port }}"
+    api_port: "{{ technitium_api_port_2 }}"
     validate_certs: "{{ validate_certs }}"
     zone: "{{ zones_to_create[0].zone }}"
   register: invalid_token_result

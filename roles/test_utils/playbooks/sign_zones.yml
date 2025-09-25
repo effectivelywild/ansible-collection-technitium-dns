@@ -8,7 +8,7 @@
     # Configuration variables
     dns_server_url: "http://localhost"
     dns_server_port: 5380
-    api_token: "{{ technitium_api_token | default('your_api_token_here') }}"
+    api_token: "{{ technitium_api_token_2 | default('your_api_token_here') }}"
     test_zone_name: "dnssec-demo.test.local"
     
     # DNSSEC signing parameters
@@ -24,9 +24,9 @@
   tasks:
     - name: "Create the test zone"
       effectivelywild.technitium_dns.technitium_dns_create_zone:
-        api_url: "{{ technitium_api_url }}"
-        api_token: "{{ technitium_api_token }}"
-        api_port: "{{ technitium_api_port }}"
+        api_url: "{{ technitium_api_url_2 }}"
+        api_token: "{{ technitium_api_token_2 }}"
+        api_port: "{{ technitium_api_port_2 }}"
         zone: "{{ test_zone_name }}"
         type: "Primary"
         useSoaSerialDateScheme: true
@@ -39,9 +39,9 @@
 
     - name: "Get zone info"
       effectivelywild.technitium_dns.technitium_dns_get_zone_info:
-        api_url: "{{ technitium_api_url }}"
-        api_token: "{{ technitium_api_token }}"
-        api_port: "{{ technitium_api_port }}"
+        api_url: "{{ technitium_api_url_2 }}"
+        api_token: "{{ technitium_api_token_2 }}"
+        api_port: "{{ technitium_api_port_2 }}"
         zone: "{{ test_zone_name }}"
       register: get_zone_info
 
@@ -51,9 +51,9 @@
 
     - name: "Get zones info"
       effectivelywild.technitium_dns.technitium_dns_get_zone_info:
-        api_url: "{{ technitium_api_url }}"
-        api_token: "{{ technitium_api_token }}"
-        api_port: "{{ technitium_api_port }}"
+        api_url: "{{ technitium_api_url_2 }}"
+        api_token: "{{ technitium_api_token_2 }}"
+        api_port: "{{ technitium_api_port_2 }}"
       register: get_zones_info
 
     - name: debug get_zone_info
@@ -62,9 +62,9 @@
 
     - name: "Set zone options"
       effectivelywild.technitium_dns.technitium_dns_set_zone_options:
-        api_url: "{{ technitium_api_url }}"
-        api_token: "{{ technitium_api_token }}"
-        api_port: "{{ technitium_api_port }}"
+        api_url: "{{ technitium_api_url_2 }}"
+        api_token: "{{ technitium_api_token_2 }}"
+        api_port: "{{ technitium_api_port_2 }}"
         zone: "{{ test_zone_name }}"
         zoneTransfer: Allow
         notify: ZoneNameServers
@@ -77,9 +77,9 @@
 
     - name: "Get zone options"
       effectivelywild.technitium_dns.technitium_dns_get_zone_options:
-        api_url: "{{ technitium_api_url }}"
-        api_token: "{{ technitium_api_token }}"
-        api_port: "{{ technitium_api_port }}"
+        api_url: "{{ technitium_api_url_2 }}"
+        api_token: "{{ technitium_api_token_2 }}"
+        api_port: "{{ technitium_api_port_2 }}"
         zone: "{{ test_zone_name }}"
       register: get_zone_options
 
@@ -89,9 +89,9 @@
 
     - name: "Sign the zone with NSEC3"
       effectivelywild.technitium_dns.technitium_dns_sign_zone:
-        api_url: "{{ technitium_api_url }}"
-        api_token: "{{ technitium_api_token }}"
-        api_port: "{{ technitium_api_port }}"
+        api_url: "{{ technitium_api_url_2 }}"
+        api_token: "{{ technitium_api_token_2 }}"
+        api_port: "{{ technitium_api_port_2 }}"
         zone: "{{ test_zone_name }}"
         algorithm: "{{ signing_algorithm }}"
         curve: "{{ signing_curve }}"
@@ -109,9 +109,9 @@
 
     - name: Get DNSSEC Properties
       technitium_dns_get_dnssec_properties:
-        api_url: "{{ technitium_api_url }}"
-        api_token: "{{ technitium_api_token }}"
-        api_port: "{{ technitium_api_port }}"
+        api_url: "{{ technitium_api_url_2 }}"
+        api_token: "{{ technitium_api_token_2 }}"
+        api_port: "{{ technitium_api_port_2 }}"
         zone: "{{ test_zone_name }}"
       register: dnssec_properties
 
@@ -121,9 +121,9 @@
 
     - name: "Convert zone from NSEC3 to NSEC"
       effectivelywild.technitium_dns.technitium_dns_convert_to_nsec:
-        api_url: "{{ technitium_api_url }}"
-        api_token: "{{ technitium_api_token }}"
-        api_port: "{{ technitium_api_port }}"
+        api_url: "{{ technitium_api_url_2 }}"
+        api_token: "{{ technitium_api_token_2 }}"
+        api_port: "{{ technitium_api_port_2 }}"
         zone: "{{ test_zone_name }}"
         validate_certs: false
       register: convert_to_nsec_result
@@ -134,9 +134,9 @@
 
     - name: "Disable zone"
       effectivelywild.technitium_dns.technitium_dns_disable_zone:
-        api_url: "{{ technitium_api_url }}"
-        api_token: "{{ technitium_api_token }}"
-        api_port: "{{ technitium_api_port }}"
+        api_url: "{{ technitium_api_url_2 }}"
+        api_token: "{{ technitium_api_token_2 }}"
+        api_port: "{{ technitium_api_port_2 }}"
         zone: "{{ test_zone_name }}"
       register: disable_zone
 
@@ -146,9 +146,9 @@
 
     - name: "Disable zone"
       effectivelywild.technitium_dns.technitium_dns_enable_zone:
-        api_url: "{{ technitium_api_url }}"
-        api_token: "{{ technitium_api_token }}"
-        api_port: "{{ technitium_api_port }}"
+        api_url: "{{ technitium_api_url_2 }}"
+        api_token: "{{ technitium_api_token_2 }}"
+        api_port: "{{ technitium_api_port_2 }}"
         zone: "{{ test_zone_name }}"
       register: enable_zone
 
@@ -158,9 +158,9 @@
 
     - name: "Delete zone"
       effectivelywild.technitium_dns.technitium_dns_delete_zone:
-        api_url: "{{ technitium_api_url }}"
-        api_token: "{{ technitium_api_token }}"
-        api_port: "{{ technitium_api_port }}"
+        api_url: "{{ technitium_api_url_2 }}"
+        api_token: "{{ technitium_api_token_2 }}"
+        api_port: "{{ technitium_api_port_2 }}"
         zone: "{{ test_zone_name }}"
       register: delete_zone_result
 
