@@ -147,5 +147,28 @@ class TechnitiumModule(AnsibleModule):
             context_msg = f"{context}: " if context else ""
             self.fail_json(msg=f"{context_msg}Technitium API error: {error_msg}", api_response=data)
 
+    def get_sessions_list(self):
+        """Get list of all active sessions with standardized error handling"""
+        sessions_data = self.request('/api/admin/sessions/list')
+        if sessions_data.get('status') != 'ok':
+            error_msg = sessions_data.get('errorMessage') or "Unknown error"
+            self.fail_json(msg=f"Failed to check existing sessions: {error_msg}", api_response=sessions_data)
+        return sessions_data.get('response', {}).get('sessions', [])
+
+    def check_session_exists_by_partial_token(self, partial_token):
+        """Check if a session with the given partial token exists"""
+        sessions = self.get_sessions_list()
+        existing_session = next((s for s in sessions if s.get('partialToken') == partial_token), None)
+        return existing_session is not None, existing_session
+
+    def check_token_session_exists(self, username, token_name):
+        """Check if a token session with the given name exists for the user"""
+        sessions = self.get_sessions_list()
+        existing_token = next((s for s in sessions
+                              if s.get('username') == username
+                              and s.get('tokenName') == token_name
+                              and s.get('type') == 'ApiToken'), None)
+        return existing_token is not None, existing_token
+
     def __call__(self):
         self.run()

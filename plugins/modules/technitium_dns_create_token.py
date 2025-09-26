@@ -145,19 +145,6 @@ class CreateTokenModule(TechnitiumModule):
         supports_check_mode=True
     )
 
-    def check_token_exists(self, username, token_name):
-        """Check if a token with the given name already exists for the user"""
-        sessions_data = self.request('/api/admin/sessions/list')
-        if sessions_data.get('status') != 'ok':
-            error_msg = sessions_data.get('errorMessage') or "Unknown error"
-            self.fail_json(msg=f"Failed to check existing sessions: {error_msg}", api_response=sessions_data)
-
-        sessions = sessions_data.get('response', {}).get('sessions', [])
-        existing_token = next((s for s in sessions
-                              if s.get('username') == username
-                              and s.get('tokenName') == token_name
-                              and s.get('type') == 'ApiToken'), None)
-        return existing_token is not None, existing_token
 
     def run(self):
         params = self.params
@@ -171,7 +158,7 @@ class CreateTokenModule(TechnitiumModule):
             self.fail_json(msg=f"User '{username}' does not exist. Cannot create token for non-existent user.")
 
         # Check for existing token to ensure idempotent behavior
-        token_exists, existing_token = self.check_token_exists(username, token_name)
+        token_exists, existing_token = self.check_token_session_exists(username, token_name)
         if token_exists:
             self.exit_json(
                 changed=False,

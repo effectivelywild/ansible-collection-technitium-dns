@@ -1,0 +1,293 @@
+---
+# Integration test suite for technitium_dns_delete_session
+# This test validates session deletion functionality
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Create a test user for session testing
+- name: "Cleanup - Delete test user"
+  technitium_dns_delete_user:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "sessiontestuser"
+
+- name: "Create test user for session testing"
+  technitium_dns_create_user:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "sessiontestuser"
+    password: "testpassword123"
+    displayName: "Session Test User"
+  register: create_user_result
+
+- name: "Assert test user creation succeeded"
+  assert:
+    that:
+      - not create_user_result.failed
+      - create_user_result.changed
+    fail_msg: "Test user creation should have succeeded"
+
+- name: "Add test user to Administrators group"
+  technitium_dns_set_user_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "sessiontestuser"
+    memberOfGroups:
+      - "Administrators"
+  register: create_user_result
+
+# Phase 3: Create an API token for the test user
+- name: "Create API token for test user with return_token=true"
+  technitium_dns_create_token:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    user: "sessiontestuser"
+    tokenName: "SessionTestToken"
+    return_token: true
+  register: create_token_result
+
+- name: "Assert token creation succeeded"
+  assert:
+    that:
+      - not create_token_result.failed
+      - create_token_result.changed
+      - create_token_result.api_response.response.token is defined
+      - create_token_result.api_response.response.token != "[NEW_TOKEN_HIDDEN]"
+    fail_msg: "Token creation should have succeeded"
+
+# Phase 4: Use the API token to perform a task (validate it works)
+- name: "Test new token by listing users"
+  technitium_dns_list_users:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ create_token_result.api_response.response.token }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: users_with_new_token_result
+
+- name: "Assert new token works for API calls"
+  assert:
+    that:
+      - not users_with_new_token_result.failed
+      - users_with_new_token_result.users is defined
+      - users_with_new_token_result.users | length > 0
+    fail_msg: "New token should work for API calls"
+
+# Phase 5: List sessions to get the partialToken
+- name: "List sessions to get the partialToken for the created session"
+  technitium_dns_list_sessions:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: sessions_before_delete
+
+- name: "Extract partialToken for SessionTestToken"
+  set_fact:
+    test_session: "{{ sessions_before_delete.sessions | selectattr('tokenName', 'equalto', 'SessionTestToken') | first }}"
+    test_partial_token: "{{ (sessions_before_delete.sessions | selectattr('tokenName', 'equalto', 'SessionTestToken') | first).partialToken }}"
+
+- name: "Assert session exists and has partialToken"
+  assert:
+    that:
+      - test_session is defined
+      - test_session.username == "sessiontestuser"
+      - test_session.tokenName == "SessionTestToken"
+      - test_session.type == "ApiToken"
+      - test_partial_token is defined
+      - test_partial_token | length > 0
+    fail_msg: "Test session should exist with valid partialToken"
+
+# Phase 6: Test successful session deletion
+- name: "Delete the session using partialToken"
+  technitium_dns_delete_session:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    partialToken: "{{ test_partial_token }}"
+  register: delete_session_result
+
+- name: "Debug session deletion result"
+  debug:
+    var: delete_session_result
+  when: debug | default(false)
+
+- name: "Assert session deletion succeeded"
+  assert:
+    that:
+      - not delete_session_result.failed
+      - delete_session_result.changed
+      - delete_session_result.api_response is defined
+      - delete_session_result.api_response.status == "ok"
+      - "'deleted' in delete_session_result.msg"
+    fail_msg: "Session deletion should have succeeded"
+
+# Phase 7: Verify the token has been deleted
+- name: "Verify token no longer works by trying to use it"
+  technitium_dns_list_users:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ create_token_result.api_response.response.token }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: users_with_deleted_token_result
+  ignore_errors: true
+
+- name: "Assert deleted token no longer works"
+  assert:
+    that:
+      - users_with_deleted_token_result.failed
+      - "'Invalid token' in (users_with_deleted_token_result.msg) or 'Technitium API error' in (users_with_deleted_token_result.msg)"
+    fail_msg: "Deleted token should no longer work for API calls"
+
+# Phase 8: Verify session no longer appears in session list
+- name: "List sessions to verify session was deleted"
+  technitium_dns_list_sessions:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: sessions_after_delete
+
+- name: "Assert session no longer exists in session list"
+  assert:
+    that:
+      - sessions_after_delete.sessions | selectattr('partialToken', 'equalto', test_partial_token) | list | length == 0
+    fail_msg: "Deleted session should no longer appear in session list"
+
+# Phase 9: Test idempotency - deleting the same session again should not change anything
+- name: "Attempt to delete the same session again"
+  technitium_dns_delete_session:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    partialToken: "{{ test_partial_token }}"
+  register: delete_session_idempotent_result
+
+- name: "Assert idempotency - no changes should be made"
+  assert:
+    that:
+      - not delete_session_idempotent_result.failed
+      - not delete_session_idempotent_result.changed
+      - "'does not exist' in delete_session_idempotent_result.msg"
+    fail_msg: "Session deletion should be idempotent"
+
+# Phase 10: Test check mode
+- name: "Create another API token for check mode testing"
+  technitium_dns_create_token:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    user: "sessiontestuser"
+    tokenName: "CheckModeTestToken"
+    return_token: true
+  register: create_check_mode_token_result
+
+- name: "Get partialToken for check mode test"
+  technitium_dns_list_sessions:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: sessions_for_check_mode
+
+- name: "Extract partialToken for CheckModeTestToken"
+  set_fact:
+    check_mode_partial_token: "{{ (sessions_for_check_mode.sessions | selectattr('tokenName', 'equalto', 'CheckModeTestToken') | first).partialToken }}"
+
+- name: "Test check mode for session deletion"
+  technitium_dns_delete_session:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    partialToken: "{{ check_mode_partial_token }}"
+  check_mode: true
+  register: check_mode_result
+
+- name: "Assert check mode works correctly"
+  assert:
+    that:
+      - not check_mode_result.failed
+      - check_mode_result.changed
+      - "'would be deleted' in check_mode_result.msg"
+      - check_mode_result.api_response.check_mode is defined
+      - check_mode_result.api_response.check_mode
+    fail_msg: "Check mode should work correctly"
+
+# Phase 11: Verify the check mode session was not actually deleted
+- name: "Verify check mode session still exists"
+  technitium_dns_list_sessions:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: sessions_after_check_mode
+
+- name: "Assert check mode session still exists"
+  assert:
+    that:
+      - sessions_after_check_mode.sessions | selectattr('partialToken', 'equalto', check_mode_partial_token) | list | length > 0
+    fail_msg: "Check mode should not actually delete the session"
+
+# Phase 12: Test failure cases
+- name: "Test invalid API token"
+  technitium_dns_delete_session:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    partialToken: "{{ check_mode_partial_token }}"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"
+
+- name: "Test deleting non-existent session"
+  technitium_dns_delete_session:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    partialToken: "nonexistent12345"
+  register: nonexistent_session_result
+
+- name: "Assert no failure with non-existent session (idempotent)"
+  assert:
+    that:
+      - not nonexistent_session_result.failed
+      - not nonexistent_session_result.changed
+      - "'does not exist' in nonexistent_session_result.msg"
+    fail_msg: "Non-existent session should not cause failure (idempotent behavior)"
+
+# Phase 13: Cleanup - Delete the test user
+- name: "Delete the test user"
+  technitium_dns_delete_user:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "sessiontestuser"
+  register: cleanup_user_result
+
+- name: "Assert test user cleanup succeeded"
+  assert:
+    that:
+      - not cleanup_user_result.failed
+    fail_msg: "Test user cleanup should have succeeded"
