@@ -6,7 +6,7 @@ __metaclass__ = type
 
 DOCUMENTATION = r'''
 ---
-module: technitium_dns_get_permissions_details
+module: technitium_dns_get_permission_details
 short_description: Get permission details for a specific section from Technitium DNS server
 version_added: "0.5.0"
 description:
@@ -61,7 +61,7 @@ options:
 
 EXAMPLES = r'''
 - name: Get Dashboard permission details
-  technitium_dns_get_permissions_details:
+  technitium_dns_get_permission_details:
     api_url: "http://localhost"
     api_token: "myapitoken"
     section: "Dashboard"
@@ -71,7 +71,7 @@ EXAMPLES = r'''
     var: result.permission_details
 
 - name: Get Zones permission details without user/group lists
-  technitium_dns_get_permissions_details:
+  technitium_dns_get_permission_details:
     api_url: "http://localhost"
     api_token: "myapitoken"
     section: "Zones"

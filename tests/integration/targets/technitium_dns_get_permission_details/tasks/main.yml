@@ -1,5 +1,5 @@
 ---
-# Integration test suite for technitium_dns_get_permissions_details
+# Integration test suite for technitium_dns_get_permission_details
 # This test validates permission details retrieval functionality
 
 # Phase 1: Setup - Load configuration
@@ -31,7 +31,7 @@
 
 # Phase 3: Test successful permission details retrieval for Zones section
 - name: "Get permission details for Zones section"
-  technitium_dns_get_permissions_details:
+  technitium_dns_get_permission_details:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | int }}"
@@ -102,7 +102,7 @@
 
 # Phase 7: Test permission details without users and groups
 - name: "Get permission details for Dashboard without users/groups list"
-  technitium_dns_get_permissions_details:
+  technitium_dns_get_permission_details:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | int }}"
@@ -126,7 +126,7 @@
 
 # Phase 8: Test all available sections work
 - name: "Test permission details for each available section"
-  technitium_dns_get_permissions_details:
+  technitium_dns_get_permission_details:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | int }}"
@@ -153,7 +153,7 @@
 
 # Phase 9: Test failure cases
 - name: "Test invalid API token"
-  technitium_dns_get_permissions_details:
+  technitium_dns_get_permission_details:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "invalid_token_12345"
     api_port: "{{ technitium_api_port_2 | int }}"
@@ -170,7 +170,7 @@
     fail_msg: "Invalid token should cause failure"
 
 - name: "Test non-existent section"
-  technitium_dns_get_permissions_details:
+  technitium_dns_get_permission_details:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | int }}"
@@ -188,7 +188,7 @@
 
 # Phase 10: Test consistency - running same request multiple times
 - name: "Get Zones permission details again to test consistency"
-  technitium_dns_get_permissions_details:
+  technitium_dns_get_permission_details:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | int }}"

@@ -1,0 +1,356 @@
+---
+# Integration test suite for technitium_dns_set_permission_details
+# This test validates permission setting functionality
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Cleanup - Delete test user and group if they exist
+- name: "Cleanup - Delete test user if it exists"
+  technitium_dns_delete_user:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "testuser"
+  ignore_errors: true
+
+- name: "Cleanup - Delete test group if it exists"
+  technitium_dns_delete_group:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "testgroup"
+  ignore_errors: true
+
+# Phase 3: Create test user
+- name: "Create test user"
+  technitium_dns_create_user:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "testuser"
+    password: "testpassword123"
+    displayName: "Test User"
+  register: create_user_result
+
+- name: "Assert test user creation succeeded"
+  assert:
+    that:
+      - not create_user_result.failed
+      - create_user_result.changed
+    fail_msg: "Test user creation should have succeeded"
+
+# Phase 4: Create test group
+- name: "Create test group"
+  technitium_dns_create_group:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "testgroup"
+    description: "Test Group"
+  register: create_group_result
+
+- name: "Assert test group creation succeeded"
+  assert:
+    that:
+      - not create_group_result.failed
+      - create_group_result.changed
+    fail_msg: "Test group creation should have succeeded"
+
+# Phase 5: Set Dashboard permissions for testuser
+- name: "Set Dashboard permissions for testuser (canView, canModify, canDelete)"
+  technitium_dns_set_permission_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    section: "Dashboard"
+    userPermissions:
+      - username: "testuser"
+        canView: true
+        canModify: true
+        canDelete: true
+  register: set_dashboard_user_perms_result
+
+- name: "Debug Dashboard user permissions result"
+  debug:
+    var: set_dashboard_user_perms_result
+  when: debug | default(false)
+
+- name: "Assert Dashboard user permissions setting succeeded"
+  assert:
+    that:
+      - not set_dashboard_user_perms_result.failed
+      - set_dashboard_user_perms_result.changed
+      - set_dashboard_user_perms_result.api_response is defined
+      - set_dashboard_user_perms_result.api_response.status == "ok"
+    fail_msg: "Dashboard user permissions setting should have succeeded"
+
+# Phase 6: Set Cache permissions for testgroup
+- name: "Set Cache permissions for testgroup (canView, canModify, canDelete)"
+  technitium_dns_set_permission_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    section: "Cache"
+    groupPermissions:
+      - name: "testgroup"
+        canView: true
+        canModify: true
+        canDelete: true
+  register: set_cache_group_perms_result
+
+- name: "Debug Cache group permissions result"
+  debug:
+    var: set_cache_group_perms_result
+  when: debug | default(false)
+
+- name: "Assert Cache group permissions setting succeeded"
+  assert:
+    that:
+      - not set_cache_group_perms_result.failed
+      - set_cache_group_perms_result.changed
+      - set_cache_group_perms_result.api_response is defined
+      - set_cache_group_perms_result.api_response.status == "ok"
+    fail_msg: "Cache group permissions setting should have succeeded"
+
+# Phase 7: Verify Dashboard permissions using get_permissions_details
+- name: "Get Dashboard permission details to verify user permissions"
+  technitium_dns_get_permission_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    section: "Dashboard"
+  register: dashboard_verification_result
+
+- name: "Verify testuser has correct Dashboard permissions"
+  assert:
+    that:
+      - not dashboard_verification_result.failed
+      - dashboard_verification_result.permission_details is defined
+      - dashboard_verification_result.permission_details.section == "Dashboard"
+      - testuser_dashboard_perms is defined
+      - testuser_dashboard_perms.username == "testuser"
+      - testuser_dashboard_perms.canView == true
+      - testuser_dashboard_perms.canModify == true
+      - testuser_dashboard_perms.canDelete == true
+    fail_msg: "testuser should have full Dashboard permissions"
+  vars:
+    testuser_dashboard_perms: "{{ dashboard_verification_result.permission_details.userPermissions | selectattr('username', 'equalto', 'testuser') | first }}"
+
+# Phase 8: Verify Cache permissions using get_permissions_details
+- name: "Get Cache permission details to verify group permissions"
+  technitium_dns_get_permission_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    section: "Cache"
+  register: cache_verification_result
+
+- name: "Verify testgroup has correct Cache permissions"
+  assert:
+    that:
+      - not cache_verification_result.failed
+      - cache_verification_result.permission_details is defined
+      - cache_verification_result.permission_details.section == "Cache"
+      - testgroup_cache_perms is defined
+      - testgroup_cache_perms.name == "testgroup"
+      - testgroup_cache_perms.canView == true
+      - testgroup_cache_perms.canModify == true
+      - testgroup_cache_perms.canDelete == true
+    fail_msg: "testgroup should have full Cache permissions"
+  vars:
+    testgroup_cache_perms: "{{ cache_verification_result.permission_details.groupPermissions | selectattr('name', 'equalto', 'testgroup') | first }}"
+
+# Phase 9: Test idempotency - setting same permissions again should not change anything
+- name: "Set Dashboard permissions again (should be idempotent)"
+  technitium_dns_set_permission_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    section: "Dashboard"
+    userPermissions:
+      - username: "testuser"
+        canView: true
+        canModify: true
+        canDelete: true
+  register: idempotent_dashboard_result
+
+- name: "Assert idempotency - no changes should be made"
+  assert:
+    that:
+      - not idempotent_dashboard_result.failed
+      - not idempotent_dashboard_result.changed
+      - "'already match desired state' in idempotent_dashboard_result.msg"
+    fail_msg: "Permission setting should be idempotent"
+
+# Phase 10: Test check mode
+- name: "Test check mode for permission changes"
+  technitium_dns_set_permission_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    section: "Dashboard"
+    userPermissions:
+      - username: "testuser"
+        canView: true
+        canModify: false  # Different from current state
+        canDelete: false  # Different from current state
+  check_mode: true
+  register: check_mode_result
+
+- name: "Assert check mode works correctly"
+  assert:
+    that:
+      - not check_mode_result.failed
+      - check_mode_result.changed
+      - "'would be updated' in check_mode_result.msg"
+      - check_mode_result.api_response.check_mode is defined
+      - check_mode_result.api_response.check_mode
+      - check_mode_result.diff is defined
+    fail_msg: "Check mode should work correctly"
+
+# Phase 11: Verify check mode didn't actually change permissions
+- name: "Verify check mode didn't change permissions"
+  technitium_dns_get_permission_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    section: "Dashboard"
+  register: after_check_mode_result
+
+- name: "Assert permissions unchanged after check mode"
+  assert:
+    that:
+      - testuser_after_check_mode.canView == true
+      - testuser_after_check_mode.canModify == true  # Should still be true
+      - testuser_after_check_mode.canDelete == true  # Should still be true
+    fail_msg: "Check mode should not have changed actual permissions"
+  vars:
+    testuser_after_check_mode: "{{ after_check_mode_result.permission_details.userPermissions | selectattr('username', 'equalto', 'testuser') | first }}"
+
+# Phase 12: Test both user and group permissions in one call
+- name: "Set both user and group permissions for Zones section"
+  technitium_dns_set_permission_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    section: "Zones"
+    userPermissions:
+      - username: "testuser"
+        canView: true
+        canModify: false
+        canDelete: false
+    groupPermissions:
+      - name: "testgroup"
+        canView: true
+        canModify: true
+        canDelete: false
+  register: zones_combined_perms_result
+
+- name: "Verify combined permissions setting"
+  assert:
+    that:
+      - not zones_combined_perms_result.failed
+      - zones_combined_perms_result.changed
+    fail_msg: "Combined user and group permissions setting should succeed"
+
+# Phase 13: Test failure cases
+- name: "Test invalid API token"
+  technitium_dns_set_permission_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    section: "Dashboard"
+    userPermissions:
+      - username: "testuser"
+        canView: true
+        canModify: true
+        canDelete: true
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"
+
+- name: "Test non-existent section"
+  technitium_dns_set_permission_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    section: "NonExistentSection12345"
+    userPermissions:
+      - username: "testuser"
+        canView: true
+        canModify: true
+        canDelete: true
+  register: nonexistent_section_result
+  ignore_errors: true
+
+- name: "Assert failure with non-existent section"
+  assert:
+    that:
+      - nonexistent_section_result.failed
+      - "'does not exist' in nonexistent_section_result.msg"
+    fail_msg: "Non-existent section should cause failure"
+
+- name: "Test empty permissions (should fail)"
+  technitium_dns_set_permission_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    section: "Dashboard"
+  register: empty_permissions_result
+  ignore_errors: true
+
+- name: "Assert failure with empty permissions"
+  assert:
+    that:
+      - empty_permissions_result.failed
+      - "'At least one of userPermissions or groupPermissions must be provided' in empty_permissions_result.msg"
+    fail_msg: "Empty permissions should cause failure"
+
+# Phase 14: Cleanup - Remove test user and group
+- name: "Cleanup - Delete test user"
+  technitium_dns_delete_user:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "testuser"
+  register: cleanup_user_result
+
+- name: "Cleanup - Delete test group"
+  technitium_dns_delete_group:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    group: "testgroup"
+  register: cleanup_group_result
+
+- name: "Assert cleanup succeeded"
+  assert:
+    that:
+      - not cleanup_user_result.failed
+      - not cleanup_group_result.failed
+    fail_msg: "Cleanup should have succeeded"
