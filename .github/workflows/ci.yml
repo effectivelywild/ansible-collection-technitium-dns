@@ -142,10 +142,10 @@ jobs:
           echo "PORT_OFFSET=${PORT_OFFSET}" >> $GITHUB_ENV
           echo "HTTP_PORT_1=$((6000 + PORT_OFFSET * 10 + 1))" >> $GITHUB_ENV
           echo "HTTP_PORT_2=$((6000 + PORT_OFFSET * 10 + 2))" >> $GITHUB_ENV
-          echo "HTTP_PORT_3=$((6000 + PORT_OFFSET * 10 + 2))" >> $GITHUB_ENV
+          echo "HTTP_PORT_3=$((6000 + PORT_OFFSET * 10 + 3))" >> $GITHUB_ENV
           echo "HTTPS_PORT_1=$((50000 + PORT_OFFSET * 10 + 1))" >> $GITHUB_ENV  
           echo "HTTPS_PORT_2=$((50000 + PORT_OFFSET * 10 + 2))" >> $GITHUB_ENV
-          echo "HTTPS_PORT_3=$((50000 + PORT_OFFSET * 10 + 2))" >> $GITHUB_ENV
+          echo "HTTPS_PORT_3=$((50000 + PORT_OFFSET * 10 + 3))" >> $GITHUB_ENV
 
 
       - name: Setup testing environment
