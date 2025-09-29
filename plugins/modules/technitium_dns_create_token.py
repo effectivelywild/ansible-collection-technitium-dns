@@ -145,7 +145,6 @@ class CreateTokenModule(TechnitiumModule):
         supports_check_mode=True
     )
 
-
     def run(self):
         params = self.params
         username = params['user']

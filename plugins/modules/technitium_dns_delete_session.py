@@ -103,7 +103,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 class DeleteSessionModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
-        partialToken=dict(type='str', required=True)
+        partialToken=dict(type='str', required=True, no_log=False)
     )
     module_kwargs = dict(
         supports_check_mode=True

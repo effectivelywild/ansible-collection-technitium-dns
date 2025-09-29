@@ -133,6 +133,7 @@ jobs:
           echo "CONTAINER_SUFFIX=-${SAFE_JOB_ID}-${RUN_ID}" >> $GITHUB_ENV
           echo "TOKEN_FILE_1=/tmp/technitium01_token_${SAFE_JOB_ID}_${RUN_ID}" >> $GITHUB_ENV
           echo "TOKEN_FILE_2=/tmp/technitium02_token_${SAFE_JOB_ID}_${RUN_ID}" >> $GITHUB_ENV
+          echo "TOKEN_FILE_3=/tmp/technitium03_token_${SAFE_JOB_ID}_${RUN_ID}" >> $GITHUB_ENV
           
           # Calculate unique ports using hash of job ID (guaranteed unique)
           JOB_HASH=$(echo "${SAFE_JOB_ID}" | shasum | cut -c1-4)
@@ -141,8 +142,11 @@ jobs:
           echo "PORT_OFFSET=${PORT_OFFSET}" >> $GITHUB_ENV
           echo "HTTP_PORT_1=$((6000 + PORT_OFFSET * 10 + 1))" >> $GITHUB_ENV
           echo "HTTP_PORT_2=$((6000 + PORT_OFFSET * 10 + 2))" >> $GITHUB_ENV
+          echo "HTTP_PORT_3=$((6000 + PORT_OFFSET * 10 + 2))" >> $GITHUB_ENV
           echo "HTTPS_PORT_1=$((50000 + PORT_OFFSET * 10 + 1))" >> $GITHUB_ENV  
           echo "HTTPS_PORT_2=$((50000 + PORT_OFFSET * 10 + 2))" >> $GITHUB_ENV
+          echo "HTTPS_PORT_3=$((50000 + PORT_OFFSET * 10 + 2))" >> $GITHUB_ENV
+
 
       - name: Setup testing environment
         run: ansible-playbook roles/test_utils/playbooks/run_setup_testing_env.yml
@@ -157,6 +161,8 @@ jobs:
           echo "api_token_1=$API_TOKEN_1" >> $GITHUB_OUTPUT
           API_TOKEN_2=$(cat "${TOKEN_FILE_2}")
           echo "api_token_2=$API_TOKEN_2" >> $GITHUB_OUTPUT
+          API_TOKEN_3=$(cat "${TOKEN_FILE_3}")
+          echo "api_token_3=$API_TOKEN_3" >> $GITHUB_OUTPUT
 
           # Get container IP for notify_name_server using dynamic container name
           CONTAINER_NAME="technitium01${CONTAINER_SUFFIX}"
@@ -173,6 +179,11 @@ jobs:
           technitium_api_url_2: http://localhost
           technitium_api_token_2: ${{ steps.get_server_values.outputs.api_token_2 }}
           technitium_api_port_2: ${HTTP_PORT_2}
+
+          technitium_api_url_3: http://localhost
+          technitium_api_token_3: ${{ steps.get_server_values.outputs.api_token_3 }}
+          technitium_api_port_3: ${HTTP_PORT_3}
+    
           validate_certs: false
 
           # Notify Name Server (technitium01), used for Zone testing
