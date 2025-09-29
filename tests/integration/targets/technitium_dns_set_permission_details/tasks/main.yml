@@ -329,7 +329,175 @@
       - "'At least one of userPermissions or groupPermissions must be provided' in empty_permissions_result.msg"
     fail_msg: "Empty permissions should cause failure"
 
-# Phase 14: Cleanup - Remove test user and group
+# Phase 14: Test clearing permissions with empty lists
+# First set some permissions that we can clear
+- name: "Set initial permissions for clearing test"
+  technitium_dns_set_permission_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    section: "Administration"
+    userPermissions:
+      - username: "testuser"
+        canView: true
+        canModify: true
+        canDelete: false
+    groupPermissions:
+      - name: "testgroup"
+        canView: true
+        canModify: false
+        canDelete: false
+  register: initial_admin_perms_result
+
+- name: "Assert initial Administration permissions were set"
+  assert:
+    that:
+      - not initial_admin_perms_result.failed
+      - initial_admin_perms_result.changed
+    fail_msg: "Initial Administration permissions should have been set"
+
+# Test clearing user permissions only (should preserve group permissions)
+- name: "Clear user permissions while preserving group permissions"
+  technitium_dns_set_permission_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    section: "Administration"
+    userPermissions: []  # Clear all user permissions
+  register: clear_user_perms_result
+
+- name: "Assert user permissions clearing succeeded"
+  assert:
+    that:
+      - not clear_user_perms_result.failed
+      - clear_user_perms_result.changed
+      - clear_user_perms_result.diff is defined
+      - clear_user_perms_result.diff.userPermissions is defined
+      - clear_user_perms_result.diff.userPermissions.desired == []
+    fail_msg: "User permissions clearing should have succeeded"
+
+# Verify user permissions were cleared but group permissions preserved
+- name: "Verify user permissions were cleared"
+  technitium_dns_get_permission_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    section: "Administration"
+  register: after_clear_user_result
+
+- name: debug after_clear_user_result
+  debug:
+    var: after_clear_user_result
+  when: debug | default(false)
+
+- name: "Assert user permissions are cleared but group permissions preserved"
+  assert:
+    that:
+      - after_clear_user_result.permission_details.userPermissions | length == 0
+      - after_clear_user_result.permission_details.groupPermissions | length == 2
+      - testgroup_admin_perms.name == "testgroup"
+      - testgroup_admin_perms.canView == true
+      - testgroup_admin_perms.canModify == false
+      - testgroup_admin_perms.canDelete == false
+    fail_msg: "User permissions should be cleared, group permissions should be preserved"
+  vars:
+    testgroup_admin_perms: "{{ after_clear_user_result.permission_details.groupPermissions | selectattr('name', 'equalto', 'testgroup') | first }}"
+
+# Test clearing group permissions only (user permissions should already be empty)
+- name: "Clear group permissions"
+  technitium_dns_set_permission_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    section: "Administration"
+    groupPermissions: []  # Clear all group permissions
+  register: clear_group_perms_result
+
+- name: "Assert group permissions clearing succeeded"
+  assert:
+    that:
+      - not clear_group_perms_result.failed
+      - clear_group_perms_result.changed
+      - clear_group_perms_result.diff is defined
+      - clear_group_perms_result.diff.groupPermissions is defined
+      - clear_group_perms_result.diff.groupPermissions.desired == []
+    fail_msg: "Group permissions clearing should have succeeded"
+
+# Verify all permissions are now cleared
+- name: "Verify all permissions were cleared"
+  technitium_dns_get_permission_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    section: "Administration"
+  register: after_clear_all_result
+
+- name: debug after_clear_all_result
+  debug:
+    var: after_clear_all_result
+  when: debug | default(false)
+
+- name: "Assert user permissions are cleared (built-in group permissions may remain)"
+  assert:
+    that:
+      - after_clear_all_result.permission_details.userPermissions | length == 0
+      - testgroup_removed | length == 0
+    fail_msg: "User permissions should be cleared and testgroup should be removed"
+  vars:
+    testgroup_removed: "{{ after_clear_all_result.permission_details.groupPermissions | selectattr('name', 'equalto', 'testgroup') | list }}"
+
+# Test idempotency of clearing permissions (should now work with built-in group handling)
+- name: "Test idempotency of clearing permissions with built-in group preservation"
+  technitium_dns_set_permission_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    section: "Administration"
+    userPermissions: []
+    groupPermissions: []  # This should now be idempotent since built-ins are handled
+  register: idempotent_clear_result
+
+- name: "Debug idempotent_clear_result"
+  debug:
+    var: idempotent_clear_result
+  when: debug | default(false)
+
+- name: "Assert clearing permissions is idempotent (built-in groups are preserved automatically)"
+  assert:
+    that:
+      - not idempotent_clear_result.failed
+      - not idempotent_clear_result.changed
+      - "'already match desired state' in idempotent_clear_result.msg"
+    fail_msg: "Clearing permissions should be idempotent with built-in group handling"
+
+# Test that built-in groups are actually preserved after clearing
+- name: "Verify built-in groups are preserved after clearing"
+  technitium_dns_get_permission_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    section: "Administration"
+  register: final_verification_result
+
+- name: "Assert built-in groups are preserved"
+  assert:
+    that:
+      - final_verification_result.permission_details.userPermissions | length == 0
+      - builtin_groups | length > 0
+      - "'Administrators' in builtin_group_names"
+    fail_msg: "Built-in groups should be preserved after clearing"
+  vars:
+    builtin_groups: "{{ final_verification_result.permission_details.groupPermissions | selectattr('name', 'in', ['Administrators', 'DHCP Administrators', 'DNS Administrators']) | list }}"
+    builtin_group_names: "{{ builtin_groups | map(attribute='name') | list }}"
+
+# Phase 15: Cleanup - Remove test user and group
 - name: "Cleanup - Delete test user"
   technitium_dns_delete_user:
     api_url: "{{ technitium_api_url_2 }}"

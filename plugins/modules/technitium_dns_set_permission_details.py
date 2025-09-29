@@ -13,6 +13,7 @@ description:
     - Change permissions for a specific section in Technitium DNS server.
     - Allows setting user permissions and group permissions with view, modify, and delete access.
     - This module is idempotent and will only make changes when the desired permissions differ from current permissions.
+    - Built-in groups (Administrators, DHCP Administrators, DNS Administrators) are automatically preserved and cannot be cleared.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
@@ -141,6 +142,20 @@ EXAMPLES = r'''
         canView: true
         canModify: false
         canDelete: false
+
+- name: Clear all user permissions for a section
+  technitium_dns_set_permission_details:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    section: "Dashboard"
+    userPermissions: []
+
+- name: Clear all group permissions (built-in groups are preserved automatically)
+  technitium_dns_set_permission_details:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    section: "Dashboard"
+    groupPermissions: []  # Built-in groups like Administrators will be preserved
 
 - name: Check what would change (check mode)
   technitium_dns_set_permission_details:
@@ -277,10 +292,22 @@ class SetPermissionsDetailsModule(TechnitiumModule):
         sort_key = 'username' if 'username' in normalized[0] else 'name'
         return sorted(normalized, key=lambda x: x[sort_key])
 
+    def _filter_builtin_groups(self, group_permissions_list):
+        """Filter out built-in groups that cannot be modified by users"""
+        if not group_permissions_list:
+            return []
+
+        filtered = []
+        for perm in group_permissions_list:
+            group_name = perm.get('name', '')
+            if not self.check_builtin_group(group_name):
+                filtered.append(perm)
+        return filtered
+
     def _format_permissions_for_api(self, permissions_list, permission_type):
         """Format permissions list into pipe-separated string for API"""
         if not permissions_list:
-            return None
+            return ""
 
         formatted_parts = []
         for perm in permissions_list:
@@ -300,11 +327,11 @@ class SetPermissionsDetailsModule(TechnitiumModule):
     def run(self):
         params = self.params
         section = params['section']
-        desired_user_permissions = params.get('userPermissions', [])
-        desired_group_permissions = params.get('groupPermissions', [])
+        desired_user_permissions = params.get('userPermissions')
+        desired_group_permissions = params.get('groupPermissions')
 
         # Validate that at least one permission type is provided
-        if not desired_user_permissions and not desired_group_permissions:
+        if desired_user_permissions is None and desired_group_permissions is None:
             self.fail_json(msg="At least one of userPermissions or groupPermissions must be provided")
 
         # Check if section exists
@@ -323,7 +350,7 @@ class SetPermissionsDetailsModule(TechnitiumModule):
         # Compare current vs desired for idempotency
         diff = {}
 
-        if desired_user_permissions:
+        if desired_user_permissions is not None:
             normalized_current_users = self._normalize_permissions_list(current_user_permissions)
             normalized_desired_users = self._normalize_permissions_list(desired_user_permissions)
 
@@ -333,8 +360,11 @@ class SetPermissionsDetailsModule(TechnitiumModule):
                     'desired': normalized_desired_users
                 }
 
-        if desired_group_permissions:
-            normalized_current_groups = self._normalize_permissions_list(current_group_permissions)
+        if desired_group_permissions is not None:
+            # Filter out built-in groups from current state for comparison
+            # Built-in groups cannot be modified, so they shouldn't affect idempotency
+            filtered_current_groups = self._filter_builtin_groups(current_group_permissions)
+            normalized_current_groups = self._normalize_permissions_list(filtered_current_groups)
             normalized_desired_groups = self._normalize_permissions_list(desired_group_permissions)
 
             if normalized_current_groups != normalized_desired_groups:
@@ -359,15 +389,17 @@ class SetPermissionsDetailsModule(TechnitiumModule):
         # Build API parameters
         set_query = {'section': section}
 
-        if desired_user_permissions:
+        if desired_user_permissions is not None:
             user_perms_str = self._format_permissions_for_api(desired_user_permissions, 'user')
-            if user_perms_str:
-                set_query['userPermissions'] = user_perms_str
+            set_query['userPermissions'] = user_perms_str
 
-        if desired_group_permissions:
-            group_perms_str = self._format_permissions_for_api(desired_group_permissions, 'group')
-            if group_perms_str:
-                set_query['groupPermissions'] = group_perms_str
+        if desired_group_permissions is not None:
+            # When setting group permissions, we need to preserve built-in groups
+            # by combining desired permissions with current built-in groups
+            builtin_groups = [perm for perm in current_group_permissions if self.check_builtin_group(perm.get('name', ''))]
+            combined_group_permissions = desired_group_permissions + builtin_groups
+            group_perms_str = self._format_permissions_for_api(combined_group_permissions, 'group')
+            set_query['groupPermissions'] = group_perms_str
 
         # Make the API call to set permissions
         data = self.request('/api/admin/permissions/set', params=set_query, method='POST')
