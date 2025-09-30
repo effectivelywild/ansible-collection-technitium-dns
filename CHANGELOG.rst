@@ -4,6 +4,21 @@ effectivelywild.technitium\_dns Release Notes
 
 .. contents:: Topics
 
+v0.5.0
+======
+
+New Modules
+-----------
+
+- effectivelywild.technitium_dns.technitium_dns_change_password - Change password for the currently logged in user in Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_check_for_update - Check for available updates from Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_create_token - Create an API token for a user in Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_delete_session - Delete a user session from Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_get_permission_details - Get permission details for a specific section from Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_list_permissions - List all permissions from Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_list_sessions - List active user sessions from Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_set_permission_details - Set permission details for a specific section in Technitium DNS server.
+
 v0.4.0
 ======
 
