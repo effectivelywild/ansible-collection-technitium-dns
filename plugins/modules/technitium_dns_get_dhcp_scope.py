@@ -8,7 +8,7 @@ DOCUMENTATION = r'''
 ---
 module: technitium_dns_get_dhcp_scope
 short_description: Get DHCP scope details from Technitium DNS server
-version_added: "0.5.0"
+version_added: "0.6.0"
 description:
     - Retrieve complete details of a DHCP scope configuration from Technitium DNS server.
     - Returns all scope settings including lease times, DNS settings, exclusions, and reserved leases.

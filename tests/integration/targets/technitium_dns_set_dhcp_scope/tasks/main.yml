@@ -1,0 +1,331 @@
+---
+# Integration test suite for technitium_dns_set_dhcp_scope
+# This test validates DHCP scope configuration functionality
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Create a new DHCP scope
+- name: "Create a new test DHCP scope"
+  technitium_dns_set_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+    startingAddress: "10.0.10.1"
+    endingAddress: "10.0.10.254"
+    subnetMask: "255.255.255.0"
+    leaseTimeDays: 7
+    leaseTimeHours: 0
+    leaseTimeMinutes: 0
+    routerAddress: "10.0.10.1"
+    domainName: "test.local"
+    useThisDnsServer: true
+    dnsUpdates: true
+    dnsTtl: 900
+  register: create_scope_result
+
+- name: "Debug create scope result"
+  debug:
+    var: create_scope_result
+  when: debug | default(false)
+
+- name: "Assert scope creation succeeded"
+  assert:
+    that:
+      - not create_scope_result.failed
+      - create_scope_result.changed
+      - create_scope_result.api_response is defined
+      - create_scope_result.api_response.status == "ok"
+      - "'created successfully' in create_scope_result.msg"
+    fail_msg: "DHCP scope creation should have succeeded"
+
+# Phase 3: Verify scope was created with correct settings
+- name: "Get TestScope details to verify settings"
+  technitium_dns_get_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+  register: verify_create_result
+
+- name: "Assert scope has correct properties"
+  assert:
+    that:
+      - verify_create_result.scope_details.name == "TestScope"
+      - verify_create_result.scope_details.startingAddress == "10.0.10.1"
+      - verify_create_result.scope_details.endingAddress == "10.0.10.254"
+      - verify_create_result.scope_details.subnetMask == "255.255.255.0"
+      - verify_create_result.scope_details.leaseTimeDays == 7
+      - verify_create_result.scope_details.leaseTimeHours == 0
+      - verify_create_result.scope_details.leaseTimeMinutes == 0
+      - verify_create_result.scope_details.routerAddress == "10.0.10.1"
+      - verify_create_result.scope_details.domainName == "test.local"
+      - verify_create_result.scope_details.useThisDnsServer == true
+      - verify_create_result.scope_details.dnsUpdates == true
+      - verify_create_result.scope_details.dnsTtl == 900
+    fail_msg: "Created scope should have correct properties"
+
+# Phase 4: Test idempotency - setting same values should not change
+- name: "Set scope with same values (should be idempotent)"
+  technitium_dns_set_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+    startingAddress: "10.0.10.1"
+    endingAddress: "10.0.10.254"
+    subnetMask: "255.255.255.0"
+    leaseTimeDays: 7
+    routerAddress: "10.0.10.1"
+    domainName: "test.local"
+    useThisDnsServer: true
+    dnsUpdates: true
+    dnsTtl: 900
+  register: idempotent_result
+
+- name: "Assert idempotency - no changes should be made"
+  assert:
+    that:
+      - not idempotent_result.failed
+      - not idempotent_result.changed
+      - "'already matches desired state' in idempotent_result.msg"
+    fail_msg: "Scope configuration should be idempotent"
+
+# Phase 5: Update scope configuration
+- name: "Update scope lease time"
+  technitium_dns_set_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+    leaseTimeDays: 14
+  register: update_scope_result
+
+- name: "Assert scope update succeeded"
+  assert:
+    that:
+      - not update_scope_result.failed
+      - update_scope_result.changed
+      - "'updated successfully' in update_scope_result.msg"
+      - update_scope_result.diff is defined
+      - update_scope_result.diff.leaseTimeDays is defined
+      - update_scope_result.diff.leaseTimeDays.current == 7
+      - update_scope_result.diff.leaseTimeDays.desired == 14
+    fail_msg: "Scope update should have succeeded"
+
+# Phase 6: Verify update was applied
+- name: "Get TestScope details after update"
+  technitium_dns_get_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+  register: verify_update_result
+
+- name: "Assert lease time was updated"
+  assert:
+    that:
+      - verify_update_result.scope_details.leaseTimeDays == 14
+    fail_msg: "Lease time should have been updated to 14 days"
+
+# Phase 7: Test exclusions and reserved leases
+- name: "Add exclusions and reserved leases"
+  technitium_dns_set_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+    exclusions:
+      - startingAddress: "10.0.10.1"
+        endingAddress: "10.0.10.10"
+    reservedLeases:
+      - hostName: "testdevice"
+        hardwareAddress: "AA-BB-CC-DD-EE-FF"
+        address: "10.0.10.100"
+        comments: "Test device reservation"
+  register: add_exclusions_result
+
+- name: "Assert exclusions and reservations were added"
+  assert:
+    that:
+      - not add_exclusions_result.failed
+      - add_exclusions_result.changed
+    fail_msg: "Adding exclusions and reservations should have succeeded"
+
+- name: "Add exclusions and reserved leases for idempotency test"
+  technitium_dns_set_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+    exclusions:
+      - startingAddress: "10.0.10.1"
+        endingAddress: "10.0.10.10"
+    reservedLeases:
+      - hostName: "testdevice"
+        hardwareAddress: "AA-BB-CC-DD-EE-FF"
+        address: "10.0.10.100"
+        comments: "Test device reservation"
+  register: idempotency_add_exclusions_result
+
+- name: "Assert no change"
+  assert:
+    that:
+      - not idempotency_add_exclusions_result.failed
+      - not idempotency_add_exclusions_result.changed
+    fail_msg: "Adding exclusions and reservations should not have changed anything"
+
+# Phase 8: Verify exclusions and reserved leases
+- name: "Get TestScope details to verify exclusions"
+  technitium_dns_get_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+  register: verify_exclusions_result
+
+- name: "Assert exclusions and reservations are correct"
+  assert:
+    that:
+      - verify_exclusions_result.scope_details.exclusions | length == 1
+      - verify_exclusions_result.scope_details.exclusions[0].startingAddress == "10.0.10.1"
+      - verify_exclusions_result.scope_details.exclusions[0].endingAddress == "10.0.10.10"
+      - verify_exclusions_result.scope_details.reservedLeases | length == 1
+      - verify_exclusions_result.scope_details.reservedLeases[0].hardwareAddress == "AA-BB-CC-DD-EE-FF"
+      - verify_exclusions_result.scope_details.reservedLeases[0].address == "10.0.10.100"
+    fail_msg: "Exclusions and reservations should be configured correctly"
+
+# Phase 9: Test check mode
+- name: "Test check mode for scope update"
+  technitium_dns_set_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+    leaseTimeDays: 30
+  check_mode: true
+  register: check_mode_result
+
+- name: "Assert check mode works correctly"
+  assert:
+    that:
+      - not check_mode_result.failed
+      - check_mode_result.changed
+      - "'would be updated' in check_mode_result.msg"
+      - check_mode_result.api_response.check_mode is defined
+      - check_mode_result.api_response.check_mode
+      - check_mode_result.diff is defined
+    fail_msg: "Check mode should work correctly"
+
+# Phase 10: Verify check mode didn't actually change anything
+- name: "Get TestScope details after check mode"
+  technitium_dns_get_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+  register: after_check_mode_result
+
+- name: "Assert check mode didn't change lease time"
+  assert:
+    that:
+      - after_check_mode_result.scope_details.leaseTimeDays == 14
+    fail_msg: "Check mode should not have changed actual configuration"
+
+# Phase 11: Test error cases
+- name: "Test creating scope without required parameters"
+  technitium_dns_set_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "IncompleteScope"
+    startingAddress: "10.0.20.1"
+  register: missing_params_result
+  ignore_errors: true
+
+- name: "Assert failure with missing required parameters"
+  assert:
+    that:
+      - missing_params_result.failed
+      - "'required' in missing_params_result.msg"
+    fail_msg: "Creating scope without required parameters should fail"
+
+- name: "Test exclusion range outside scope range"
+  technitium_dns_set_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+    exclusions:
+      - startingAddress: "192.168.1.1"
+        endingAddress: "192.168.1.10"
+  register: invalid_exclusion_result
+  ignore_errors: true
+
+- name: "Assert failure with exclusion outside range"
+  assert:
+    that:
+      - invalid_exclusion_result.failed
+      - "'Technitium API error' in invalid_exclusion_result.msg"
+    fail_msg: "Exclusion outside scope range should fail"
+
+- name: "Test reserved lease outside scope range"
+  technitium_dns_set_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+    reservedLeases:
+      - hostName: "outofrange"
+        hardwareAddress: "11-22-33-44-55-66"
+        address: "192.168.1.50"
+        comments: "Out of range"
+  register: invalid_reservation_result
+  ignore_errors: true
+
+- name: "Assert failure with reservation outside range"
+  assert:
+    that:
+      - invalid_reservation_result.failed
+      - "'Technitium API error' in invalid_reservation_result.msg"
+    fail_msg: "Reserved lease outside scope range should fail"
+
+- name: "Test invalid API token"
+  technitium_dns_set_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+    leaseTimeDays: 7
+    startingAddress: "172.16.0.1"
+    endingAddress: "172.16.0.254"
+    subnetMask: "255.255.255.0"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"
+
+# Phase 12: Cleanup - Delete test scope
+# Note: We would need a delete_dhcp_scope module for proper cleanup
+# For now, we'll leave the test scope (it can be manually cleaned up)

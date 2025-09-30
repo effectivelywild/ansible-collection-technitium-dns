@@ -8,7 +8,7 @@ DOCUMENTATION = r'''
 ---
 module: technitium_dns_list_dhcp_scopes
 short_description: List all DHCP scopes from Technitium DNS server
-version_added: "0.5.0"
+version_added: "0.6.0"
 description:
     - Retrieve a list of all DHCP scopes available on the Technitium DNS server.
 author:
