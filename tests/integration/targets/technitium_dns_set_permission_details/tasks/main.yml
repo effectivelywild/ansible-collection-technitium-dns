@@ -451,7 +451,7 @@
   vars:
     testgroup_removed: "{{ after_clear_all_result.permission_details.groupPermissions | selectattr('name', 'equalto', 'testgroup') | list }}"
 
-# Test idempotency of clearing permissions (should now work with built-in group handling)
+# Test idempotency of clearing permissions
 - name: "Test idempotency of clearing permissions with built-in group preservation"
   technitium_dns_set_permission_details:
     api_url: "{{ technitium_api_url_2 }}"
@@ -460,7 +460,7 @@
     validate_certs: "{{ validate_certs }}"
     section: "Administration"
     userPermissions: []
-    groupPermissions: []  # This should now be idempotent since built-ins are handled
+    groupPermissions: []  
   register: idempotent_clear_result
 
 - name: "Debug idempotent_clear_result"
