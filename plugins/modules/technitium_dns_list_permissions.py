@@ -15,6 +15,10 @@ description:
 author:
     - Frank Muise (@effectivelywild)
 seealso:
+  - module: effectivelywild.technitium_dns.technitium_dns_get_permission_details
+    description: Get permission details for a specific section from Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_set_permission_details
+    description: Set permission details for a specific section from Technitium DNS server
   - module: effectivelywild.technitium_dns.technitium_dns_list_users
     description: List all users from Technitium DNS server
   - module: effectivelywild.technitium_dns.technitium_dns_list_groups
@@ -53,20 +57,6 @@ EXAMPLES = r'''
 
 - debug:
     var: result.permissions
-
-- name: Check if a specific user has Dashboard permissions
-  technitium_dns_list_permissions:
-    api_url: "http://localhost"
-    api_token: "myapitoken"
-  register: permissions_result
-
-- name: Verify user has Dashboard access
-  assert:
-    that:
-      - dashboard_section.userPermissions | selectattr('username', 'equalto', 'frank') | list | length > 0
-    fail_msg: "User frank not found in Dashboard permissions"
-  vars:
-    dashboard_section: "{{ permissions_result.permissions | selectattr('section', 'equalto', 'Dashboard') | first }}"
 '''
 
 RETURN = r'''

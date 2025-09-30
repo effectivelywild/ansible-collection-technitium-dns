@@ -12,7 +12,6 @@ version_added: "0.5.0"
 description:
     - Change permissions for a specific section in Technitium DNS server.
     - Allows setting user permissions and group permissions with view, modify, and delete access.
-    - This module is idempotent and will only make changes when the desired permissions differ from current permissions.
     - Built-in groups (Administrators, DHCP Administrators, DNS Administrators) are automatically preserved and cannot be cleared.
 author:
     - Frank Muise (@effectivelywild)
@@ -21,6 +20,10 @@ seealso:
     description: Get permission details for a specific section from Technitium DNS server
   - module: effectivelywild.technitium_dns.technitium_dns_list_permissions
     description: List all permissions from Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_list_users
+    description: List all users from Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_list_groups
+    description: List all groups from Technitium DNS server
 options:
     api_port:
         description:

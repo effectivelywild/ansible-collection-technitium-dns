@@ -14,6 +14,10 @@ description:
 author:
     - Frank Muise (@effectivelywild)
 seealso:
+  - module: effectivelywild.technitium_dns.technitium_dns_delete_sessions
+    description: Delete active user sessions from Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_create_token
+    description: Create an API token for a user in Technitium DNS server
   - module: effectivelywild.technitium_dns.technitium_dns_list_users
     description: List all users from Technitium DNS server
 options:

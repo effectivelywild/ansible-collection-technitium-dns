@@ -16,6 +16,8 @@ description:
 author:
     - Frank Muise (@effectivelywild)
 seealso:
+  - module: effectivelywild.technitium_dns.technitium_dns_set_permission_details
+    description: Set permission details for a specific section from Technitium DNS server
   - module: effectivelywild.technitium_dns.technitium_dns_list_permissions
     description: List all permissions from Technitium DNS server
   - module: effectivelywild.technitium_dns.technitium_dns_list_users
