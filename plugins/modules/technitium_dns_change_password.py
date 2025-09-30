@@ -11,13 +11,13 @@ short_description: Change password for the currently logged in user in Technitiu
 version_added: "0.5.0"
 description:
     - Change the password for the current logged in user account.
-    - This module is not idempotent as it always changes the password when executed.
-    - It is highly recommended to change the admin user password on first use to avoid security related issues.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_set_user_details
-    description: Set user account profile details in Technitium DNS server
+    description: Set user account details in Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_get_user_details
+    description: Get user account details in Technitium DNS server
   - module: effectivelywild.technitium_dns.technitium_dns_create_user
     description: Create a user account in Technitium DNS server
   - module: effectivelywild.technitium_dns.technitium_dns_list_users
