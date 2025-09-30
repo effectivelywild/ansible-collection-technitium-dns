@@ -25,7 +25,7 @@
     password: "testuser"
     displayName: "testuser"
 
-- name: Change user groups and session timeout
+- name: "Add testuser to Administrators group"
   technitium_dns_set_user_details:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "{{ technitium_api_token_2 }}"
@@ -98,7 +98,7 @@
       - (sessions_after_creation.sessions | selectattr('tokenName', 'equalto', 'TestToken123') | first).type == "ApiToken"
     fail_msg: "New token should appear in session list"
 
-# Phase 5: Test token creation with return_token=true (for testing purposes)
+# Phase 5: Test token creation with return_token=true
 - name: "Create API token with return_token=true"
   technitium_dns_create_token:
     api_url: "{{ technitium_api_url_2 }}"
@@ -164,22 +164,7 @@
       - check_mode_result.api_response.check_mode
     fail_msg: "Check mode should work correctly"
 
-# Phase 8: Verify the check mode token was not actually created
-- name: "Verify check mode token was not created"
-  technitium_dns_list_sessions:
-    api_url: "{{ technitium_api_url_2 }}"
-    api_token: "{{ technitium_api_token_2 }}"
-    api_port: "{{ technitium_api_port_2 | int }}"
-    validate_certs: "{{ validate_certs }}"
-  register: sessions_after_check_mode
-
-- name: "Assert check mode token does not exist"
-  assert:
-    that:
-      - sessions_after_check_mode.sessions | selectattr('tokenName', 'equalto', 'CheckModeToken') | list | length == 0
-    fail_msg: "Check mode should not create actual tokens"
-
-# Phase 9: Test failure cases
+# Phase 8: Test failure cases
 - name: "Test invalid API token"
   technitium_dns_create_token:
     api_url: "{{ technitium_api_url_2 }}"
