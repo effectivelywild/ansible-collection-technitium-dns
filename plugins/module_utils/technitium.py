@@ -43,28 +43,26 @@ class TechnitiumModule(AnsibleModule):
             data = urlencode(params)
 
         try:
-            # Note: validate_certs parameter is accepted but may not be fully supported
-            # by all Ansible versions. For HTTPS connections with self-signed certificates,
-            # you may need to use environment variables like SSL_VERIFY=false
             resp, info = fetch_url(
                 self,
                 url_with_params,
                 data=data,
                 method=method,
                 headers={'Accept': 'application/json'},
-                timeout=10
+                timeout=10,
+                validate_certs=self.validate_certs
             )
 
-            # Check if the request failed
-            if info['status'] >= 400:
-                error_msg = f"API request failed with status {info['status']}"
+            # Check if response is None (connection/transport failed)
+            if resp is None:
+                error_msg = "API request failed - no response received"
                 if 'msg' in info:
                     error_msg += f": {info['msg']}"
                 self.fail_json(msg=error_msg)
 
-            # Check if response is None (connection failed)
-            if resp is None:
-                error_msg = "API request failed - no response received"
+            # Check if the request failed with HTTP error status
+            if info['status'] >= 400:
+                error_msg = f"API request failed with status {info['status']}"
                 if 'msg' in info:
                     error_msg += f": {info['msg']}"
                 self.fail_json(msg=error_msg)
