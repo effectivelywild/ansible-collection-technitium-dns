@@ -1,0 +1,160 @@
+---
+# Integration test suite for technitium_dns_get_dhcp_scope
+# This test validates DHCP scope details retrieval functionality
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Test getting Default DHCP scope details
+- name: "Get Default DHCP scope details"
+  technitium_dns_get_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "Default"
+  register: default_scope_result
+
+- name: "Debug Default scope details"
+  debug:
+    var: default_scope_result
+  when: debug | default(false)
+
+- name: "Assert Default scope details retrieval succeeded"
+  assert:
+    that:
+      - not default_scope_result.failed
+      - not default_scope_result.changed
+      - default_scope_result.scope_details is defined
+    fail_msg: "Default scope details retrieval should have succeeded"
+
+# Phase 3: Validate expected Default scope properties
+- name: "Validate Default scope basic properties"
+  assert:
+    that:
+      - default_scope_result.scope_details.name == "Default"
+      - default_scope_result.scope_details.startingAddress == "192.168.1.1"
+      - default_scope_result.scope_details.endingAddress == "192.168.1.254"
+      - default_scope_result.scope_details.subnetMask == "255.255.255.0"
+    fail_msg: "Default scope should have correct basic properties"
+
+- name: "Validate Default scope lease time properties"
+  assert:
+    that:
+      - default_scope_result.scope_details.leaseTimeDays is defined
+      - default_scope_result.scope_details.leaseTimeDays is number
+      - default_scope_result.scope_details.leaseTimeDays == 1
+      - default_scope_result.scope_details.leaseTimeHours is defined
+      - default_scope_result.scope_details.leaseTimeHours is number
+      - default_scope_result.scope_details.leaseTimeHours == 0
+      - default_scope_result.scope_details.leaseTimeMinutes is defined
+      - default_scope_result.scope_details.leaseTimeMinutes is number
+      - default_scope_result.scope_details.leaseTimeMinutes == 0
+    fail_msg: "Default scope should have correct lease time properties"
+
+- name: "Validate Default scope ping check properties"
+  assert:
+    that:
+      - default_scope_result.scope_details.pingCheckEnabled is defined
+      - default_scope_result.scope_details.pingCheckEnabled is boolean
+      - default_scope_result.scope_details.pingCheckEnabled == false
+      - default_scope_result.scope_details.pingCheckTimeout is defined
+      - default_scope_result.scope_details.pingCheckTimeout is number
+      - default_scope_result.scope_details.pingCheckTimeout == 1000
+      - default_scope_result.scope_details.pingCheckRetries is defined
+      - default_scope_result.scope_details.pingCheckRetries is number
+      - default_scope_result.scope_details.pingCheckRetries == 2
+    fail_msg: "Default scope should have correct ping check properties"
+
+- name: "Validate Default scope DNS properties"
+  assert:
+    that:
+      - default_scope_result.scope_details.domainName is defined
+      - default_scope_result.scope_details.domainName == "home"
+      - default_scope_result.scope_details.dnsUpdates is defined
+      - default_scope_result.scope_details.dnsUpdates is boolean
+      - default_scope_result.scope_details.dnsUpdates == true
+      - default_scope_result.scope_details.dnsTtl is defined
+      - default_scope_result.scope_details.dnsTtl is number
+      - default_scope_result.scope_details.dnsTtl == 900
+      - default_scope_result.scope_details.useThisDnsServer is defined
+      - default_scope_result.scope_details.useThisDnsServer is boolean
+      - default_scope_result.scope_details.useThisDnsServer == true
+      - default_scope_result.scope_details.dnsServers is defined
+      - default_scope_result.scope_details.dnsServers is iterable
+    fail_msg: "Default scope should have correct DNS properties"
+
+- name: "Validate Default scope router address"
+  assert:
+    that:
+      - default_scope_result.scope_details.routerAddress is defined
+      - default_scope_result.scope_details.routerAddress == "192.168.1.1"
+    fail_msg: "Default scope should have correct router address"
+
+- name: "Validate Default scope exclusions"
+  assert:
+    that:
+      - default_scope_result.scope_details.exclusions is defined
+      - default_scope_result.scope_details.exclusions is iterable
+      - default_scope_result.scope_details.exclusions | length == 1
+      - default_scope_result.scope_details.exclusions[0].startingAddress == "192.168.1.1"
+      - default_scope_result.scope_details.exclusions[0].endingAddress == "192.168.1.10"
+    fail_msg: "Default scope should have correct exclusions"
+
+- name: "Validate Default scope reserved leases"
+  assert:
+    that:
+      - default_scope_result.scope_details.reservedLeases is defined
+      - default_scope_result.scope_details.reservedLeases is iterable
+      - default_scope_result.scope_details.reservedLeases | length == 0
+    fail_msg: "Default scope should have correct reserved leases"
+
+- name: "Validate Default scope policy properties"
+  assert:
+    that:
+      - default_scope_result.scope_details.allowOnlyReservedLeases is defined
+      - default_scope_result.scope_details.allowOnlyReservedLeases is boolean
+      - default_scope_result.scope_details.allowOnlyReservedLeases == false
+      - default_scope_result.scope_details.blockLocallyAdministeredMacAddresses is defined
+      - default_scope_result.scope_details.blockLocallyAdministeredMacAddresses is boolean
+      - default_scope_result.scope_details.blockLocallyAdministeredMacAddresses == false
+      - default_scope_result.scope_details.ignoreClientIdentifierOption is defined
+      - default_scope_result.scope_details.ignoreClientIdentifierOption is boolean
+      - default_scope_result.scope_details.ignoreClientIdentifierOption == true
+    fail_msg: "Default scope should have correct policy properties"
+
+# Phase 4: Test failure cases
+- name: "Test with non-existent scope"
+  technitium_dns_get_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "NonExistentScope-{{ ansible_date_time.epoch }}"
+  register: nonexistent_scope_result
+  ignore_errors: true
+
+- name: "Assert failure with non-existent scope"
+  assert:
+    that:
+      - nonexistent_scope_result.failed
+      - "'Technitium API error' in nonexistent_scope_result.msg"
+    fail_msg: "Non-existent scope should cause failure"
+
+- name: "Test with invalid API token"
+  technitium_dns_get_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "Default"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"
