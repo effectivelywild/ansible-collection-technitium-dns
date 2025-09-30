@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.5.0](https://github.com/effectivelywild/ansible-collection-technitium-dns/compare/v0.4.0...v0.5.0) (2025-09-30)
+
+
+### Features
+
+* 0.5.0 - Add User and Administration modules ([#28](https://github.com/effectivelywild/ansible-collection-technitium-dns/issues/28)) ([4b1615b](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/4b1615bbfd866f3963740ebb209b7af112dadacf))
+
+
+### Bug Fixes
+
+* Update testing server variables in unit tests ([#26](https://github.com/effectivelywild/ansible-collection-technitium-dns/issues/26)) ([5047930](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/5047930106ceb4648b7bbb3be215bb988d0dffa0))
+
 ## [0.4.0](https://github.com/effectivelywild/ansible-collection-technitium-dns/compare/v0.3.0...v0.4.0) (2025-09-21)
 
 

@@ -1,0 +1,80 @@
+---
+# Integration test suite for technitium_dns_list_sessions
+# This test validates session listing functionality
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Create some activity to ensure we have an active session
+- name: "Make API call to ensure session is active"
+  technitium_dns_list_users:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: users_result
+
+# Phase 3: Test successful session listing
+- name: "List all active sessions from Technitium DNS"
+  technitium_dns_list_sessions:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: sessions_result
+
+- name: "Debug sessions result"
+  debug:
+    var: sessions_result
+  when: debug | default(false)
+
+- name: "Assert session listing succeeded"
+  assert:
+    that:
+      - not sessions_result.failed
+      - sessions_result.sessions is defined
+      - sessions_result.sessions | length > 0
+      - not sessions_result.changed
+    fail_msg: "Session listing should have succeeded"
+
+# Phase 4: Verify our API token session exists
+- name: "Check if our API token session exists"
+  assert:
+    that:
+      - sessions_result.sessions | selectattr('tokenName', 'equalto', 'MyToken1') | list | length > 0
+    fail_msg: "API token session 'MyToken1' should exist in the session list"
+
+- name: "Verify API token session has expected properties"
+  assert:
+    that:
+      - api_session.username == 'admin'
+      - api_session.tokenName == 'MyToken1'
+      - api_session.type == 'ApiToken'
+      - api_session.lastSeenUserAgent == 'ansible-httpget'
+      - api_session.username is defined
+      - api_session.isCurrentSession is defined
+      - api_session.isCurrentSession is boolean
+      - api_session.partialToken is defined
+      - api_session.lastSeen is defined
+      - api_session.lastSeenRemoteAddress is defined
+    fail_msg: "API token session should have all expected properties"
+  vars:
+    api_session: "{{ sessions_result.sessions | selectattr('tokenName', 'equalto', 'MyToken1') | first }}"
+
+# Phase 5: Test failure cases
+- name: "Test invalid API token"
+  technitium_dns_list_sessions:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"

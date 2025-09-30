@@ -43,9 +43,6 @@ class TechnitiumModule(AnsibleModule):
             data = urlencode(params)
 
         try:
-            # Note: validate_certs parameter is accepted but may not be fully supported
-            # by all Ansible versions. For HTTPS connections with self-signed certificates,
-            # you may need to use environment variables like SSL_VERIFY=false
             resp, info = fetch_url(
                 self,
                 url_with_params,
@@ -55,16 +52,16 @@ class TechnitiumModule(AnsibleModule):
                 timeout=10
             )
 
-            # Check if the request failed
-            if info['status'] >= 400:
-                error_msg = f"API request failed with status {info['status']}"
+            # Check if response is None (connection/transport failed)
+            if resp is None:
+                error_msg = "API request failed - no response received"
                 if 'msg' in info:
                     error_msg += f": {info['msg']}"
                 self.fail_json(msg=error_msg)
 
-            # Check if response is None (connection failed)
-            if resp is None:
-                error_msg = "API request failed - no response received"
+            # Check if the request failed with HTTP error status
+            if info['status'] >= 400:
+                error_msg = f"API request failed with status {info['status']}"
                 if 'msg' in info:
                     error_msg += f": {info['msg']}"
                 self.fail_json(msg=error_msg)
@@ -146,6 +143,40 @@ class TechnitiumModule(AnsibleModule):
             error_msg = data.get('errorMessage') or "Unknown error"
             context_msg = f"{context}: " if context else ""
             self.fail_json(msg=f"{context_msg}Technitium API error: {error_msg}", api_response=data)
+
+    def get_sessions_list(self):
+        """Get list of all active sessions with standardized error handling"""
+        sessions_data = self.request('/api/admin/sessions/list')
+        if sessions_data.get('status') != 'ok':
+            error_msg = sessions_data.get('errorMessage') or "Unknown error"
+            self.fail_json(msg=f"Failed to check existing sessions: {error_msg}", api_response=sessions_data)
+        return sessions_data.get('response', {}).get('sessions', [])
+
+    def check_session_exists_by_partial_token(self, partial_token):
+        """Check if a session with the given partial token exists"""
+        sessions = self.get_sessions_list()
+        existing_session = next((s for s in sessions if s.get('partialToken') == partial_token), None)
+        return existing_session is not None, existing_session
+
+    def check_token_session_exists(self, username, token_name):
+        """Check if a token session with the given name exists for the user"""
+        sessions = self.get_sessions_list()
+        existing_token = next((s for s in sessions
+                              if s.get('username') == username
+                              and s.get('tokenName') == token_name
+                              and s.get('type') == 'ApiToken'), None)
+        return existing_token is not None, existing_token
+
+    def check_section_exists(self, section_name):
+        """Check if a permission section exists by listing all permissions"""
+        permissions_data = self.request('/api/admin/permissions/list')
+        if permissions_data.get('status') != 'ok':
+            error_msg = permissions_data.get('errorMessage') or "Unknown error"
+            self.fail_json(msg=f"Failed to check existing permissions: {error_msg}", api_response=permissions_data)
+
+        permissions = permissions_data.get('response', {}).get('permissions', [])
+        existing_section = next((p for p in permissions if p.get('section') == section_name), None)
+        return existing_section is not None, existing_section
 
     def __call__(self):
         self.run()

@@ -1,0 +1,201 @@
+---
+# Integration test suite for technitium_dns_list_permissions
+# This test validates permissions listing functionality
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Cleanup - Delete test user if it exists
+- name: "Cleanup - Delete test user if it exists"
+  technitium_dns_delete_user:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "testuser123"
+  ignore_errors: true
+
+# Phase 3: Create a test user named 'testuser123'
+- name: "Create test user"
+  technitium_dns_create_user:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "testuser123"
+    password: "testpassword123"
+    displayName: "testuser123 Test User"
+  register: create_user_result
+
+- name: "Assert test user creation succeeded"
+  assert:
+    that:
+      - not create_user_result.failed
+      - create_user_result.changed
+    fail_msg: "Test user creation should have succeeded"
+
+# Phase 4: Add user to Administrators group to give Dashboard permissions
+- name: "Add test user to Administrators group"
+  technitium_dns_set_user_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "testuser123"
+    memberOfGroups:
+      - "Administrators"
+  register: set_user_groups_result
+
+- name: "Assert user group assignment succeeded"
+  assert:
+    that:
+      - not set_user_groups_result.failed
+      - set_user_groups_result.changed
+    fail_msg: "User group assignment should have succeeded"
+
+# Phase 5: Test successful permissions listing
+- name: "List all permissions from Technitium DNS"
+  technitium_dns_list_permissions:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: permissions_result
+
+- name: "Debug permissions result"
+  debug:
+    var: permissions_result
+  when: debug | default(false)
+
+- name: "Assert permissions listing succeeded"
+  assert:
+    that:
+      - not permissions_result.failed
+      - permissions_result.permissions is defined
+      - permissions_result.permissions | length > 0
+      - not permissions_result.changed
+    fail_msg: "Permissions listing should have succeeded"
+
+# Phase 6: Verify permissions structure and expected sections
+- name: "Verify expected permission sections exist"
+  assert:
+    that:
+      - permissions_result.permissions | selectattr('section', 'equalto', 'Dashboard') | list | length > 0
+      - permissions_result.permissions | selectattr('section', 'equalto', 'Administration') | list | length > 0
+      - permissions_result.permissions | selectattr('section', 'equalto', 'Zones') | list | length > 0
+    fail_msg: "Expected permission sections should exist"
+
+# Phase 7: Verify Administrators group has Dashboard permissions
+- name: "Extract Dashboard section permissions"
+  set_fact:
+    dashboard_section: "{{ permissions_result.permissions | selectattr('section', 'equalto', 'Dashboard') | first }}"
+
+- name: "Verify Dashboard section structure"
+  assert:
+    that:
+      - dashboard_section is defined
+      - dashboard_section.section == "Dashboard"
+      - dashboard_section.userPermissions is defined
+      - dashboard_section.userPermissions is iterable
+      - dashboard_section.groupPermissions is defined
+      - dashboard_section.groupPermissions is iterable
+    fail_msg: "Dashboard section should have correct structure"
+
+- name: "Verify Administrators group has Dashboard permissions"
+  assert:
+    that:
+      - admin_group_perms is defined
+      - admin_group_perms.name == "Administrators"
+      - admin_group_perms.canView == true
+      - admin_group_perms.canModify == true
+      - admin_group_perms.canDelete == true
+    fail_msg: "Administrators group should have full Dashboard permissions"
+  vars:
+    admin_group_perms: "{{ dashboard_section.groupPermissions | selectattr('name', 'equalto', 'Administrators') | first }}"
+
+# Phase 8: Verify user is in Administrators group (indirect permission verification)
+# Note: Individual user permissions are typically managed through group membership
+# The user 'testuser123' should be in the Administrators group, giving them Dashboard access
+- name: "Verify user is member of Administrators group"
+  technitium_dns_get_user_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "testuser123"
+  register: user_details_result
+
+- name: "Assert user is member of Administrators group"
+  assert:
+    that:
+      - not user_details_result.failed
+      - user_details_result.user_details is defined
+      - user_details_result.user_details.memberOfGroups is defined
+      - "'Administrators' in user_details_result.user_details.memberOfGroups"
+    fail_msg: "User 'testuser123' should be member of Administrators group"
+
+# Phase 9: Verify all expected permission sections have proper structure
+- name: "Verify all permission sections have expected structure"
+  assert:
+    that:
+      - section.section is defined
+      - section.section | length > 0
+      - section.userPermissions is defined
+      - section.userPermissions is iterable
+      - section.groupPermissions is defined
+      - section.groupPermissions is iterable
+    fail_msg: "All permission sections should have proper structure"
+  loop: "{{ permissions_result.permissions }}"
+  loop_control:
+    loop_var: section
+
+# Phase 10: Verify group permissions have expected structure
+- name: "Verify group permissions have expected structure"
+  assert:
+    that:
+      - group_perm.name is defined
+      - group_perm.name | length > 0
+      - group_perm.canView is defined
+      - group_perm.canView is boolean
+      - group_perm.canModify is defined
+      - group_perm.canModify is boolean
+      - group_perm.canDelete is defined
+      - group_perm.canDelete is boolean
+    fail_msg: "Group permissions should have proper structure"
+  loop: "{{ permissions_result.permissions | map(attribute='groupPermissions') | flatten }}"
+  loop_control:
+    loop_var: group_perm
+
+# Phase 11: Test failure cases
+- name: "Test invalid API token"
+  technitium_dns_list_permissions:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"
+
+# Phase 12: Cleanup - Remove test user
+- name: "Cleanup - Delete test user"
+  technitium_dns_delete_user:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "testuser123"
+  register: cleanup_user_result
+
+- name: "Assert test user cleanup succeeded"
+  assert:
+    that:
+      - not cleanup_user_result.failed
+    fail_msg: "Test user cleanup should have succeeded"

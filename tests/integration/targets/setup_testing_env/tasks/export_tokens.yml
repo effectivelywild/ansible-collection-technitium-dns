@@ -12,3 +12,9 @@
     content: "{{ technitium_tokens[('technitium02' + (lookup('env', 'CONTAINER_SUFFIX') | default('')))].token }}"
     dest: "{{ lookup('env', 'TOKEN_FILE_2') | default('/tmp/technitium02_token') }}"
   when: technitium_tokens[('technitium02' + (lookup('env', 'CONTAINER_SUFFIX') | default('')))] is defined
+
+- name: Export technitium03 token to file  
+  copy:
+    content: "{{ technitium_tokens[('technitium03' + (lookup('env', 'CONTAINER_SUFFIX') | default('')))].token }}"
+    dest: "{{ lookup('env', 'TOKEN_FILE_3') | default('/tmp/technitium02_token') }}"
+  when: technitium_tokens[('technitium03' + (lookup('env', 'CONTAINER_SUFFIX') | default('')))] is defined
