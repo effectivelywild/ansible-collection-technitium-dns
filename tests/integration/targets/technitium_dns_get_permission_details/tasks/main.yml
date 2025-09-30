@@ -1,0 +1,207 @@
+---
+# Integration test suite for technitium_dns_get_permission_details
+# This test validates permission details retrieval functionality
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: First, list permissions to get available sections
+- name: "List all permissions to verify available sections"
+  technitium_dns_list_permissions:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: list_permissions_result
+
+- name: "Assert permissions listing succeeded"
+  assert:
+    that:
+      - not list_permissions_result.failed
+      - list_permissions_result.permissions is defined
+      - list_permissions_result.permissions | length > 0
+    fail_msg: "Permissions listing should have succeeded"
+
+- name: "Verify Zones section exists"
+  assert:
+    that:
+      - list_permissions_result.permissions | selectattr('section', 'equalto', 'Zones') | list | length > 0
+    fail_msg: "Zones section should exist in permissions list"
+
+# Phase 3: Test successful permission details retrieval for Zones section
+- name: "Get permission details for Zones section"
+  technitium_dns_get_permission_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    section: "Zones"
+    includeUsersAndGroups: true
+  register: zones_permissions_result
+
+- name: "Debug zones permission details result"
+  debug:
+    var: zones_permissions_result
+  when: debug | default(false)
+
+- name: "Assert Zones permission details retrieval succeeded"
+  assert:
+    that:
+      - not zones_permissions_result.failed
+      - zones_permissions_result.permission_details is defined
+      - not zones_permissions_result.changed
+      - zones_permissions_result.permission_details.section == "Zones"
+    fail_msg: "Zones permission details retrieval should have succeeded"
+
+# Phase 4: Verify required Administrators group permissions in Zones section
+- name: "Verify Administrators group has full Zones permissions"
+  assert:
+    that:
+      - admin_group is defined
+      - admin_group.name == "Administrators"
+      - admin_group.canView == true
+      - admin_group.canModify == true
+      - admin_group.canDelete == true
+    fail_msg: "Administrators group should have full Zones permissions"
+  vars:
+    admin_group: "{{ zones_permissions_result.permission_details.groupPermissions | selectattr('name', 'equalto', 'Administrators') | first }}"
+
+# Phase 5: Verify expected structure of permission details
+- name: "Verify permission details structure"
+  assert:
+    that:
+      - zones_permissions_result.permission_details.section is defined
+      - zones_permissions_result.permission_details.section | length > 0
+      - zones_permissions_result.permission_details.userPermissions is defined
+      - zones_permissions_result.permission_details.userPermissions is iterable
+      - zones_permissions_result.permission_details.groupPermissions is defined
+      - zones_permissions_result.permission_details.groupPermissions is iterable
+      - zones_permissions_result.permission_details.users is defined
+      - zones_permissions_result.permission_details.users is iterable
+      - zones_permissions_result.permission_details.groups is defined
+      - zones_permissions_result.permission_details.groups is iterable
+    fail_msg: "Permission details should have correct structure"
+
+# Phase 6: Verify group permissions structure
+- name: "Verify group permissions have expected structure"
+  assert:
+    that:
+      - group_perm.name is defined
+      - group_perm.name | length > 0
+      - group_perm.canView is defined
+      - group_perm.canView is boolean
+      - group_perm.canModify is defined
+      - group_perm.canModify is boolean
+      - group_perm.canDelete is defined
+      - group_perm.canDelete is boolean
+    fail_msg: "Group permissions should have proper structure"
+  loop: "{{ zones_permissions_result.permission_details.groupPermissions }}"
+  loop_control:
+    loop_var: group_perm
+
+# Phase 7: Test permission details without users and groups
+- name: "Get permission details for Dashboard without users/groups list"
+  technitium_dns_get_permission_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    section: "Dashboard"
+    includeUsersAndGroups: false
+  register: dashboard_permissions_result
+
+- name: "Assert Dashboard permission details without users/groups"
+  assert:
+    that:
+      - not dashboard_permissions_result.failed
+      - dashboard_permissions_result.permission_details is defined
+      - dashboard_permissions_result.permission_details.section == "Dashboard"
+      - dashboard_permissions_result.permission_details.userPermissions is defined
+      - dashboard_permissions_result.permission_details.groupPermissions is defined
+      # users and groups should not be present when includeUsersAndGroups is false
+      - dashboard_permissions_result.permission_details.users is not defined or dashboard_permissions_result.permission_details.users | length == 0
+      - dashboard_permissions_result.permission_details.groups is not defined or dashboard_permissions_result.permission_details.groups | length == 0
+    fail_msg: "Dashboard permission details without users/groups should work correctly"
+
+# Phase 8: Test all available sections work
+- name: "Test permission details for each available section"
+  technitium_dns_get_permission_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    section: "{{ section.section }}"
+    includeUsersAndGroups: true
+  register: section_details_result
+  loop: "{{ list_permissions_result.permissions }}"
+  loop_control:
+    loop_var: section
+
+- name: "Verify all sections return valid permission details"
+  assert:
+    that:
+      - not section_result.failed
+      - section_result.permission_details is defined
+      - section_result.permission_details.section is defined
+      - section_result.permission_details.userPermissions is defined
+      - section_result.permission_details.groupPermissions is defined
+    fail_msg: "All sections should return valid permission details"
+  loop: "{{ section_details_result.results }}"
+  loop_control:
+    loop_var: section_result
+
+# Phase 9: Test failure cases
+- name: "Test invalid API token"
+  technitium_dns_get_permission_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    section: "Dashboard"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"
+
+- name: "Test non-existent section"
+  technitium_dns_get_permission_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    section: "NonExistentSection12345"
+  register: nonexistent_section_result
+  ignore_errors: true
+
+- name: "Assert failure with non-existent section"
+  assert:
+    that:
+      - nonexistent_section_result.failed
+      - "'does not exist' in nonexistent_section_result.msg"
+    fail_msg: "Non-existent section should cause failure"
+
+# Phase 10: Test consistency - running same request multiple times
+- name: "Get Zones permission details again to test consistency"
+  technitium_dns_get_permission_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    section: "Zones"
+    includeUsersAndGroups: true
+  register: zones_permissions_result_2
+
+- name: "Verify permission details are consistent"
+  assert:
+    that:
+      - not zones_permissions_result_2.failed
+      - not zones_permissions_result_2.changed
+      - zones_permissions_result_2.permission_details.section == zones_permissions_result.permission_details.section
+      - zones_permissions_result_2.permission_details.groupPermissions | length == zones_permissions_result.permission_details.groupPermissions | length
+    fail_msg: "Permission details should be consistent"

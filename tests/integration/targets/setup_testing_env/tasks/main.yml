@@ -7,7 +7,7 @@
 - name: "Create Technitium containers"
   community.docker.docker_container:
     name: "{{ item.name }}"
-    image: technitium/dns-server
+    image: "technitium/dns-server:{{ item.image_tag }}"
     state: started
     ports:
      - "{{ item.http_port }}:5380/tcp"
@@ -22,7 +22,7 @@
       DNS_SERVER_ADMIN_PASSWORD: "{{ dns_server_admin_password }}"
   loop: "{{ dns_servers_to_create }}"
 
-- name: Create API token for both containers
+- name: Create API token for all containers
   ansible.builtin.uri:
     url: "http://localhost:{{ item.http_port }}/api/user/createToken?user=admin&pass={{ dns_server_admin_password }}&tokenName=MyToken1"
     method: GET
@@ -32,8 +32,7 @@
 - name: Set facts for each Technitium container
   set_fact:
     technitium_tokens: "{{ technitium_tokens | default({}) | combine({ item.item.name: {
-      'token': item.json.token
-    } }) }}"
+      'token': item.json.token} }) }}"
   loop: "{{ api_token.results }}"
   loop_control:
     label: "{{ item.item.name }}"
@@ -49,6 +48,7 @@
   set_fact:
     technitium01_name: "technitium01{{ lookup('env', 'CONTAINER_SUFFIX') | default('') }}"
     technitium02_name: "technitium02{{ lookup('env', 'CONTAINER_SUFFIX') | default('') }}"
+    technitium03_name: "technitium03{{ lookup('env', 'CONTAINER_SUFFIX') | default('') }}"
     
 - name: Create DNS zones of technitium01 for zone transfers
   ansible.builtin.uri:

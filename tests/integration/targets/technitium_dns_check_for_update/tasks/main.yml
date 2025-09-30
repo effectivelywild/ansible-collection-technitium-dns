@@ -1,0 +1,110 @@
+---
+# Integration test suite for technitium_dns_check_for_update
+# This test validates update checking functionality
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Test check for update on outdated server (should show update available)
+- name: "Check for updates on outdated Technitium DNS server"
+  technitium_dns_check_for_update:
+    api_url: "{{ technitium_api_url_3 }}"
+    api_token: "{{ technitium_api_token_3 }}"
+    api_port: "{{ technitium_api_port_3 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: outdated_update_result
+
+- name: "Debug outdated server update result"
+  debug:
+    var: outdated_update_result
+  when: debug | default(false)
+
+- name: "Assert update check succeeded on outdated server"
+  assert:
+    that:
+      - not outdated_update_result.failed
+      - outdated_update_result.update_info is defined
+      - not outdated_update_result.changed
+    fail_msg: "Update check should have succeeded on outdated server"
+
+- name: "Verify update is available on outdated server"
+  assert:
+    that:
+      - outdated_update_result.update_info.updateAvailable == true
+      - outdated_update_result.update_info.currentVersion is defined
+      - outdated_update_result.update_info.updateVersion is defined
+      - outdated_update_result.update_info.currentVersion == "13.4"
+    fail_msg: "Update should be available on outdated server running version 13.4"
+
+- name: "Verify update details are provided when update is available"
+  assert:
+    that:
+      - outdated_update_result.update_info.updateTitle is defined
+      - outdated_update_result.update_info.updateMessage is defined
+      - outdated_update_result.update_info.instructionsLink is defined
+      - outdated_update_result.update_info.changeLogLink is defined
+    fail_msg: "Update details should be provided when update is available"
+
+# Phase 3: Test check for update on current server (should show no update available)
+- name: "Check for updates on current Technitium DNS server"
+  technitium_dns_check_for_update:
+    api_url: "{{ technitium_api_url_1 }}"
+    api_token: "{{ technitium_api_token_1 }}"
+    api_port: "{{ technitium_api_port_1 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: current_update_result
+
+- name: "Debug current server update result"
+  debug:
+    var: current_update_result
+  when: debug | default(false)
+
+- name: "Assert update check succeeded on current server"
+  assert:
+    that:
+      - not current_update_result.failed
+      - current_update_result.update_info is defined
+      - not current_update_result.changed
+    fail_msg: "Update check should have succeeded on current server"
+
+- name: "Verify no update is available on current server"
+  assert:
+    that:
+      - current_update_result.update_info.updateAvailable == false
+      - current_update_result.update_info.currentVersion is defined
+      - current_update_result.update_info.updateVersion is defined
+    fail_msg: "No update should be available on current server"
+
+# Phase 4: Test failure cases
+- name: "Test invalid API token"
+  technitium_dns_check_for_update:
+    api_url: "{{ technitium_api_url_1 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_1 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"
+
+- name: "Test invalid API URL"
+  technitium_dns_check_for_update:
+    api_url: "http://invalid-host-does-not-exist"
+    api_token: "{{ technitium_api_token_1 }}"
+    api_port: "{{ technitium_api_port_1 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: invalid_url_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API URL"
+  assert:
+    that:
+      - invalid_url_result.failed
+      - "'API request failed' in (invalid_url_result.msg) or 'Technitium API request failed' in (invalid_url_result.msg)"
+    fail_msg: "Invalid URL should cause failure"

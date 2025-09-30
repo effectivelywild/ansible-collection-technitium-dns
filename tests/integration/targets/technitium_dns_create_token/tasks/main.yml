@@ -1,0 +1,210 @@
+---
+# Integration test suite for technitium_dns_create_token
+# This test validates API token creation functionality
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Test successful token creation (secure mode)
+- name: "Delete test user"
+  technitium_dns_delete_user:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "testuser"
+
+- name: "Create user for token creation tests"
+  technitium_dns_create_user:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "testuser"
+    password: "testuser"
+    displayName: "testuser"
+
+- name: "Add testuser to Administrators group"
+  technitium_dns_set_user_details:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    username: "testuser"
+    memberOfGroups:
+      - "Administrators"
+
+- name: "Create API token for admin user (secure mode)"
+  technitium_dns_create_token:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    user: "testuser"
+    tokenName: "TestToken123"
+  register: create_token_result
+
+- name: "Debug token creation result"
+  debug:
+    var: create_token_result
+  when: debug | default(false)
+
+- name: "Assert token creation succeeded (secure mode)"
+  assert:
+    that:
+      - not create_token_result.failed
+      - create_token_result.changed
+      - create_token_result.api_response is defined
+      - create_token_result.api_response.status == "ok"
+      - create_token_result.api_response.response is defined
+      - create_token_result.api_response.response.username == "testuser"
+      - create_token_result.api_response.response.tokenName == "TestToken123"
+      - create_token_result.api_response.response.token == "[NEW_TOKEN_HIDDEN]"
+    fail_msg: "Token creation should have succeeded"
+
+# Phase 3: Test idempotency - creating the same token again should not change anything
+- name: "Attempt to create the same token again"
+  technitium_dns_create_token:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    user: "testuser"
+    tokenName: "TestToken123"
+  register: create_token_idempotent_result
+
+- name: "Assert idempotency - no changes should be made"
+  assert:
+    that:
+      - not create_token_idempotent_result.failed
+      - not create_token_idempotent_result.changed
+      - "'already exists' in create_token_idempotent_result.msg"
+    fail_msg: "Token creation should be idempotent"
+
+# Phase 4: Verify the created token appears in the session list
+- name: "List sessions to verify token was created"
+  technitium_dns_list_sessions:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: sessions_after_creation
+
+- name: "Assert new token appears in session list"
+  assert:
+    that:
+      - sessions_after_creation.sessions | selectattr('tokenName', 'equalto', 'TestToken123') | list | length > 0
+      - (sessions_after_creation.sessions | selectattr('tokenName', 'equalto', 'TestToken123') | first).username == "testuser"
+      - (sessions_after_creation.sessions | selectattr('tokenName', 'equalto', 'TestToken123') | first).type == "ApiToken"
+    fail_msg: "New token should appear in session list"
+
+# Phase 5: Test token creation with return_token=true
+- name: "Create API token with return_token=true"
+  technitium_dns_create_token:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    user: "testuser"
+    tokenName: "TestTokenWithReturn"
+    return_token: true
+  register: create_token_with_return_result
+
+- name: "Assert token creation with return_token=true succeeded"
+  assert:
+    that:
+      - not create_token_with_return_result.failed
+      - create_token_with_return_result.changed
+      - create_token_with_return_result.api_response is defined
+      - create_token_with_return_result.api_response.status == "ok"
+      - create_token_with_return_result.api_response.response is defined
+      - create_token_with_return_result.api_response.response.username == "testuser"
+      - create_token_with_return_result.api_response.response.tokenName == "TestTokenWithReturn"
+      - create_token_with_return_result.api_response.response.token is defined
+      - create_token_with_return_result.api_response.response.token != "[NEW_TOKEN_HIDDEN]"
+      - create_token_with_return_result.api_response.response.token | length > 0
+    fail_msg: "Token creation with return_token=true should return actual token"
+
+# Phase 6: Test the returned token by using it in a get_users call
+- name: "Test returned token by listing users"
+  technitium_dns_list_users:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ create_token_with_return_result.api_response.response.token }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: users_with_new_token_result
+
+- name: "Assert returned token works for API calls"
+  assert:
+    that:
+      - not users_with_new_token_result.failed
+      - users_with_new_token_result.users is defined
+      - users_with_new_token_result.users | length > 0
+    fail_msg: "Returned token should work for API calls"
+
+# Phase 7: Test check mode
+- name: "Test check mode for token creation"
+  technitium_dns_create_token:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    user: "admin"
+    tokenName: "CheckModeToken"
+  check_mode: true
+  register: check_mode_result
+
+- name: "Assert check mode works correctly"
+  assert:
+    that:
+      - not check_mode_result.failed
+      - check_mode_result.changed
+      - "'would be created' in check_mode_result.msg"
+      - check_mode_result.api_response.check_mode is defined
+      - check_mode_result.api_response.check_mode
+    fail_msg: "Check mode should work correctly"
+
+# Phase 8: Test failure cases
+- name: "Test invalid API token"
+  technitium_dns_create_token:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    user: "admin"
+    tokenName: "FailToken"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"
+
+- name: "Test creating token for non-existent user"
+  technitium_dns_create_token:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    user: "nonexistentuser12345"
+    tokenName: "FailToken"
+  register: nonexistent_user_result
+  ignore_errors: true
+
+- name: "Assert failure with non-existent user"
+  assert:
+    that:
+      - nonexistent_user_result.failed
+      - "'does not exist' in nonexistent_user_result.msg"
+    fail_msg: "Non-existent user should cause failure"
+
+- name: "Delete test user"
+  technitium_dns_delete_user:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    username: "testuser"
