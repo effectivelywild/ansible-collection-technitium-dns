@@ -11,7 +11,6 @@ short_description: Delete a user session from Technitium DNS server
 version_added: "0.5.0"
 description:
     - Delete a specified user session from Technitium DNS server using its API.
-    - This module is idempotent and will not fail if the session does not exist.
 author:
     - Frank Muise (@effectivelywild)
 seealso:

@@ -182,17 +182,6 @@ class GetPermissionsDetailsModule(TechnitiumModule):
         supports_check_mode=False
     )
 
-    def check_section_exists(self, section_name):
-        """Check if a permission section exists by listing all permissions"""
-        permissions_data = self.request('/api/admin/permissions/list')
-        if permissions_data.get('status') != 'ok':
-            error_msg = permissions_data.get('errorMessage') or "Unknown error"
-            self.fail_json(msg=f"Failed to check existing permissions: {error_msg}", api_response=permissions_data)
-
-        permissions = permissions_data.get('response', {}).get('permissions', [])
-        existing_section = next((p for p in permissions if p.get('section') == section_name), None)
-        return existing_section is not None, existing_section
-
     def run(self):
         section = self.params['section']
         include_users_and_groups = self.params['includeUsersAndGroups']
