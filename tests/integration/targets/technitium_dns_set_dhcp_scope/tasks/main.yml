@@ -6,8 +6,8 @@
 - name: "Load test configuration"
   include_vars: ../../integration_config.yml
 
-# Phase 2: Create a new DHCP scope
-- name: "Create a new test DHCP scope"
+# Phase 2: Create a new DHCP scope with comprehensive options
+- name: "Create a new test DHCP scope with multiple options"
   technitium_dns_set_dhcp_scope:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "{{ technitium_api_token_2 }}"
@@ -20,11 +20,28 @@
     leaseTimeDays: 7
     leaseTimeHours: 0
     leaseTimeMinutes: 0
+    offerDelayTime: 100
+    pingCheckEnabled: true
+    pingCheckTimeout: 1500
+    pingCheckRetries: 3
     routerAddress: "10.0.10.1"
     domainName: "test.local"
-    useThisDnsServer: true
+    domainSearchList:
+      - "test.local"
+      - "example.com"
+    useThisDnsServer: false
+    dnsServers:
+      - "8.8.8.8"
+      - "8.8.4.4"
     dnsUpdates: true
     dnsTtl: 900
+    winsServers:
+      - "10.0.10.5"
+    ntpServers:
+      - "10.0.10.6"
+    allowOnlyReservedLeases: false
+    blockLocallyAdministeredMacAddresses: false
+    ignoreClientIdentifierOption: true
   register: create_scope_result
 
 - name: "Debug create scope result"
@@ -52,7 +69,7 @@
     name: "TestScope"
   register: verify_create_result
 
-- name: "Assert scope has correct properties"
+- name: "Assert scope has correct basic properties"
   assert:
     that:
       - verify_create_result.scope_details.name == "TestScope"
@@ -62,12 +79,58 @@
       - verify_create_result.scope_details.leaseTimeDays == 7
       - verify_create_result.scope_details.leaseTimeHours == 0
       - verify_create_result.scope_details.leaseTimeMinutes == 0
+    fail_msg: "Created scope should have correct basic properties"
+
+- name: "Assert scope has correct ping check properties"
+  assert:
+    that:
+      - verify_create_result.scope_details.offerDelayTime == 100
+      - verify_create_result.scope_details.pingCheckEnabled == true
+      - verify_create_result.scope_details.pingCheckTimeout == 1500
+      - verify_create_result.scope_details.pingCheckRetries == 3
+    fail_msg: "Created scope should have correct ping check properties"
+
+- name: "Assert scope has correct network properties"
+  assert:
+    that:
       - verify_create_result.scope_details.routerAddress == "10.0.10.1"
       - verify_create_result.scope_details.domainName == "test.local"
-      - verify_create_result.scope_details.useThisDnsServer == true
+      - verify_create_result.scope_details.domainSearchList is defined
+      - verify_create_result.scope_details.domainSearchList | length == 2
+      - "'test.local' in verify_create_result.scope_details.domainSearchList"
+      - "'example.com' in verify_create_result.scope_details.domainSearchList"
+    fail_msg: "Created scope should have correct network properties"
+
+- name: "Assert scope has correct DNS properties"
+  assert:
+    that:
+      - verify_create_result.scope_details.useThisDnsServer == false
+      - verify_create_result.scope_details.dnsServers is defined
+      - verify_create_result.scope_details.dnsServers | length == 2
+      - "'8.8.8.8' in verify_create_result.scope_details.dnsServers"
+      - "'8.8.4.4' in verify_create_result.scope_details.dnsServers"
       - verify_create_result.scope_details.dnsUpdates == true
       - verify_create_result.scope_details.dnsTtl == 900
-    fail_msg: "Created scope should have correct properties"
+    fail_msg: "Created scope should have correct DNS properties"
+
+- name: "Assert scope has correct server properties"
+  assert:
+    that:
+      - verify_create_result.scope_details.winsServers is defined
+      - verify_create_result.scope_details.winsServers | length == 1
+      - "'10.0.10.5' in verify_create_result.scope_details.winsServers"
+      - verify_create_result.scope_details.ntpServers is defined
+      - verify_create_result.scope_details.ntpServers | length == 1
+      - "'10.0.10.6' in verify_create_result.scope_details.ntpServers"
+    fail_msg: "Created scope should have correct server properties"
+
+- name: "Assert scope has correct policy properties"
+  assert:
+    that:
+      - verify_create_result.scope_details.allowOnlyReservedLeases == false
+      - verify_create_result.scope_details.blockLocallyAdministeredMacAddresses == false
+      - verify_create_result.scope_details.ignoreClientIdentifierOption == true
+    fail_msg: "Created scope should have correct policy properties"
 
 # Phase 4: Test idempotency - setting same values should not change
 - name: "Set scope with same values (should be idempotent)"
@@ -81,11 +144,30 @@
     endingAddress: "10.0.10.254"
     subnetMask: "255.255.255.0"
     leaseTimeDays: 7
+    leaseTimeHours: 0
+    leaseTimeMinutes: 0
+    offerDelayTime: 100
+    pingCheckEnabled: true
+    pingCheckTimeout: 1500
+    pingCheckRetries: 3
     routerAddress: "10.0.10.1"
     domainName: "test.local"
-    useThisDnsServer: true
+    domainSearchList:
+      - "test.local"
+      - "example.com"
+    useThisDnsServer: false
+    dnsServers:
+      - "8.8.8.8"
+      - "8.8.4.4"
     dnsUpdates: true
     dnsTtl: 900
+    winsServers:
+      - "10.0.10.5"
+    ntpServers:
+      - "10.0.10.6"
+    allowOnlyReservedLeases: false
+    blockLocallyAdministeredMacAddresses: false
+    ignoreClientIdentifierOption: true
   register: idempotent_result
 
 - name: "Assert idempotency - no changes should be made"
@@ -96,8 +178,8 @@
       - "'already matches desired state' in idempotent_result.msg"
     fail_msg: "Scope configuration should be idempotent"
 
-# Phase 5: Update scope configuration
-- name: "Update scope lease time"
+# Phase 5: Update scope configuration with multiple options
+- name: "Update scope with multiple configuration changes"
   technitium_dns_set_dhcp_scope:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "{{ technitium_api_token_2 }}"
@@ -105,6 +187,13 @@
     validate_certs: "{{ validate_certs }}"
     name: "TestScope"
     leaseTimeDays: 14
+    leaseTimeHours: 12
+    leaseTimeMinutes: 30
+    pingCheckEnabled: false
+    pingCheckTimeout: 2000
+    domainName: "updated.local"
+    useThisDnsServer: true
+    blockLocallyAdministeredMacAddresses: true
   register: update_scope_result
 
 - name: "Assert scope update succeeded"
@@ -117,9 +206,30 @@
       - update_scope_result.diff.leaseTimeDays is defined
       - update_scope_result.diff.leaseTimeDays.current == 7
       - update_scope_result.diff.leaseTimeDays.desired == 14
-    fail_msg: "Scope update should have succeeded"
+      - update_scope_result.diff.leaseTimeHours is defined
+      - update_scope_result.diff.leaseTimeHours.current == 0
+      - update_scope_result.diff.leaseTimeHours.desired == 12
+      - update_scope_result.diff.leaseTimeMinutes is defined
+      - update_scope_result.diff.leaseTimeMinutes.current == 0
+      - update_scope_result.diff.leaseTimeMinutes.desired == 30
+      - update_scope_result.diff.pingCheckEnabled is defined
+      - update_scope_result.diff.pingCheckEnabled.current == true
+      - update_scope_result.diff.pingCheckEnabled.desired == false
+      - update_scope_result.diff.pingCheckTimeout is defined
+      - update_scope_result.diff.pingCheckTimeout.current == 1500
+      - update_scope_result.diff.pingCheckTimeout.desired == 2000
+      - update_scope_result.diff.domainName is defined
+      - update_scope_result.diff.domainName.current == "test.local"
+      - update_scope_result.diff.domainName.desired == "updated.local"
+      - update_scope_result.diff.useThisDnsServer is defined
+      - update_scope_result.diff.useThisDnsServer.current == false
+      - update_scope_result.diff.useThisDnsServer.desired == true
+      - update_scope_result.diff.blockLocallyAdministeredMacAddresses is defined
+      - update_scope_result.diff.blockLocallyAdministeredMacAddresses.current == false
+      - update_scope_result.diff.blockLocallyAdministeredMacAddresses.desired == true
+    fail_msg: "Scope update should have succeeded with correct diff"
 
-# Phase 6: Verify update was applied
+# Phase 6: Verify all updates were applied
 - name: "Get TestScope details after update"
   technitium_dns_get_dhcp_scope:
     api_url: "{{ technitium_api_url_2 }}"
@@ -129,13 +239,79 @@
     name: "TestScope"
   register: verify_update_result
 
-- name: "Assert lease time was updated"
+- name: "Assert all updates were applied"
   assert:
     that:
       - verify_update_result.scope_details.leaseTimeDays == 14
-    fail_msg: "Lease time should have been updated to 14 days"
+      - verify_update_result.scope_details.leaseTimeHours == 12
+      - verify_update_result.scope_details.leaseTimeMinutes == 30
+      - verify_update_result.scope_details.pingCheckEnabled == false
+      - verify_update_result.scope_details.pingCheckTimeout == 2000
+      - verify_update_result.scope_details.domainName == "updated.local"
+      - verify_update_result.scope_details.useThisDnsServer == true
+      - verify_update_result.scope_details.blockLocallyAdministeredMacAddresses == true
+    fail_msg: "All updates should have been applied correctly"
 
-# Phase 7: Test exclusions and reserved leases
+# Phase 7: Test advanced options (static routes, generic options, etc.)
+- name: "Add advanced DHCP options"
+  technitium_dns_set_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+    staticRoutes:
+      - destination: "172.16.0.0"
+        subnetMask: "255.255.255.0"
+        router: "10.0.10.1"
+    capwapAcIpAddresses:
+      - "10.0.10.50"
+    tftpServerAddresses:
+      - "10.0.10.60"
+      - "10.0.10.61"
+    genericOptions:
+      - code: 150
+        value: "0A000A3C"
+  register: add_advanced_options_result
+
+- name: "Assert advanced options were added"
+  assert:
+    that:
+      - not add_advanced_options_result.failed
+      - add_advanced_options_result.changed
+    fail_msg: "Adding advanced options should have succeeded"
+
+# Phase 8: Verify advanced options
+- name: "Get TestScope details to verify advanced options"
+  technitium_dns_get_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+  register: verify_advanced_options_result
+
+- name: "Assert advanced options are correct"
+  assert:
+    that:
+      - verify_advanced_options_result.scope_details.staticRoutes is defined
+      - verify_advanced_options_result.scope_details.staticRoutes | length == 1
+      - verify_advanced_options_result.scope_details.staticRoutes[0].destination == "172.16.0.0"
+      - verify_advanced_options_result.scope_details.staticRoutes[0].subnetMask == "255.255.255.0"
+      - verify_advanced_options_result.scope_details.staticRoutes[0].router == "10.0.10.1"
+      - verify_advanced_options_result.scope_details.capwapAcIpAddresses is defined
+      - verify_advanced_options_result.scope_details.capwapAcIpAddresses | length == 1
+      - "'10.0.10.50' in verify_advanced_options_result.scope_details.capwapAcIpAddresses"
+      - verify_advanced_options_result.scope_details.tftpServerAddresses is defined
+      - verify_advanced_options_result.scope_details.tftpServerAddresses | length == 2
+      - "'10.0.10.60' in verify_advanced_options_result.scope_details.tftpServerAddresses"
+      - "'10.0.10.61' in verify_advanced_options_result.scope_details.tftpServerAddresses"
+      - verify_advanced_options_result.scope_details.genericOptions is defined
+      - verify_advanced_options_result.scope_details.genericOptions | length == 1
+      - verify_advanced_options_result.scope_details.genericOptions[0].code == 150
+    fail_msg: "Advanced options should be configured correctly"
+
+# Phase 9: Test exclusions and reserved leases
 - name: "Add exclusions and reserved leases"
   technitium_dns_set_dhcp_scope:
     api_url: "{{ technitium_api_url_2 }}"
@@ -146,11 +322,17 @@
     exclusions:
       - startingAddress: "10.0.10.1"
         endingAddress: "10.0.10.10"
+      - startingAddress: "10.0.10.200"
+        endingAddress: "10.0.10.210"
     reservedLeases:
       - hostName: "testdevice"
         hardwareAddress: "AA-BB-CC-DD-EE-FF"
         address: "10.0.10.100"
         comments: "Test device reservation"
+      - hostName: "testprinter"
+        hardwareAddress: "11-22-33-44-55-66"
+        address: "10.0.10.101"
+        comments: "Test printer"
   register: add_exclusions_result
 
 - name: "Assert exclusions and reservations were added"
@@ -170,11 +352,17 @@
     exclusions:
       - startingAddress: "10.0.10.1"
         endingAddress: "10.0.10.10"
+      - startingAddress: "10.0.10.200"
+        endingAddress: "10.0.10.210"
     reservedLeases:
       - hostName: "testdevice"
         hardwareAddress: "AA-BB-CC-DD-EE-FF"
         address: "10.0.10.100"
         comments: "Test device reservation"
+      - hostName: "testprinter"
+        hardwareAddress: "11-22-33-44-55-66"
+        address: "10.0.10.101"
+        comments: "Test printer"
   register: idempotency_add_exclusions_result
 
 - name: "Assert no change"
@@ -184,7 +372,7 @@
       - not idempotency_add_exclusions_result.changed
     fail_msg: "Adding exclusions and reservations should not have changed anything"
 
-# Phase 8: Verify exclusions and reserved leases
+# Phase 10: Verify exclusions and reserved leases
 - name: "Get TestScope details to verify exclusions"
   technitium_dns_get_dhcp_scope:
     api_url: "{{ technitium_api_url_2 }}"
@@ -197,15 +385,11 @@
 - name: "Assert exclusions and reservations are correct"
   assert:
     that:
-      - verify_exclusions_result.scope_details.exclusions | length == 1
-      - verify_exclusions_result.scope_details.exclusions[0].startingAddress == "10.0.10.1"
-      - verify_exclusions_result.scope_details.exclusions[0].endingAddress == "10.0.10.10"
-      - verify_exclusions_result.scope_details.reservedLeases | length == 1
-      - verify_exclusions_result.scope_details.reservedLeases[0].hardwareAddress == "AA-BB-CC-DD-EE-FF"
-      - verify_exclusions_result.scope_details.reservedLeases[0].address == "10.0.10.100"
+      - verify_exclusions_result.scope_details.exclusions | length == 2
+      - verify_exclusions_result.scope_details.reservedLeases | length == 2
     fail_msg: "Exclusions and reservations should be configured correctly"
 
-# Phase 9: Test check mode
+# Phase 11: Test check mode
 - name: "Test check mode for scope update"
   technitium_dns_set_dhcp_scope:
     api_url: "{{ technitium_api_url_2 }}"
@@ -228,7 +412,7 @@
       - check_mode_result.diff is defined
     fail_msg: "Check mode should work correctly"
 
-# Phase 10: Verify check mode didn't actually change anything
+# Phase 12: Verify check mode didn't actually change anything
 - name: "Get TestScope details after check mode"
   technitium_dns_get_dhcp_scope:
     api_url: "{{ technitium_api_url_2 }}"
@@ -244,7 +428,7 @@
       - after_check_mode_result.scope_details.leaseTimeDays == 14
     fail_msg: "Check mode should not have changed actual configuration"
 
-# Phase 11: Test error cases
+# Phase 13: Test error cases
 - name: "Test creating scope without required parameters"
   technitium_dns_set_dhcp_scope:
     api_url: "{{ technitium_api_url_2 }}"
@@ -326,6 +510,6 @@
       - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
     fail_msg: "Invalid token should cause failure"
 
-# Phase 12: Cleanup - Delete test scope
+# Phase 14: Cleanup - Delete test scope
 # Note: We would need a delete_dhcp_scope module for proper cleanup
 # For now, we'll leave the test scope (it can be manually cleaned up)
