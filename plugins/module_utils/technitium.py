@@ -49,8 +49,7 @@ class TechnitiumModule(AnsibleModule):
                 data=data,
                 method=method,
                 headers={'Accept': 'application/json'},
-                timeout=10,
-                validate_certs=self.validate_certs
+                timeout=10
             )
 
             # Check if response is None (connection/transport failed)

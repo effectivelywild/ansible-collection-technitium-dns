@@ -58,8 +58,6 @@ options:
         description:
             - Whether to return the actual API token value in the response
             - 'WARNING: Setting this to true will expose the sensitive API token in Ansible logs, fact cache, and console output'
-            - 'Only use this for testing or when you specifically need the token value for subsequent tasks'
-            - 'For production use, keep this false (default) for security'
         required: false
         type: bool
         default: false
@@ -167,7 +165,7 @@ class CreateTokenModule(TechnitiumModule):
                     "response": {
                         "username": existing_token.get('username'),
                         "tokenName": existing_token.get('tokenName'),
-                        "token": "[EXISTING_TOKEN_HIDDEN]"
+                        "partialToken": existing_token.get('partialToken', '[TOKEN_NOT_RETRIEVABLE]')
                     }
                 }
             )
