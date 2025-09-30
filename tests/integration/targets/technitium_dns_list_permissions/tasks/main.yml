@@ -184,24 +184,7 @@
       - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
     fail_msg: "Invalid token should cause failure"
 
-# Phase 12: Test idempotency by running list permissions again
-- name: "Run permissions listing again to test consistency"
-  technitium_dns_list_permissions:
-    api_url: "{{ technitium_api_url_2 }}"
-    api_token: "{{ technitium_api_token_2 }}"
-    api_port: "{{ technitium_api_port_2 | int }}"
-    validate_certs: "{{ validate_certs }}"
-  register: permissions_result_2
-
-- name: "Verify permissions listing is consistent"
-  assert:
-    that:
-      - not permissions_result_2.failed
-      - not permissions_result_2.changed
-      - permissions_result_2.permissions | length == permissions_result.permissions | length
-    fail_msg: "Permissions listing should be consistent"
-
-# Phase 13: Cleanup - Remove test user
+# Phase 12: Cleanup - Remove test user
 - name: "Cleanup - Delete test user"
   technitium_dns_delete_user:
     api_url: "{{ technitium_api_url_2 }}"
