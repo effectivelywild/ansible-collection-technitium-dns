@@ -11,17 +11,19 @@ short_description: Add a reserved DHCP lease to a scope in Technitium DNS server
 version_added: "0.6.0"
 description:
     - Add a reserved lease entry to a specified DHCP scope.
-    - Reserved leases ensure a specific MAC address always receives the same IP address.
-    - This module is idempotent - if the reserved lease already exists with the same parameters, no changes are made.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_list_dhcp_leases
     description: List all DHCP leases from Technitium DNS server
-  - module: effectivelywild.technitium_dns.technitium_dns_set_dhcp_scope
-    description: Set DHCP scope configuration in Technitium DNS server
-  - module: effectivelywild.technitium_dns.technitium_dns_get_dhcp_scope
-    description: Get DHCP scope details from Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_remove_reserved_lease
+    description: Remove a reserved DHCP lease from a scope in Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_convert_to_reserved_lease
+    description: Convert a dynamic DHCP lease to a reserved lease in Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_convert_to_dynamic_lease
+    description: Convert a reserved DHCP lease to a dynamic lease in Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_remove_dhcp_lease
+    description: Remove a DHCP lease from Technitium DNS server
 options:
     api_port:
         description:

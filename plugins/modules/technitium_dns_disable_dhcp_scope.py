@@ -8,21 +8,23 @@ DOCUMENTATION = r'''
 ---
 module: technitium_dns_disable_dhcp_scope
 short_description: Disable a DHCP scope in Technitium DNS server
-version_added: "0.5.0"
+version_added: "0.6.0"
 description:
     - Disable a DHCP scope, stopping any further lease allocations.
     - This will prevent the DHCP server from allocating leases from this scope.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
-  - module: effectivelywild.technitium_dns.technitium_dns_enable_dhcp_scope
-    description: Enable a DHCP scope in Technitium DNS server
-  - module: effectivelywild.technitium_dns.technitium_dns_set_dhcp_scope
-    description: Set DHCP scope configuration in Technitium DNS server
   - module: effectivelywild.technitium_dns.technitium_dns_list_dhcp_scopes
     description: List all DHCP scopes from Technitium DNS server
   - module: effectivelywild.technitium_dns.technitium_dns_get_dhcp_scope
     description: Get DHCP scope details from Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_set_dhcp_scope
+    description: Set DHCP scope configuration in Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_enable_dhcp_scope
+    description: Enable a DHCP scope in Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_delete_dhcp_scope
+    description: Delete a DHCP scope from Technitium DNS server
 options:
     api_port:
         description:

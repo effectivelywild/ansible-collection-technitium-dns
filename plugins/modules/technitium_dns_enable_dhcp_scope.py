@@ -14,14 +14,16 @@ description:
 author:
     - Frank Muise (@effectivelywild)
 seealso:
-  - module: effectivelywild.technitium_dns.technitium_dns_disable_dhcp_scope
-    description: Disable a DHCP scope in Technitium DNS server
-  - module: effectivelywild.technitium_dns.technitium_dns_set_dhcp_scope
-    description: Set DHCP scope configuration in Technitium DNS server
   - module: effectivelywild.technitium_dns.technitium_dns_list_dhcp_scopes
     description: List all DHCP scopes from Technitium DNS server
   - module: effectivelywild.technitium_dns.technitium_dns_get_dhcp_scope
     description: Get DHCP scope details from Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_set_dhcp_scope
+    description: Set DHCP scope configuration in Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_disable_dhcp_scope
+    description: Disable a DHCP scope in Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_delete_dhcp_scope
+    description: Delete a DHCP scope from Technitium DNS server
 options:
     api_port:
         description:

@@ -15,10 +15,16 @@ description:
 author:
     - Frank Muise (@effectivelywild)
 seealso:
-  - module: effectivelywild.technitium_dns.technitium_dns_list_dhcp_scopes
-    description: List all DHCP scopes from Technitium DNS server
-  - module: effectivelywild.technitium_dns.technitium_dns_get_dhcp_scope
-    description: Get DHCP scope details from Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_add_reserved_lease
+    description: Add a reserved DHCP lease to a scope in Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_remove_reserved_lease
+    description: Remove a reserved DHCP lease from a scope in Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_convert_to_reserved_lease
+    description: Convert a dynamic DHCP lease to a reserved lease in Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_convert_to_dynamic_lease
+    description: Convert a reserved DHCP lease to a dynamic lease in Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_remove_dhcp_lease
+    description: Remove a DHCP lease from Technitium DNS server
 options:
     api_port:
         description:

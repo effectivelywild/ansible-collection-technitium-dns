@@ -22,6 +22,10 @@ seealso:
     description: Add a reserved DHCP lease to a scope in Technitium DNS server
   - module: effectivelywild.technitium_dns.technitium_dns_remove_reserved_lease
     description: Remove a reserved DHCP lease from a scope in Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_convert_to_reserved_lease
+    description: Convert a dynamic DHCP lease to a reserved lease in Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_convert_to_dynamic_lease
+    description: Convert a reserved DHCP lease to a dynamic lease in Technitium DNS server
 options:
     api_port:
         description:
