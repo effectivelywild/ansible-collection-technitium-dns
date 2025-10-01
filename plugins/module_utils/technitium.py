@@ -168,7 +168,7 @@ class TechnitiumModule(AnsibleModule):
         # Remove common separators and convert to uppercase
         mac_clean = mac.replace(':', '').replace('-', '').upper()
         # Format as XX-XX-XX-XX-XX-XX
-        return '-'.join([mac_clean[i:i+2] for i in range(0, len(mac_clean), 2)])
+        return '-'.join([mac_clean[i:i + 2] for i in range(0, len(mac_clean), 2)])
 
     def validate_api_response(self, data, context=""):
         """Validate API response status and fail with standardized error message"""

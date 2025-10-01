@@ -129,7 +129,14 @@ class EnableDhcpScopeModule(TechnitiumModule):
         # Implement idempotent enable behavior
         # If scope is already enabled, return success without changes
         if not is_disabled:
-            self.exit_json(changed=False, msg=f"DHCP scope '{scope_name}' is already enabled.", api_response={'status': 'ok', 'msg': f"DHCP scope '{scope_name}' is already enabled."})
+            self.exit_json(
+                changed=False,
+                msg=f"DHCP scope '{scope_name}' is already enabled.",
+                api_response={
+                    'status': 'ok',
+                    'msg': f"DHCP scope '{scope_name}' is already enabled."
+                }
+            )
 
         # Enable the DHCP scope via the Technitium API
         data = self.request('/api/dhcp/scopes/enable', params={'name': scope_name}, method='POST')
