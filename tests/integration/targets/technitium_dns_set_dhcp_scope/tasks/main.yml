@@ -6,6 +6,15 @@
 - name: "Load test configuration"
   include_vars: ../../integration_config.yml
 
+- name: "Cleanup - Delete test scope"
+  technitium_dns_delete_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+  register: cleanup_result
+
 # Phase 2: Create a new DHCP scope with comprehensive options
 - name: "Create a new test DHCP scope with multiple options"
   technitium_dns_set_dhcp_scope:

@@ -137,6 +137,21 @@ class TechnitiumModule(AnsibleModule):
         builtin_groups = ['Administrators', 'DHCP Administrators', 'DNS Administrators']
         return group_name in builtin_groups
 
+    def get_dhcp_scope_status(self, scope_name):
+        """Get DHCP scope status including enabled/disabled state
+
+        Returns:
+            tuple: (exists: bool, scope_data: dict or None)
+            scope_data contains the full scope information including 'enabled' field
+        """
+        list_data = self.request('/api/dhcp/scopes/list')
+        self.validate_api_response(list_data)
+
+        scopes = list_data.get('response', {}).get('scopes', [])
+        matching_scope = next((s for s in scopes if s.get('name') == scope_name), None)
+
+        return matching_scope is not None, matching_scope
+
     def validate_api_response(self, data, context=""):
         """Validate API response status and fail with standardized error message"""
         if data.get('status') != 'ok':
