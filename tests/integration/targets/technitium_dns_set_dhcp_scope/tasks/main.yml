@@ -511,5 +511,18 @@
     fail_msg: "Invalid token should cause failure"
 
 # Phase 14: Cleanup - Delete test scope
-# Note: We would need a delete_dhcp_scope module for proper cleanup
-# For now, we'll leave the test scope (it can be manually cleaned up)
+- name: "Cleanup - Delete test scope"
+  technitium_dns_delete_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+  register: cleanup_result
+
+- name: "Assert cleanup succeeded"
+  assert:
+    that:
+      - not cleanup_result.failed
+      - cleanup_result.changed
+    fail_msg: "Cleanup should have succeeded"

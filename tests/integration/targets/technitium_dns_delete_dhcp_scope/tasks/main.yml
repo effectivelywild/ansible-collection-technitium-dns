@@ -1,0 +1,179 @@
+---
+# Integration test suite for technitium_dns_delete_dhcp_scope
+# This test validates DHCP scope deletion functionality
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Create a test DHCP scope to delete
+- name: "Create a test DHCP scope for deletion"
+  technitium_dns_set_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "DeleteTestScope"
+    startingAddress: "10.0.20.1"
+    endingAddress: "10.0.20.254"
+    subnetMask: "255.255.255.0"
+    leaseTimeDays: 7
+    routerAddress: "10.0.20.1"
+  register: create_scope_result
+
+- name: "Assert scope creation succeeded"
+  assert:
+    that:
+      - not create_scope_result.failed
+      - create_scope_result.changed
+    fail_msg: "Test scope creation should have succeeded"
+
+# Phase 3: Verify scope exists before deletion
+- name: "Verify scope exists before deletion"
+  technitium_dns_get_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "DeleteTestScope"
+  register: verify_exists_result
+
+- name: "Assert scope exists"
+  assert:
+    that:
+      - not verify_exists_result.failed
+      - verify_exists_result.scope_details.name == "DeleteTestScope"
+    fail_msg: "Scope should exist before deletion"
+
+# Phase 4: Test check mode for deletion
+- name: "Test check mode for scope deletion"
+  technitium_dns_delete_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "DeleteTestScope"
+  check_mode: true
+  register: check_mode_result
+
+- name: "Assert check mode works correctly"
+  assert:
+    that:
+      - not check_mode_result.failed
+      - check_mode_result.changed
+      - "'would be deleted' in check_mode_result.msg"
+    fail_msg: "Check mode should work correctly"
+
+# Phase 5: Verify check mode didn't actually delete scope
+- name: "Verify scope still exists after check mode"
+  technitium_dns_get_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "DeleteTestScope"
+  register: after_check_mode_result
+
+- name: "Assert scope still exists after check mode"
+  assert:
+    that:
+      - not after_check_mode_result.failed
+      - after_check_mode_result.scope_details.name == "DeleteTestScope"
+    fail_msg: "Check mode should not have deleted the scope"
+
+# Phase 6: Delete the scope
+- name: "Delete the DHCP scope"
+  technitium_dns_delete_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "DeleteTestScope"
+  register: delete_scope_result
+
+- name: "Debug delete result"
+  debug:
+    var: delete_scope_result
+  when: debug | default(false)
+
+- name: "Assert scope deletion succeeded"
+  assert:
+    that:
+      - not delete_scope_result.failed
+      - delete_scope_result.changed
+      - delete_scope_result.api_response is defined
+      - delete_scope_result.api_response.status == "ok"
+      - "'deleted' in delete_scope_result.msg"
+    fail_msg: "DHCP scope deletion should have succeeded"
+
+# Phase 7: Verify scope no longer exists
+- name: "Try to get the deleted scope (should fail)"
+  technitium_dns_get_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "DeleteTestScope"
+  register: get_deleted_scope_result
+  ignore_errors: true
+
+- name: "Assert scope no longer exists"
+  assert:
+    that:
+      - get_deleted_scope_result.failed
+    fail_msg: "Deleted scope should not exist"
+
+# Phase 8: Test idempotency - deleting non-existent scope
+- name: "Delete the same scope again (should be idempotent)"
+  technitium_dns_delete_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "DeleteTestScope"
+  register: idempotent_delete_result
+
+- name: "Assert idempotency - no changes should be made"
+  assert:
+    that:
+      - not idempotent_delete_result.failed
+      - not idempotent_delete_result.changed
+      - "'does not exist' in idempotent_delete_result.msg"
+    fail_msg: "Deleting non-existent scope should be idempotent"
+
+# Phase 9: Test deleting non-existent scope in check mode
+- name: "Test check mode with non-existent scope"
+  technitium_dns_delete_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "NonExistentScope"
+  check_mode: true
+  register: check_mode_nonexistent_result
+
+- name: "Assert check mode with non-existent scope reports no changes"
+  assert:
+    that:
+      - not check_mode_nonexistent_result.failed
+      - not check_mode_nonexistent_result.changed
+      - "'does not exist' in check_mode_nonexistent_result.msg"
+    fail_msg: "Check mode with non-existent scope should report no changes"
+
+# Phase 10: Test error cases
+- name: "Test invalid API token"
+  technitium_dns_delete_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "SomeScope"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"
