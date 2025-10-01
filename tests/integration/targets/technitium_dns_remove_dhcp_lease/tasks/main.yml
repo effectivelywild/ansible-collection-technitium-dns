@@ -1,0 +1,397 @@
+---
+# Integration test suite for technitium_dns_remove_dhcp_lease
+# This test validates removing DHCP leases (both dynamic and reserved)
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Create a Docker network for DHCP testing
+- name: "Create Docker network for DHCP testing"
+  community.docker.docker_network:
+    name: remove_dhcp_lease_test_network
+    driver: bridge
+    ipam_config:
+      - subnet: "10.101.0.0/24"
+        gateway: "10.101.0.1"
+    state: present
+  register: network_result
+
+- name: "Debug network result"
+  debug:
+    var: network_result
+  when: debug | default(false)
+
+# Phase 3: Connect Technitium container to test network so it can serve DHCP
+- name: "Get Technitium container name with suffix"
+  set_fact:
+    technitium_container_name: "technitium02.{{ testing_suffix }}"
+
+- name: "Connect Technitium container to test network"
+  community.docker.docker_network:
+    name: remove_dhcp_lease_test_network
+    connected:
+      - "{{ technitium_container_name }}"
+    appends: yes
+  register: connect_result
+
+- name: "Debug connect result"
+  debug:
+    var: connect_result
+  when: debug | default(false)
+
+# Phase 4: Create a test DHCP scope for lease testing
+- name: "Create test DHCP scope for lease removal"
+  technitium_dns_set_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "RemoveDhcpLeaseTestScope"
+    startingAddress: "10.101.0.100"
+    endingAddress: "10.101.0.200"
+    subnetMask: "255.255.255.0"
+    leaseTimeDays: 1
+    leaseTimeHours: 0
+    leaseTimeMinutes: 0
+  register: create_scope_result
+
+- name: "Debug create scope result"
+  debug:
+    var: create_scope_result
+  when: debug | default(false)
+
+# Phase 5: Enable the test DHCP scope
+- name: "Enable RemoveDhcpLeaseTestScope"
+  technitium_dns_enable_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "RemoveDhcpLeaseTestScope"
+  register: enable_scope_result
+
+- name: "Debug enable scope result"
+  debug:
+    var: enable_scope_result
+  when: debug | default(false)
+
+# Phase 6: Create a container with static MAC to request DHCP lease
+- name: "Create DHCP client container with static MAC"
+  community.docker.docker_container:
+    name: remove_dhcp_lease_test_client
+    image: alpine:latest
+    state: started
+    networks:
+      - name: remove_dhcp_lease_test_network
+    mac_address: "02:42:ac:19:00:55"
+    command: "sh -c 'udhcpc -i eth0 && sleep 3600'"
+    detach: yes
+    cleanup: yes
+  register: container_result
+
+- name: "Debug container result"
+  debug:
+    var: container_result
+  when: debug | default(false)
+
+# Phase 7: Wait for DHCP lease to be obtained
+- name: "Wait for DHCP lease acquisition"
+  pause:
+    seconds: 10
+
+# Phase 8: List DHCP leases to verify the lease exists
+- name: "List all DHCP leases"
+  technitium_dns_list_dhcp_leases:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: list_leases_before
+
+- name: "Debug list leases before removal"
+  debug:
+    var: list_leases_before
+  when: debug | default(false)
+
+# Phase 9: Verify our test lease exists
+- name: "Filter leases by our test MAC address"
+  set_fact:
+    test_lease_before: "{{ list_leases_before.leases | selectattr('hardwareAddress', 'equalto', '02-42-AC-19-00-55') | list }}"
+
+- name: "Debug test lease before removal"
+  debug:
+    var: test_lease_before
+  when: debug | default(false)
+
+- name: "Assert our test lease exists before removal"
+  assert:
+    that:
+      - test_lease_before | length > 0
+      - test_lease_before[0].hardwareAddress == '02-42-AC-19-00-55'
+      - test_lease_before[0].scope == 'RemoveDhcpLeaseTestScope'
+      - test_lease_before[0].address is defined
+    fail_msg: "Test DHCP lease should exist before removal"
+
+# Phase 10: Test check mode for removing the lease
+- name: "Test check mode for removing DHCP lease"
+  technitium_dns_remove_dhcp_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "RemoveDhcpLeaseTestScope"
+    hardwareAddress: "02:42:ac:19:00:55"
+  check_mode: true
+  register: check_mode_result
+
+- name: "Assert check mode works correctly"
+  assert:
+    that:
+      - not check_mode_result.failed
+      - check_mode_result.changed
+      - "'would be removed' in check_mode_result.msg"
+    fail_msg: "Check mode should work correctly"
+
+# Phase 11: Verify check mode didn't actually remove the lease
+- name: "List leases again after check mode"
+  technitium_dns_list_dhcp_leases:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: list_after_check_mode
+
+- name: "Filter leases after check mode"
+  set_fact:
+    lease_after_check: "{{ list_after_check_mode.leases | selectattr('hardwareAddress', 'equalto', '02-42-AC-19-00-55') | list }}"
+
+- name: "Assert check mode didn't actually remove the lease"
+  assert:
+    that:
+      - lease_after_check | length > 0
+    fail_msg: "Check mode should not have actually removed the lease"
+
+# Phase 12: Remove the DHCP lease
+- name: "Remove the DHCP lease"
+  technitium_dns_remove_dhcp_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "RemoveDhcpLeaseTestScope"
+    hardwareAddress: "02:42:ac:19:00:55"
+  register: remove_result
+
+- name: "Debug remove result"
+  debug:
+    var: remove_result
+  when: debug | default(false)
+
+- name: "Assert remove succeeded"
+  assert:
+    that:
+      - not remove_result.failed
+      - remove_result.changed
+      - remove_result.api_response is defined
+      - remove_result.api_response.status == "ok"
+      - "'removed' in remove_result.msg"
+    fail_msg: "Removing DHCP lease should have succeeded"
+
+# Phase 13: Verify the lease has been removed
+- name: "List leases again to verify removal"
+  technitium_dns_list_dhcp_leases:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: list_leases_after
+
+- name: "Debug list leases after removal"
+  debug:
+    var: list_leases_after
+  when: debug | default(false)
+
+- name: "Filter leases after removal"
+  set_fact:
+    test_lease_after: "{{ list_leases_after.leases | selectattr('hardwareAddress', 'equalto', '02-42-AC-19-00-55') | list }}"
+
+- name: "Assert lease has been removed"
+  assert:
+    that:
+      - test_lease_after | length == 0
+    fail_msg: "DHCP lease should be removed from scope"
+
+# Phase 14: Test idempotency - removing non-existent lease
+- name: "Remove the same lease again (should be idempotent)"
+  technitium_dns_remove_dhcp_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "RemoveDhcpLeaseTestScope"
+    hardwareAddress: "02:42:ac:19:00:55"
+  register: idempotent_result
+
+- name: "Assert idempotency - no changes should be made"
+  assert:
+    that:
+      - not idempotent_result.failed
+      - not idempotent_result.changed
+      - "'does not exist' in idempotent_result.msg"
+    fail_msg: "Removing non-existent lease should be idempotent"
+
+# Phase 15: Verify reserved lease is gone from both leases list and scope config
+- name: "List leases after reserved removal"
+  technitium_dns_list_dhcp_leases:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: list_after_reserved_removed
+
+- name: "Get scope details to check reservedLeases"
+  technitium_dns_get_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "RemoveDhcpLeaseTestScope"
+  register: scope_after_reserved_removed
+
+- name: "Filter for removed reserved lease in list"
+  set_fact:
+    removed_reserved_in_list: "{{ list_after_reserved_removed.leases | selectattr('hardwareAddress', 'equalto', 'AA-BB-CC-DD-EE-FF') | list }}"
+
+- name: "Filter for removed reserved lease in scope config"
+  set_fact:
+    removed_reserved_in_config: "{{ scope_after_reserved_removed.scope_details.reservedLeases | selectattr('hardwareAddress', 'equalto', 'AA-BB-CC-DD-EE-FF') | list }}"
+
+- name: "Assert reserved lease removed from both list and config"
+  assert:
+    that:
+      - removed_reserved_in_list | length == 0
+      - removed_reserved_in_config | length == 0
+    fail_msg: "Reserved lease should be removed from both lease list and scope configuration"
+
+# Phase 16: Test MAC address normalization (different formats)
+- name: "Create another DHCP client with different MAC"
+  community.docker.docker_container:
+    name: remove_dhcp_lease_test_client2
+    image: alpine:latest
+    state: started
+    networks:
+      - name: remove_dhcp_lease_test_network
+    mac_address: "02:42:ac:19:00:66"
+    command: "sh -c 'udhcpc -i eth0 && sleep 3600'"
+    detach: yes
+    cleanup: yes
+  register: container2_result
+
+- name: "Wait for second lease acquisition"
+  pause:
+    seconds: 10
+
+# Phase 17: Remove lease using hyphen-separated MAC format
+- name: "Remove lease using hyphen-separated MAC"
+  technitium_dns_remove_dhcp_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "RemoveDhcpLeaseTestScope"
+    hardwareAddress: "02-42-AC-19-00-66"
+  register: remove_normalized_mac
+
+- name: "Assert MAC normalization works for removal"
+  assert:
+    that:
+      - remove_normalized_mac.changed
+    fail_msg: "MAC normalization should allow removal with different format"
+
+# Phase 18: Test error cases - non-existent scope
+- name: "Test removing lease from non-existent scope"
+  technitium_dns_remove_dhcp_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "NonExistentScope-{{ ansible_date_time.epoch }}"
+    hardwareAddress: "00:11:22:33:44:55"
+  register: nonexistent_scope_result
+  ignore_errors: true
+
+- name: "Assert failure with non-existent scope"
+  assert:
+    that:
+      - nonexistent_scope_result.failed
+      - "'does not exist' in nonexistent_scope_result.msg"
+    fail_msg: "Removing from non-existent scope should fail"
+
+# Phase 19: Test error cases - invalid API token
+- name: "Test invalid API token"
+  technitium_dns_remove_dhcp_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "RemoveDhcpLeaseTestScope"
+    hardwareAddress: "00:11:22:33:44:55"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"
+
+# Phase 20: Cleanup - Disconnect Technitium from test network
+- name: "Disconnect Technitium container from test network"
+  community.docker.docker_network:
+    name: remove_dhcp_lease_test_network
+    connected:
+      - "{{ technitium_container_name }}"
+    state: absent
+  ignore_errors: true
+
+# Phase 21: Cleanup - Stop and remove containers
+- name: "Stop and remove DHCP test client container"
+  community.docker.docker_container:
+    name: remove_dhcp_lease_test_client
+    state: absent
+  ignore_errors: true
+
+- name: "Stop and remove DHCP test client container 2"
+  community.docker.docker_container:
+    name: remove_dhcp_lease_test_client2
+    state: absent
+  ignore_errors: true
+
+# Phase 22: Cleanup - Remove Docker network
+- name: "Remove Docker test network"
+  community.docker.docker_network:
+    name: remove_dhcp_lease_test_network
+    state: absent
+  ignore_errors: true
+
+# Phase 23: Cleanup - Disable test scope
+- name: "Disable RemoveDhcpLeaseTestScope"
+  technitium_dns_disable_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "RemoveDhcpLeaseTestScope"
+  ignore_errors: true
+
+# Phase 24: Cleanup - Delete test scope
+- name: "Delete RemoveDhcpLeaseTestScope"
+  technitium_dns_delete_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "RemoveDhcpLeaseTestScope"
+  ignore_errors: true
