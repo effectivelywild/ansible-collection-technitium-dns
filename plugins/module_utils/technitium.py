@@ -1,5 +1,7 @@
 from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
+import json
+from urllib.parse import urlencode
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.urls import fetch_url
 
@@ -30,10 +32,11 @@ class TechnitiumModule(AnsibleModule):
         self.name = self.params.get('name')
 
     def request(self, path, params=None, method='GET'):
-        from urllib.parse import urlencode
         url = f"{self.api_url}:{self.api_port}{path}"
         params = params or {}
         params['token'] = self.api_token
+
+        headers = {'Accept': 'application/json'}
 
         if method == 'GET':
             url_with_params = url + '?' + urlencode(params)
@@ -41,6 +44,7 @@ class TechnitiumModule(AnsibleModule):
         else:
             url_with_params = url
             data = urlencode(params)
+            headers['Content-Type'] = 'application/x-www-form-urlencoded'
 
         try:
             resp, info = fetch_url(
@@ -48,7 +52,7 @@ class TechnitiumModule(AnsibleModule):
                 url_with_params,
                 data=data,
                 method=method,
-                headers={'Accept': 'application/json'},
+                headers=headers,
                 timeout=10
             )
 
@@ -66,7 +70,6 @@ class TechnitiumModule(AnsibleModule):
                     error_msg += f": {info['msg']}"
                 self.fail_json(msg=error_msg)
 
-            import json
             return json.loads(resp.read().decode('utf-8'))
         except Exception as e:
             self.fail_json(msg=f"Technitium API request failed: {e}")
