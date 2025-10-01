@@ -1,0 +1,354 @@
+---
+# Integration test suite for technitium_dns_add_reserved_lease
+# This test validates adding reserved DHCP leases
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Create a Docker network for DHCP testing
+- name: "Create Docker network for DHCP testing"
+  community.docker.docker_network:
+    name: reserved_lease_test_network
+    driver: bridge
+    ipam_config:
+      - subnet: "10.100.0.0/24"
+        gateway: "10.100.0.1"
+    state: present
+  register: network_result
+
+- name: "Debug network result"
+  debug:
+    var: network_result
+  when: debug | default(false)
+
+# Phase 3: Connect Technitium container to test network so it can serve DHCP
+- name: "Get Technitium container name with suffix"
+  set_fact:
+    technitium_container_name: "technitium02.{{ testing_suffix }}"
+
+- name: "Debug Technitium container name"
+  debug:
+    var: technitium_container_name
+  when: debug | default(false)
+
+- name: "Connect Technitium container to test network"
+  community.docker.docker_network:
+    name: reserved_lease_test_network
+    connected:
+      - "{{ technitium_container_name }}"
+    appends: yes
+  register: connect_result
+
+- name: "Debug connect result"
+  debug:
+    var: connect_result
+
+# Phase 4: Create a test DHCP scope for lease testing
+- name: "Create test DHCP scope for reserved leases"
+  technitium_dns_set_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ReservedLeaseTestScope"
+    startingAddress: "10.100.0.100"
+    endingAddress: "10.100.0.200"
+    subnetMask: "255.255.255.0"
+    leaseTimeDays: 1
+    leaseTimeHours: 0
+    leaseTimeMinutes: 0
+  register: create_scope_result
+
+- name: "Debug create scope result"
+  debug:
+    var: create_scope_result
+  when: debug | default(false)
+
+# Phase 5: Enable the test DHCP scope
+- name: "Enable ReservedLeaseTestScope"
+  technitium_dns_enable_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ReservedLeaseTestScope"
+  register: enable_scope_result
+
+- name: "Debug enable scope result"
+  debug:
+    var: enable_scope_result
+  when: debug | default(false)
+
+# Phase 6: Add a reserved lease for the MAC address with hostname and comments
+- name: "Add reserved lease with hostname and comments"
+  technitium_dns_add_reserved_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ReservedLeaseTestScope"
+    hardwareAddress: "02:42:0a:64:00:50"
+    ipAddress: "10.100.0.150"
+    hostName: "test-reserved.local"
+    comments: "Test reserved lease for integration testing"
+  register: add_lease_result
+
+- name: "Debug add lease result"
+  debug:
+    var: add_lease_result
+  when: debug | default(false)
+
+- name: "Assert add lease succeeded"
+  assert:
+    that:
+      - not add_lease_result.failed
+      - add_lease_result.changed
+      - add_lease_result.api_response is defined
+      - add_lease_result.api_response.status == "ok"
+      - "'added' in add_lease_result.msg"
+    fail_msg: "Adding reserved lease should have succeeded"
+
+# Phase 7: Create a container with static MAC to request DHCP lease
+- name: "Create DHCP client container with static MAC"
+  community.docker.docker_container:
+    name: reserved_lease_test_client
+    image: alpine:latest
+    state: started
+    networks:
+      - name: reserved_lease_test_network
+    mac_address: "02:42:0a:64:00:50"
+    command: "sh -c 'udhcpc -i eth0 && sleep 3600'"
+    detach: yes
+    cleanup: yes
+  register: container_result
+
+- name: "Debug container result"
+  debug:
+    var: container_result
+  when: debug | default(false)
+
+# Phase 8: Wait for DHCP lease to be obtained
+- name: "Wait for DHCP lease acquisition"
+  pause:
+    seconds: 10
+
+# Phase 9: Get scope details to verify the reserved lease exists
+- name: "Get scope details to check reserved leases"
+  technitium_dns_get_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ReservedLeaseTestScope"
+  register: scope_details_result
+
+- name: "Debug scope details result"
+  debug:
+    var: scope_details_result
+  when: debug | default(false)
+
+# Phase 10: Verify the reserved lease exists with correct parameters
+- name: "Filter reserved leases by our MAC address"
+  set_fact:
+    reserved_lease: "{{ scope_details_result.scope_details.reservedLeases | selectattr('hardwareAddress', 'equalto', '02-42-0A-64-00-50') | list }}"
+
+- name: "Debug reserved lease"
+  debug:
+    var: reserved_lease
+  when: debug | default(false)
+
+- name: "Assert reserved lease exists with correct parameters"
+  assert:
+    that:
+      - reserved_lease | length > 0
+      - reserved_lease[0].hardwareAddress == '02-42-0A-64-00-50'
+      - reserved_lease[0].address == '10.100.0.150'
+      - reserved_lease[0].hostName == 'test-reserved.local'
+      - reserved_lease[0].comments == 'Test reserved lease for integration testing'
+    fail_msg: "Reserved lease should exist with correct MAC, IP, hostname, and comments"
+
+# Phase 11: Test idempotency - adding the same reserved lease again
+- name: "Add the same reserved lease again (should be idempotent)"
+  technitium_dns_add_reserved_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ReservedLeaseTestScope"
+    hardwareAddress: "02:42:0a:64:00:50"
+    ipAddress: "10.100.0.150"
+    hostName: "test-reserved.local"
+    comments: "Test reserved lease for integration testing"
+  register: idempotent_result
+
+- name: "Assert idempotency - no changes should be made"
+  assert:
+    that:
+      - not idempotent_result.failed
+      - not idempotent_result.changed
+      - "'already exists' in idempotent_result.msg"
+    fail_msg: "Adding existing reserved lease should be idempotent"
+
+# Phase 12: Test check mode
+- name: "Test check mode for adding a new reserved lease"
+  technitium_dns_add_reserved_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ReservedLeaseTestScope"
+    hardwareAddress: "00:11:22:33:44:55"
+    ipAddress: "10.100.0.151"
+  check_mode: true
+  register: check_mode_result
+
+- name: "Assert check mode works correctly"
+  assert:
+    that:
+      - not check_mode_result.failed
+      - check_mode_result.changed
+      - "'would be added' in check_mode_result.msg"
+    fail_msg: "Check mode should work correctly"
+
+# Phase 13: Verify check mode didn't actually add the lease
+- name: "Get scope details again after check mode"
+  technitium_dns_get_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ReservedLeaseTestScope"
+  register: scope_after_check_mode
+
+- name: "Check that check mode lease doesn't exist in reserved leases"
+  set_fact:
+    check_mode_lease: "{{ scope_after_check_mode.scope_details.reservedLeases | selectattr('hardwareAddress', 'equalto', '00-11-22-33-44-55') | list }}"
+
+- name: "Assert check mode didn't actually add the lease"
+  assert:
+    that:
+      - check_mode_lease | length == 0
+    fail_msg: "Check mode should not have actually added the lease"
+
+# Phase 14: Test error cases - non-existent scope
+- name: "Test adding reserved lease to non-existent scope"
+  technitium_dns_add_reserved_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "NonExistentScope-{{ ansible_date_time.epoch }}"
+    hardwareAddress: "00:11:22:33:44:55"
+    ipAddress: "10.100.0.152"
+  register: nonexistent_scope_result
+  ignore_errors: true
+
+- name: "Assert failure with non-existent scope"
+  assert:
+    that:
+      - nonexistent_scope_result.failed
+      - "'does not exist' in nonexistent_scope_result.msg"
+    fail_msg: "Adding reserved lease to non-existent scope should fail"
+
+# Phase 15: Test error cases - invalid API token
+- name: "Test invalid API token"
+  technitium_dns_add_reserved_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ReservedLeaseTestScope"
+    hardwareAddress: "00:11:22:33:44:55"
+    ipAddress: "10.100.0.153"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"
+
+# Phase 16: Test MAC address normalization (using colon separator)
+- name: "Add reserved lease with colon-separated MAC"
+  technitium_dns_add_reserved_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ReservedLeaseTestScope"
+    hardwareAddress: "aa:bb:cc:dd:ee:ff"
+    ipAddress: "10.100.0.175"
+  register: colon_mac_result
+
+- name: "Assert colon-separated MAC succeeds"
+  assert:
+    that:
+      - not colon_mac_result.failed
+      - colon_mac_result.changed
+    fail_msg: "Colon-separated MAC address should work"
+
+# Phase 17: Test idempotency with different MAC format (hyphen vs colon)
+- name: "Add same lease with hyphen-separated MAC (should be idempotent)"
+  technitium_dns_add_reserved_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ReservedLeaseTestScope"
+    hardwareAddress: "AA-BB-CC-DD-EE-FF"
+    ipAddress: "10.100.0.175"
+  register: hyphen_mac_result
+
+- name: "Assert MAC normalization makes it idempotent"
+  assert:
+    that:
+      - not hyphen_mac_result.failed
+      - not hyphen_mac_result.changed
+      - "'already exists' in hyphen_mac_result.msg"
+    fail_msg: "Different MAC formats should be normalized and recognized as same lease"
+
+# Phase 18: Cleanup - Disconnect Technitium from test network
+- name: "Disconnect Technitium container from test network"
+  community.docker.docker_network:
+    name: reserved_lease_test_network
+    connected:
+      - "{{ technitium_container_name }}"
+    state: absent
+  ignore_errors: true
+
+# Phase 19: Cleanup - Stop and remove container
+- name: "Stop and remove DHCP test client container"
+  community.docker.docker_container:
+    name: reserved_lease_test_client
+    state: absent
+  ignore_errors: true
+
+# Phase 20: Cleanup - Remove Docker network
+- name: "Remove Docker test network"
+  community.docker.docker_network:
+    name: reserved_lease_test_network
+    state: absent
+  ignore_errors: true
+
+# Phase 21: Cleanup - Disable test scope
+- name: "Disable ReservedLeaseTestScope"
+  technitium_dns_disable_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ReservedLeaseTestScope"
+  ignore_errors: true
+
+# Phase 22: Cleanup - Delete test scope
+- name: "Delete ReservedLeaseTestScope"
+  technitium_dns_delete_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ReservedLeaseTestScope"
+  ignore_errors: true

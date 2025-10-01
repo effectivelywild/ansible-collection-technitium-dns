@@ -152,6 +152,24 @@ class TechnitiumModule(AnsibleModule):
 
         return matching_scope is not None, matching_scope
 
+    def normalize_mac_address(self, mac):
+        """Normalize MAC address to uppercase with hyphens for consistent comparison
+
+        Handles both colon-separated (00:11:22:33:44:55) and hyphen-separated
+        (00-11-22-33-44-55) formats, converting them to a standard format
+        (00-11-22-33-44-55 uppercase) for comparison.
+
+        Args:
+            mac (str): MAC address in any common format
+
+        Returns:
+            str: Normalized MAC address in format XX-XX-XX-XX-XX-XX
+        """
+        # Remove common separators and convert to uppercase
+        mac_clean = mac.replace(':', '').replace('-', '').upper()
+        # Format as XX-XX-XX-XX-XX-XX
+        return '-'.join([mac_clean[i:i+2] for i in range(0, len(mac_clean), 2)])
+
     def validate_api_response(self, data, context=""):
         """Validate API response status and fail with standardized error message"""
         if data.get('status') != 'ok':

@@ -1,0 +1,297 @@
+---
+# Integration test suite for technitium_dns_remove_reserved_lease
+# This test validates removing reserved DHCP leases
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Create a test DHCP scope
+- name: "Create test DHCP scope for testing reserved lease removal"
+  technitium_dns_set_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "RemoveReservedLeaseTestScope"
+    startingAddress: "10.200.0.100"
+    endingAddress: "10.200.0.200"
+    subnetMask: "255.255.255.0"
+    leaseTimeDays: 1
+    leaseTimeHours: 0
+    leaseTimeMinutes: 0
+  register: create_scope_result
+
+- name: "Debug create scope result"
+  debug:
+    var: create_scope_result
+  when: debug | default(false)
+
+# Phase 3: Add a reserved lease to the scope
+- name: "Add reserved lease with hostname and comments"
+  technitium_dns_add_reserved_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "RemoveReservedLeaseTestScope"
+    hardwareAddress: "aa:bb:cc:dd:ee:ff"
+    ipAddress: "10.200.0.150"
+    hostName: "test-remove.local"
+    comments: "Test lease for removal testing"
+  register: add_lease_result
+
+- name: "Debug add lease result"
+  debug:
+    var: add_lease_result
+  when: debug | default(false)
+
+- name: "Assert add lease succeeded"
+  assert:
+    that:
+      - not add_lease_result.failed
+      - add_lease_result.changed
+    fail_msg: "Adding reserved lease should have succeeded"
+
+# Phase 4: Verify the reserved lease exists
+- name: "Get scope details to verify reserved lease was added"
+  technitium_dns_get_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "RemoveReservedLeaseTestScope"
+  register: scope_before_remove
+
+- name: "Debug scope before remove"
+  debug:
+    var: scope_before_remove
+  when: debug | default(false)
+
+- name: "Filter reserved leases by MAC address"
+  set_fact:
+    existing_lease: "{{ scope_before_remove.scope_details.reservedLeases | selectattr('hardwareAddress', 'equalto', 'AA-BB-CC-DD-EE-FF') | list }}"
+
+- name: "Assert reserved lease exists before removal"
+  assert:
+    that:
+      - existing_lease | length > 0
+      - existing_lease[0].address == '10.200.0.150'
+      - existing_lease[0].hostName == 'test-remove.local'
+    fail_msg: "Reserved lease should exist before removal"
+
+# Phase 5: Test check mode for removing the lease
+- name: "Test check mode for removing reserved lease"
+  technitium_dns_remove_reserved_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "RemoveReservedLeaseTestScope"
+    hardwareAddress: "aa:bb:cc:dd:ee:ff"
+  check_mode: true
+  register: check_mode_result
+
+- name: "Assert check mode works correctly"
+  assert:
+    that:
+      - not check_mode_result.failed
+      - check_mode_result.changed
+      - "'would be removed' in check_mode_result.msg"
+    fail_msg: "Check mode should work correctly"
+
+# Phase 6: Verify check mode didn't actually remove the lease
+- name: "Get scope details after check mode"
+  technitium_dns_get_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "RemoveReservedLeaseTestScope"
+  register: scope_after_check_mode
+
+- name: "Filter reserved leases after check mode"
+  set_fact:
+    lease_after_check: "{{ scope_after_check_mode.scope_details.reservedLeases | selectattr('hardwareAddress', 'equalto', 'AA-BB-CC-DD-EE-FF') | list }}"
+
+- name: "Assert check mode didn't actually remove the lease"
+  assert:
+    that:
+      - lease_after_check | length > 0
+    fail_msg: "Check mode should not have actually removed the lease"
+
+# Phase 7: Remove the reserved lease
+- name: "Remove the reserved lease"
+  technitium_dns_remove_reserved_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "RemoveReservedLeaseTestScope"
+    hardwareAddress: "aa:bb:cc:dd:ee:ff"
+  register: remove_result
+
+- name: "Debug remove result"
+  debug:
+    var: remove_result
+  when: debug | default(false)
+
+- name: "Assert remove succeeded"
+  assert:
+    that:
+      - not remove_result.failed
+      - remove_result.changed
+      - remove_result.api_response is defined
+      - remove_result.api_response.status == "ok"
+      - "'removed' in remove_result.msg"
+    fail_msg: "Removing reserved lease should have succeeded"
+
+# Phase 8: Verify the reserved lease has been removed
+- name: "Get scope details to verify removal"
+  technitium_dns_get_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "RemoveReservedLeaseTestScope"
+  register: scope_after_remove
+
+- name: "Debug scope after remove"
+  debug:
+    var: scope_after_remove
+  when: debug | default(false)
+
+- name: "Filter reserved leases after removal"
+  set_fact:
+    removed_lease: "{{ scope_after_remove.scope_details.reservedLeases | selectattr('hardwareAddress', 'equalto', 'AA-BB-CC-DD-EE-FF') | list }}"
+
+- name: "Assert reserved lease has been removed"
+  assert:
+    that:
+      - removed_lease | length == 0
+    fail_msg: "Reserved lease should be removed from scope"
+
+# Phase 9: Test idempotency - removing non-existent lease
+- name: "Remove the same reserved lease again (should be idempotent)"
+  technitium_dns_remove_reserved_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "RemoveReservedLeaseTestScope"
+    hardwareAddress: "aa:bb:cc:dd:ee:ff"
+  register: idempotent_result
+
+- name: "Assert idempotency - no changes should be made"
+  assert:
+    that:
+      - not idempotent_result.failed
+      - not idempotent_result.changed
+      - "'does not exist' in idempotent_result.msg"
+    fail_msg: "Removing non-existent reserved lease should be idempotent"
+
+# Phase 10: Test MAC address normalization (add with colon, remove with hyphen)
+- name: "Add reserved lease with colon-separated MAC"
+  technitium_dns_add_reserved_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "RemoveReservedLeaseTestScope"
+    hardwareAddress: "11:22:33:44:55:66"
+    ipAddress: "10.200.0.160"
+  register: add_colon_mac
+
+- name: "Assert colon MAC add succeeded"
+  assert:
+    that:
+      - not add_colon_mac.failed
+      - add_colon_mac.changed
+    fail_msg: "Adding with colon-separated MAC should succeed"
+
+# Phase 11: Remove with hyphen-separated MAC (should normalize and work)
+- name: "Remove reserved lease with hyphen-separated MAC"
+  technitium_dns_remove_reserved_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "RemoveReservedLeaseTestScope"
+    hardwareAddress: "11-22-33-44-55-66"
+  register: remove_hyphen_mac
+
+- name: "Assert MAC normalization allows removal"
+  assert:
+    that:
+      - not remove_hyphen_mac.failed
+      - remove_hyphen_mac.changed
+      - "'removed' in remove_hyphen_mac.msg"
+    fail_msg: "Different MAC formats should be normalized and allow removal"
+
+# Phase 12: Verify removal with different MAC format worked
+- name: "Get scope details after normalized MAC removal"
+  technitium_dns_get_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "RemoveReservedLeaseTestScope"
+  register: scope_after_normalized_remove
+
+- name: "Filter for normalized MAC lease"
+  set_fact:
+    normalized_mac_lease: "{{ scope_after_normalized_remove.scope_details.reservedLeases | selectattr('hardwareAddress', 'equalto', '11-22-33-44-55-66') | list }}"
+
+- name: "Assert lease removed with normalized MAC"
+  assert:
+    that:
+      - normalized_mac_lease | length == 0
+    fail_msg: "Lease should be removed using normalized MAC address"
+
+# Phase 13: Test error cases - non-existent scope
+- name: "Test removing reserved lease from non-existent scope"
+  technitium_dns_remove_reserved_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "NonExistentScope-{{ ansible_date_time.epoch }}"
+    hardwareAddress: "00:11:22:33:44:55"
+  register: nonexistent_scope_result
+  ignore_errors: true
+
+- name: "Assert failure with non-existent scope"
+  assert:
+    that:
+      - nonexistent_scope_result.failed
+      - "'does not exist' in nonexistent_scope_result.msg"
+    fail_msg: "Removing from non-existent scope should fail"
+
+# Phase 14: Test error cases - invalid API token
+- name: "Test invalid API token"
+  technitium_dns_remove_reserved_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "RemoveReservedLeaseTestScope"
+    hardwareAddress: "00:11:22:33:44:55"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"
+
+# Phase 15: Cleanup - Delete test scope
+- name: "Delete RemoveReservedLeaseTestScope"
+  technitium_dns_delete_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "RemoveReservedLeaseTestScope"
+  ignore_errors: true
