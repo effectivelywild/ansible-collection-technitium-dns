@@ -205,7 +205,7 @@ class RemoveDhcpLeaseModule(TechnitiumModule):
         }
 
         if hardware_address:
-            query['hardwareAddress'] = hardware_address
+            query['hardwareAddress'] = normalized_mac
         if client_identifier:
             query['clientIdentifier'] = client_identifier
 

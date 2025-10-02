@@ -547,16 +547,12 @@ class SetDhcpScopeModule(TechnitiumModule):
         scope_name = params['name']
 
         # Check if scope exists
-        scope_exists = False
+        scope_exists, _ = self.get_dhcp_scope_status(scope_name)
         current = {}
-        try:
+        if scope_exists:
             get_data = self.request('/api/dhcp/scopes/get', params={'name': scope_name})
-            if get_data.get('status') == 'ok':
-                scope_exists = True
-                current = get_data.get('response', {})
-        except Exception:
-            # Scope doesn't exist, will be created
-            scope_exists = False
+            self.validate_api_response(get_data)
+            current = get_data.get('response', {})
 
         # If creating a new scope, require startingAddress, endingAddress, and subnetMask
         if not scope_exists:
@@ -647,7 +643,14 @@ class SetDhcpScopeModule(TechnitiumModule):
             elif k == 'exclusions' and isinstance(v, list):
                 set_query[k] = list_of_dicts_to_str(v, ['startingAddress', 'endingAddress'])
             elif k == 'reservedLeases' and isinstance(v, list):
-                set_query[k] = list_of_dicts_to_str(v, ['hostName', 'hardwareAddress', 'address', 'comments'])
+                # Normalize MAC addresses before sending to API
+                normalized_leases = []
+                for lease in v:
+                    normalized_lease = dict(lease)
+                    if 'hardwareAddress' in normalized_lease:
+                        normalized_lease['hardwareAddress'] = self.normalize_mac_address(normalized_lease['hardwareAddress'])
+                    normalized_leases.append(normalized_lease)
+                set_query[k] = list_of_dicts_to_str(normalized_leases, ['hostName', 'hardwareAddress', 'address', 'comments'])
             elif isinstance(v, bool):
                 set_query[k] = str(v).lower()
             else:

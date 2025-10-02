@@ -174,7 +174,7 @@ class RemoveReservedLeaseModule(TechnitiumModule):
         # Build API query parameters
         query = {
             'name': scope_name,
-            'hardwareAddress': hardware_address
+            'hardwareAddress': normalized_mac
         }
 
         # Remove the reserved lease via the Technitium API
