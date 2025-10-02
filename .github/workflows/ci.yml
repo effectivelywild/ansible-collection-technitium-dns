@@ -124,7 +124,7 @@ jobs:
           # Collection root is: ./ansible_collections (go up 2 levels)
           COLLECTION_ROOT="$(cd ../.. && pwd)"
           echo "Installing community.docker to: $COLLECTION_ROOT"
-          ansible-galaxy collection install community.docker -p "$COLLECTION_ROOT"
+          ansible-galaxy collection install community.docker -p "$COLLECTION_ROOT" --force
 
           echo "=== Verifying installation ==="
           ls -la "$COLLECTION_ROOT"/community/ 2>/dev/null || echo "community/ not found in $COLLECTION_ROOT"
