@@ -111,7 +111,7 @@ class DeleteDhcpScopeModule(TechnitiumModule):
         scope_name = self.params['name']
 
         # Check if the scope exists using the list API to avoid fragile error message parsing
-        scope_exists, _ = self.get_dhcp_scope_status(scope_name)
+        scope_exists, scope_info = self.get_dhcp_scope_status(scope_name)
 
         # If scope doesn't exist, return idempotent success (no action needed in either mode)
         if not scope_exists:

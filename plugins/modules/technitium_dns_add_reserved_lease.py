@@ -200,7 +200,7 @@ class AddReservedLeaseModule(TechnitiumModule):
                 # Check if update is needed
                 if (reserved_ip != ip_address or
                     reserved_hostname != desired_hostname or
-                    reserved_comments != desired_comments):
+                        reserved_comments != desired_comments):
                     needs_update = True
 
                 break

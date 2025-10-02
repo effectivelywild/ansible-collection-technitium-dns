@@ -547,7 +547,7 @@ class SetDhcpScopeModule(TechnitiumModule):
         scope_name = params['name']
 
         # Check if scope exists
-        scope_exists, _ = self.get_dhcp_scope_status(scope_name)
+        scope_exists, scope_info = self.get_dhcp_scope_status(scope_name)
         current = {}
         if scope_exists:
             get_data = self.request('/api/dhcp/scopes/get', params={'name': scope_name})
