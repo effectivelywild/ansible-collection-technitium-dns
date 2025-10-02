@@ -118,25 +118,8 @@ class DeleteDhcpScopeModule(TechnitiumModule):
     def run(self):
         scope_name = self.params['name']
 
-        # Check if the scope exists to ensure idempotent behavior
-        # Idempotent delete: if scope doesn't exist, report no changes made
-        get_data = self.request('/api/dhcp/scopes/get', params={'name': scope_name})
-
-        # Check if scope exists based on API response
-        # If status is ok, scope exists
-        # If there's an error about scope not found, it doesn't exist
-        # Any other error (like auth failure) should propagate
-        scope_exists = False
-        if get_data.get('status') == 'ok':
-            scope_exists = True
-        else:
-            # Check if the error is about scope not existing
-            error_msg = get_data.get('errorMessage', '')
-            if 'scope was not found' in error_msg.lower() or 'no such scope' in error_msg.lower():
-                scope_exists = False
-            else:
-                # Some other error (auth, network, etc.) - fail properly
-                self.validate_api_response(get_data)
+        # Check if the scope exists using the list API to avoid fragile error message parsing
+        scope_exists, _ = self.get_dhcp_scope_status(scope_name)
 
         # If scope doesn't exist, return idempotent success (no action needed in either mode)
         if not scope_exists:

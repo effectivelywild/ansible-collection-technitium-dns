@@ -22,7 +22,7 @@
     var: network_result
   when: debug | default(false)
 
-# Phase 3: Connect Technitium container to test network (BEFORE creating scope)
+# Phase 3: Connect Technitium container to test network
 - name: "Get Technitium container name with suffix"
   set_fact:
     technitium_container_name: "technitium02.{{ testing_suffix }}"
@@ -265,10 +265,6 @@
       - not idempotent_result.changed
       - "'already reserved' in idempotent_result.msg"
     fail_msg: "Converting already reserved lease should be idempotent"
-
-- name: pause for a few seconds to allow container to start
-  pause:
-    minutes: 1
 
 # Phase 16: Test MAC address normalization (create second client with different MAC)
 - name: "Create second DHCP client with different MAC"
