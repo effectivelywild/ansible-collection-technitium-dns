@@ -398,6 +398,253 @@
       - verify_exclusions_result.scope_details.reservedLeases | length == 2
     fail_msg: "Exclusions and reservations should be configured correctly"
 
+# Phase 10a: Test MAC address normalization in reserved leases
+- name: "Update reserved leases with different MAC address format (colon-separated)"
+  technitium_dns_set_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+    reservedLeases:
+      - hostName: "testdevice"
+        hardwareAddress: "AA:BB:CC:DD:EE:FF"
+        address: "10.0.10.100"
+        comments: "Test device reservation"
+      - hostName: "testprinter"
+        hardwareAddress: "11:22:33:44:55:66"
+        address: "10.0.10.101"
+        comments: "Test printer"
+  register: mac_normalization_result
+
+- name: "Assert MAC normalization - no changes should be detected"
+  assert:
+    that:
+      - not mac_normalization_result.failed
+      - not mac_normalization_result.changed
+      - "'already matches desired state' in mac_normalization_result.msg"
+    fail_msg: "MAC address normalization should work - colon and hyphen formats should be equivalent"
+
+# Phase 10b: Test adding reserved lease without optional fields
+- name: "Add reserved lease with minimal fields (no hostname or comments)"
+  technitium_dns_set_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+    reservedLeases:
+      - hostName: "testdevice"
+        hardwareAddress: "AA:BB:CC:DD:EE:FF"
+        address: "10.0.10.100"
+        comments: "Test device reservation"
+      - hostName: "testprinter"
+        hardwareAddress: "11:22:33:44:55:66"
+        address: "10.0.10.101"
+        comments: "Test printer"
+      - hardwareAddress: "77:88:99:AA:BB:CC"
+        address: "10.0.10.102"
+  register: add_minimal_lease_result
+
+- name: "Assert minimal reserved lease was added"
+  assert:
+    that:
+      - not add_minimal_lease_result.failed
+      - add_minimal_lease_result.changed
+    fail_msg: "Adding reserved lease without hostname/comments should succeed"
+
+# Phase 10c: Verify minimal lease was added
+- name: "Get TestScope to verify minimal lease"
+  technitium_dns_get_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+  register: verify_minimal_lease_result
+
+- name: "Assert minimal lease exists"
+  assert:
+    that:
+      - verify_minimal_lease_result.scope_details.reservedLeases | length == 3
+    fail_msg: "Should have 3 reserved leases"
+
+# Phase 10d: Test idempotency with minimal lease (different MAC format)
+- name: "Re-add same leases with mixed MAC formats (should be idempotent)"
+  technitium_dns_set_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+    reservedLeases:
+      - hostName: "testdevice"
+        hardwareAddress: "aa:bb:cc:dd:ee:ff"
+        address: "10.0.10.100"
+        comments: "Test device reservation"
+      - hostName: "testprinter"
+        hardwareAddress: "11-22-33-44-55-66"
+        address: "10.0.10.101"
+        comments: "Test printer"
+      - hardwareAddress: "77-88-99-AA-BB-CC"
+        address: "10.0.10.102"
+  register: mixed_mac_idempotency_result
+
+- name: "Debug mixed MAC idempotency result"
+  debug:
+    var: mixed_mac_idempotency_result
+  when: debug | default(false)
+
+- name: "Assert mixed MAC formats are idempotent"
+  assert:
+    that:
+      - not mixed_mac_idempotency_result.failed
+      - not mixed_mac_idempotency_result.changed
+      - "'already matches desired state' in mixed_mac_idempotency_result.msg"
+    fail_msg: "Reserved leases with different MAC formats should be recognized as identical"
+
+# Phase 10e: Test updating reserved lease (add hostname to minimal lease)
+- name: "Update minimal lease to add hostname and comments"
+  technitium_dns_set_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+    reservedLeases:
+      - hostName: "testdevice"
+        hardwareAddress: "AA:BB:CC:DD:EE:FF"
+        address: "10.0.10.100"
+        comments: "Test device reservation"
+      - hostName: "testprinter"
+        hardwareAddress: "11:22:33:44:55:66"
+        address: "10.0.10.101"
+        comments: "Test printer"
+      - hardwareAddress: "77:88:99:AA:BB:CC"
+        address: "10.0.10.102"
+        hostName: "newdevice"
+        comments: "Now with hostname"
+  register: update_minimal_lease_result
+
+- name: "Assert update was detected"
+  assert:
+    that:
+      - not update_minimal_lease_result.failed
+      - update_minimal_lease_result.changed
+    fail_msg: "Adding hostname and comments should trigger an update"
+
+# Phase 10f: Verify the hostname and comments were added
+- name: "Get TestScope to verify hostname and comments were added"
+  technitium_dns_get_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+  register: verify_added_fields_result
+
+- name: "Find the updated lease"
+  set_fact:
+    updated_lease: "{{ verify_added_fields_result.scope_details.reservedLeases | selectattr('hardwareAddress', 'equalto', '77-88-99-AA-BB-CC') | list | first }}"
+
+- name: "Assert hostname and comments were added"
+  assert:
+    that:
+      - updated_lease.hostName == "newdevice"
+      - updated_lease.comments == "Now with hostname"
+    fail_msg: "Hostname and comments should have been added to the lease"
+
+# Phase 10g: Test that omitting hostname/comments DOES clear them (set_dhcp_scope should support this)
+- name: "Clear hostname and comments by omitting them"
+  technitium_dns_set_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+    reservedLeases:
+      - hostName: "testdevice"
+        hardwareAddress: "AA:BB:CC:DD:EE:FF"
+        address: "10.0.10.100"
+        comments: "Test device reservation"
+      - hostName: "testprinter"
+        hardwareAddress: "11:22:33:44:55:66"
+        address: "10.0.10.101"
+        comments: "Test printer"
+      - hardwareAddress: "77:88:99:AA:BB:CC"
+        address: "10.0.10.102"
+  register: clear_fields_result
+
+- name: "Assert that clearing fields was detected as a change"
+  assert:
+    that:
+      - not clear_fields_result.failed
+      - clear_fields_result.changed
+    fail_msg: "Clearing hostname/comments should be detected as a change"
+
+# Phase 10h: Verify hostname and comments were actually cleared
+- name: "Get TestScope to verify fields were cleared"
+  technitium_dns_get_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+  register: verify_cleared_result
+
+- name: "Find the lease that we cleared"
+  set_fact:
+    cleared_lease: "{{ verify_cleared_result.scope_details.reservedLeases | selectattr('hardwareAddress', 'equalto', '77-88-99-AA-BB-CC') | list | first }}"
+
+- name: "Debug cleared lease"
+  debug:
+    var: cleared_lease
+  when: debug | default(false)
+
+- name: "Assert hostname and comments were cleared"
+  assert:
+    that:
+      - cleared_lease.hostName in [None, '', 'None'] or 'hostName' not in cleared_lease
+      - cleared_lease.comments in [None, '', 'None'] or 'comments' not in cleared_lease
+    fail_msg: "Hostname and comments should have been cleared by the API"
+
+# Phase 10i: Test that omitting reservedLeases parameter preserves existing reservations
+- name: "Update other scope settings without specifying reservedLeases"
+  technitium_dns_set_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+    leaseTimeDays: 7
+  register: update_without_reservations_result
+
+- name: "Debug update result"
+  debug:
+    var: update_without_reservations_result
+  when: debug | default(false)
+
+- name: "Get TestScope to check if reservations were preserved"
+  technitium_dns_get_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestScope"
+  register: check_preserved_reservations_result
+
+- name: "Debug preserved reservations check"
+  debug:
+    var: check_preserved_reservations_result.scope_details.reservedLeases
+  when: debug | default(false)
+
+- name: "Assert reservations were preserved when omitting reservedLeases parameter"
+  assert:
+    that:
+      - check_preserved_reservations_result.scope_details.reservedLeases | length == 3
+    fail_msg: "CRITICAL: Omitting reservedLeases parameter cleared existing reservations! This would be a dangerous bug."
+    success_msg: "Good: Technitium API preserves reservedLeases when parameter is omitted - safe to update other scope settings"
+
 # Phase 11: Test check mode
 - name: "Test check mode for scope update"
   technitium_dns_set_dhcp_scope:
@@ -434,7 +681,7 @@
 - name: "Assert check mode didn't change lease time"
   assert:
     that:
-      - after_check_mode_result.scope_details.leaseTimeDays == 14
+      - after_check_mode_result.scope_details.leaseTimeDays == 7
     fail_msg: "Check mode should not have changed actual configuration"
 
 # Phase 13: Test error cases

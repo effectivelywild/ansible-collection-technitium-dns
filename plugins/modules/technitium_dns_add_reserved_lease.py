@@ -92,15 +92,6 @@ EXAMPLES = r'''
     ipAddress: "192.168.1.200"
     hostName: "server1.local"
     comments: "Production web server"
-
-- name: Add reserved lease in check mode
-  technitium_dns_add_reserved_lease:
-    api_url: "http://localhost"
-    api_token: "myapitoken"
-    name: "Office"
-    hardwareAddress: "00:11:22:33:44:55"
-    ipAddress: "10.0.0.50"
-  check_mode: true
 '''
 
 RETURN = r'''
@@ -174,10 +165,19 @@ class AddReservedLeaseModule(TechnitiumModule):
         scope_details = scope_data.get('response', {})
         reserved_leases = scope_details.get('reservedLeases', [])
 
-        # Check if a reserved lease with this MAC address and IP already exists
+        # Helper function to normalize optional fields for comparison
+        def normalize_optional_field(value):
+            """Normalize optional field - treat None, empty string, and 'None' string as equivalent"""
+            if value in [None, '', 'None']:
+                return None
+            return value
+
+        # Check if a reserved lease with this MAC address already exists
+        existing_lease = None
+        needs_update = False
+
         for reserved in reserved_leases:
             reserved_mac = reserved.get('hardwareAddress', '')
-            reserved_ip = reserved.get('address', '')
 
             # Normalize the reserved MAC for comparison
             if reserved_mac:
@@ -185,32 +185,56 @@ class AddReservedLeaseModule(TechnitiumModule):
             else:
                 normalized_reserved_mac = ''
 
-            # Check if this is our reserved lease
-            if normalized_reserved_mac == normalized_mac and reserved_ip == ip_address:
-                # Check if hostname and comments match (if provided)
-                reserved_hostname = reserved.get('hostName')
-                reserved_comments = reserved.get('comments')
+            # Check if this MAC address already has a reservation
+            if normalized_reserved_mac == normalized_mac:
+                existing_lease = reserved
 
-                # If all parameters match, lease already exists
-                hostname_matches = (host_name is None or reserved_hostname == host_name)
-                comments_match = (comments is None or reserved_comments == comments)
+                # Check if any settings differ
+                reserved_ip = reserved.get('address', '')
+                reserved_hostname = normalize_optional_field(reserved.get('hostName'))
+                reserved_comments = normalize_optional_field(reserved.get('comments'))
 
-                if hostname_matches and comments_match:
-                    self.exit_json(
-                        changed=False,
-                        msg=f"Reserved lease for MAC '{hardware_address}' already exists in scope '{scope_name}'.",
-                        api_response={"status": "ok"}
-                    )
+                desired_hostname = normalize_optional_field(host_name)
+                desired_comments = normalize_optional_field(comments)
 
-        # Handle check mode - report what would be done without making changes
+                # Check if update is needed
+                if (reserved_ip != ip_address or
+                    reserved_hostname != desired_hostname or
+                    reserved_comments != desired_comments):
+                    needs_update = True
+
+                break
+
+        # If lease exists with same settings, return unchanged
+        if existing_lease and not needs_update:
+            self.exit_json(
+                changed=False,
+                msg=f"Reserved lease for MAC '{hardware_address}' already exists with desired settings in scope '{scope_name}'.",
+                api_response={"status": "ok"}
+            )
+
+        # Handle check mode
         if self.check_mode:
+            if existing_lease:
+                msg = f"Reserved lease for MAC '{hardware_address}' would be updated in scope '{scope_name}' (check mode)."
+            else:
+                msg = f"Reserved lease for MAC '{hardware_address}' would be added to scope '{scope_name}' (check mode)."
             self.exit_json(
                 changed=True,
-                msg=f"Reserved lease for MAC '{hardware_address}' would be added to scope '{scope_name}' (check mode).",
+                msg=msg,
                 api_response={"status": "ok", "check_mode": True}
             )
 
-        # Build API query parameters
+        # If lease exists but needs update, remove it first
+        if existing_lease:
+            remove_query = {
+                'name': scope_name,
+                'hardwareAddress': hardware_address
+            }
+            remove_data = self.request('/api/dhcp/scopes/removeReservedLease', params=remove_query, method='POST')
+            self.validate_api_response(remove_data)
+
+        # Build API query parameters for add
         query = {
             'name': scope_name,
             'hardwareAddress': hardware_address,
@@ -227,10 +251,15 @@ class AddReservedLeaseModule(TechnitiumModule):
         data = self.request('/api/dhcp/scopes/addReservedLease', params=query, method='POST')
         self.validate_api_response(data)
 
-        # Return success - reserved lease was added
+        # Return success
+        if existing_lease:
+            msg = f"Reserved lease for MAC '{hardware_address}' updated in scope '{scope_name}'."
+        else:
+            msg = f"Reserved lease for MAC '{hardware_address}' added to scope '{scope_name}'."
+
         self.exit_json(
             changed=True,
-            msg=f"Reserved lease for MAC '{hardware_address}' added to scope '{scope_name}'.",
+            msg=msg,
             api_response=data
         )
 

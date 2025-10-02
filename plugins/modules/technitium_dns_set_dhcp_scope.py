@@ -515,7 +515,26 @@ class SetDhcpScopeModule(TechnitiumModule):
             normalized_list = []
             for item in value:
                 if isinstance(item, dict):
-                    normalized_list.append(dict(item))
+                    # Special handling for reservedLeases to normalize MAC addresses and optional fields
+                    if key == 'reservedLeases':
+                        normalized_lease = {}
+                        # Normalize MAC address for consistent comparison
+                        if 'hardwareAddress' in item:
+                            normalized_lease['hardwareAddress'] = self.normalize_mac_address(item['hardwareAddress'])
+                        # Always include address
+                        if 'address' in item:
+                            normalized_lease['address'] = item['address']
+                        # Include optional fields only if they have non-empty/non-None values
+                        # The API returns "None" as a string for empty fields, so we need to check for that
+                        hostname = item.get('hostName')
+                        if hostname and hostname not in [None, '', 'None']:
+                            normalized_lease['hostName'] = hostname
+                        comments = item.get('comments')
+                        if comments and comments not in [None, '', 'None']:
+                            normalized_lease['comments'] = comments
+                        normalized_list.append(normalized_lease)
+                    else:
+                        normalized_list.append(dict(item))
             # Sort for consistent comparison
             if key == 'staticRoutes':
                 return sorted(normalized_list, key=lambda x: (x.get('destination', ''), x.get('subnetMask', '')))
