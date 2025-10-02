@@ -239,7 +239,7 @@ jobs:
         run: |
           echo "=== Running with ANSIBLE_COLLECTIONS_PATH=${COLLECTION_ROOT} ==="
           ansible-test integration --color --retry-on-error --continue-on-error --diff --python ${{ matrix.python }} --coverage --requirements \
-          technitium_dns_add_reserved_lease
+          technitium_dns_list_dhcp_leases
         working-directory: ./ansible_collections/effectivelywild/technitium_dns
         env:
           ANSIBLE_COLLECTIONS_PATH: ${{ env.COLLECTION_ROOT }}
