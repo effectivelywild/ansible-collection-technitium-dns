@@ -193,7 +193,7 @@ jobs:
           notify_name_server: ${{ steps.get_server_values.outputs.technitium01_ip }}
 
           # Debugging options
-          debug: false
+          debug: true
 
           # Testing domain - unique per job to avoid conflicts
           testing_suffix: ${TESTING_SUFFIX}
