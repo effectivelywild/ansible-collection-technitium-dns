@@ -190,20 +190,13 @@ class ConvertToDynamicLeaseModule(TechnitiumModule):
         # Check lease type and validate it can be converted
         lease_type = found_lease.get('type', '')
 
-        # If already dynamic, return idempotent success
+        # If already dynamic, return idempotent success (no action needed in either mode)
         if lease_type == 'Dynamic':
-            if self.check_mode:
-                self.exit_json(
-                    changed=False,
-                    msg=f"Lease for {identifier} is already dynamic in scope '{scope_name}' (check mode).",
-                    api_response={"status": "ok", "check_mode": True}
-                )
-            else:
-                self.exit_json(
-                    changed=False,
-                    msg=f"Lease for {identifier} is already dynamic in scope '{scope_name}'.",
-                    api_response={"status": "ok"}
-                )
+            self.exit_json(
+                changed=False,
+                msg=f"Lease for {identifier} is already dynamic in scope '{scope_name}'.",
+                api_response={"status": "ok"}
+            )
 
         # If not Reserved, fail with clear error
         if lease_type != 'Reserved':

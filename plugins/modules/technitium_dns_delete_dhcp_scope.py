@@ -138,20 +138,20 @@ class DeleteDhcpScopeModule(TechnitiumModule):
                 # Some other error (auth, network, etc.) - fail properly
                 self.validate_api_response(get_data)
 
-        # Handle check mode - report what would be done without making changes
-        if self.check_mode:
-            if scope_exists:
-                self.exit_json(changed=True, msg=f"DHCP scope '{scope_name}' would be deleted (check mode)", api_response={})
-            else:
-                self.exit_json(changed=False, msg=f"DHCP scope '{scope_name}' does not exist (check mode)", api_response={})
-
-        # Implement idempotent delete behavior
-        # If scope doesn't exist, return success without changes (already deleted)
+        # If scope doesn't exist, return idempotent success (no action needed in either mode)
         if not scope_exists:
             self.exit_json(
                 changed=False,
                 msg=f"DHCP scope '{scope_name}' does not exist.",
-                api_response={'status': 'ok', 'msg': f"DHCP scope '{scope_name}' does not exist."}
+                api_response={'status': 'ok'}
+            )
+
+        # Handle check mode - scope exists and would be deleted
+        if self.check_mode:
+            self.exit_json(
+                changed=True,
+                msg=f"DHCP scope '{scope_name}' would be deleted (check mode).",
+                api_response={'status': 'ok', 'check_mode': True}
             )
 
         # Delete the DHCP scope via the Technitium API

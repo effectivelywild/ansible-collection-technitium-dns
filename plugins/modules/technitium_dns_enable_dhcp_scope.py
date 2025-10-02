@@ -121,23 +121,20 @@ class EnableDhcpScopeModule(TechnitiumModule):
         is_enabled = scope_info.get('enabled', False)
         is_disabled = not is_enabled
 
-        # Handle check mode - report what would be done without making changes
-        if self.check_mode:
-            if is_disabled:
-                self.exit_json(changed=True, msg=f"DHCP scope '{scope_name}' would be enabled (check mode)", api_response={})
-            else:
-                self.exit_json(changed=False, msg=f"DHCP scope '{scope_name}' is already enabled (check mode)", api_response={})
-
-        # Implement idempotent enable behavior
-        # If scope is already enabled, return success without changes
+        # If scope is already enabled, return idempotent success (no action needed in either mode)
         if not is_disabled:
             self.exit_json(
                 changed=False,
                 msg=f"DHCP scope '{scope_name}' is already enabled.",
-                api_response={
-                    'status': 'ok',
-                    'msg': f"DHCP scope '{scope_name}' is already enabled."
-                }
+                api_response={'status': 'ok'}
+            )
+
+        # Handle check mode - scope needs to be enabled
+        if self.check_mode:
+            self.exit_json(
+                changed=True,
+                msg=f"DHCP scope '{scope_name}' would be enabled (check mode).",
+                api_response={'status': 'ok', 'check_mode': True}
             )
 
         # Enable the DHCP scope via the Technitium API

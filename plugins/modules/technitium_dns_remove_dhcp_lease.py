@@ -193,28 +193,20 @@ class RemoveDhcpLeaseModule(TechnitiumModule):
         else:
             identifier = f"client identifier '{client_identifier}'"
 
-        # Handle check mode - report what would be done without making changes
-        if self.check_mode:
-            if lease_exists:
-                self.exit_json(
-                    changed=True,
-                    msg=f"DHCP lease for {identifier} would be removed from scope '{scope_name}' (check mode).",
-                    api_response={"status": "ok", "check_mode": True}
-                )
-            else:
-                self.exit_json(
-                    changed=False,
-                    msg=f"DHCP lease for {identifier} does not exist in scope '{scope_name}' (check mode).",
-                    api_response={"status": "ok", "check_mode": True}
-                )
-
-        # Implement idempotent remove behavior
-        # If lease doesn't exist, return success without changes (already removed)
+        # If lease doesn't exist, return idempotent success (no action needed in either mode)
         if not lease_exists:
             self.exit_json(
                 changed=False,
                 msg=f"DHCP lease for {identifier} does not exist in scope '{scope_name}'.",
                 api_response={"status": "ok"}
+            )
+
+        # Handle check mode - lease exists and would be removed
+        if self.check_mode:
+            self.exit_json(
+                changed=True,
+                msg=f"DHCP lease for {identifier} would be removed from scope '{scope_name}' (check mode).",
+                api_response={"status": "ok", "check_mode": True}
             )
 
         # Build API query parameters

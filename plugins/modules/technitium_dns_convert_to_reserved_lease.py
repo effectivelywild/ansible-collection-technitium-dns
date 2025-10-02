@@ -200,20 +200,13 @@ class ConvertToReservedLeaseModule(TechnitiumModule):
         # Check lease type and validate it can be converted
         lease_type = found_lease.get('type', '')
 
-        # If already reserved, return idempotent success
+        # If already reserved, return idempotent success (no action needed in either mode)
         if lease_type == 'Reserved':
-            if self.check_mode:
-                self.exit_json(
-                    changed=False,
-                    msg=f"Lease for {identifier} is already reserved in scope '{scope_name}' (check mode).",
-                    api_response={"status": "ok", "check_mode": True}
-                )
-            else:
-                self.exit_json(
-                    changed=False,
-                    msg=f"Lease for {identifier} is already reserved in scope '{scope_name}'.",
-                    api_response={"status": "ok"}
-                )
+            self.exit_json(
+                changed=False,
+                msg=f"Lease for {identifier} is already reserved in scope '{scope_name}'.",
+                api_response={"status": "ok"}
+            )
 
         # If not Dynamic, fail with clear error
         if lease_type != 'Dynamic':
