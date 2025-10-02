@@ -21,3 +21,6 @@ tests/integration/integration_config.yml
 __pycache__/
 *.py[cod]
 *.pyo
+
+# local claude files
+.claude/
