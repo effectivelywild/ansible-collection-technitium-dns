@@ -29,7 +29,8 @@
 
 - name: "Debug Technitium container name"
   debug:
-    msg: "Container name is: {{ technitium_container_name }}, container_suffix var: {{ container_suffix | default('NOT SET') }}"
+    var: technitium_container_name
+  when: debug | default(false)
 
 - name: "Connect Technitium container to test network"
   community.docker.docker_network:
@@ -89,7 +90,7 @@
     networks:
       - name: dhcp_test_network
     mac_address: "02:42:ac:14:00:32"
-    command: "sh -c 'echo Starting DHCP client... && udhcpc -i eth0 -v && echo DHCP complete, sleeping... && sleep 3600'"
+    command: "sh -c 'udhcpc -i eth0 && sleep 3600'"
     detach: yes
     cleanup: yes
   register: container_result
@@ -97,24 +98,12 @@
 - name: "Debug container result"
   debug:
     var: container_result
-
-- name: "Wait a moment for container to start"
-  pause:
-    seconds: 3
-
-- name: "Get container logs"
-  command: docker logs dhcp_test_client
-  register: container_logs
-  ignore_errors: true
-
-- name: "Debug container logs"
-  debug:
-    var: container_logs
+  when: debug | default(false)
 
 # Phase 7: Wait for DHCP lease to be obtained
 - name: "Wait for DHCP lease acquisition"
   pause:
-    seconds: 15
+    seconds: 10
 
 # Phase 8: List all DHCP leases
 - name: "List all DHCP leases"
