@@ -83,11 +83,12 @@
 
 # Phase 5b: Restart Technitium to detect new network interface
 - name: "Restart Technitium container to pick up new network"
-  community.docker.docker_container:
-    name: "{{ technitium_container_name }}"
-    state: started
-    restart: yes
+  command: docker restart {{ technitium_container_name }}
   register: restart_result
+
+- name: "Debug restart result"
+  debug:
+    var: restart_result
 
 - name: "Wait for Technitium to restart and be ready"
   pause:
