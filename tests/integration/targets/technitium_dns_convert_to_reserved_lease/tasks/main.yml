@@ -25,7 +25,7 @@
 # Phase 3: Connect Technitium container to test network
 - name: "Get Technitium container name with suffix"
   set_fact:
-    technitium_container_name: "technitium02.{{ testing_suffix }}"
+    technitium_container_name: "technitium02{{ container_suffix | default('') }}"
 
 - name: "Connect Technitium container to test network"
   community.docker.docker_network:
