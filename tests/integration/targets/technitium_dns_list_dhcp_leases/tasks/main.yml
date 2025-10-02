@@ -81,6 +81,18 @@
     var: enable_scope_result
   when: debug | default(false)
 
+# Phase 5b: Restart Technitium to detect new network interface
+- name: "Restart Technitium container to pick up new network"
+  community.docker.docker_container:
+    name: "{{ technitium_container_name }}"
+    state: started
+    restart: yes
+  register: restart_result
+
+- name: "Wait for Technitium to restart and be ready"
+  pause:
+    seconds: 10
+
 # Phase 6: Create a container with static MAC to request DHCP lease
 - name: "Create DHCP client container with static MAC"
   community.docker.docker_container:
