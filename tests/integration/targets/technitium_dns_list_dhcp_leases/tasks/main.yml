@@ -90,7 +90,7 @@
     networks:
       - name: dhcp_test_network
     mac_address: "02:42:ac:14:00:32"
-    command: "sh -c 'udhcpc -i eth0 && sleep 3600'"
+    command: "sh -c 'echo Starting DHCP client... && udhcpc -i eth0 -v && echo DHCP complete, sleeping... && sleep 3600'"
     detach: yes
     cleanup: yes
   register: container_result
@@ -98,12 +98,24 @@
 - name: "Debug container result"
   debug:
     var: container_result
-  when: debug | default(false)
+
+- name: "Wait a moment for container to start"
+  pause:
+    seconds: 3
+
+- name: "Get container logs"
+  command: docker logs dhcp_test_client
+  register: container_logs
+  ignore_errors: true
+
+- name: "Debug container logs"
+  debug:
+    var: container_logs
 
 # Phase 7: Wait for DHCP lease to be obtained
 - name: "Wait for DHCP lease acquisition"
   pause:
-    seconds: 10
+    seconds: 15
 
 # Phase 8: List all DHCP leases
 - name: "List all DHCP leases"
