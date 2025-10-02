@@ -11,8 +11,6 @@ short_description: Convert a reserved DHCP lease to a dynamic lease in Technitiu
 version_added: "0.6.0"
 description:
     - Convert a reserved lease to a dynamic lease.
-    - This allows the lease to expire according to the scope's lease time settings.
-    - This module is idempotent - if the lease is already dynamic, no changes are made.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
@@ -82,14 +80,6 @@ EXAMPLES = r'''
     api_token: "myapitoken"
     name: "Default"
     clientIdentifier: "1-001122334455"
-
-- name: Convert lease in check mode
-  technitium_dns_convert_to_dynamic_lease:
-    api_url: "http://localhost"
-    api_token: "myapitoken"
-    name: "Office"
-    hardwareAddress: "00-AA-BB-CC-DD-EE"
-  check_mode: true
 '''
 
 RETURN = r'''
@@ -197,13 +187,12 @@ class ConvertToDynamicLeaseModule(TechnitiumModule):
         if not found_lease:
             self.fail_json(msg=f"DHCP lease for {identifier} does not exist in scope '{scope_name}'.")
 
-        # Check if lease is already dynamic
+        # Check lease type and validate it can be converted
         lease_type = found_lease.get('type', '')
-        is_already_dynamic = (lease_type == 'Dynamic')
 
-        # Handle check mode - report what would be done without making changes
-        if self.check_mode:
-            if is_already_dynamic:
+        # If already dynamic, return idempotent success
+        if lease_type == 'Dynamic':
+            if self.check_mode:
                 self.exit_json(
                     changed=False,
                     msg=f"Lease for {identifier} is already dynamic in scope '{scope_name}' (check mode).",
@@ -211,18 +200,23 @@ class ConvertToDynamicLeaseModule(TechnitiumModule):
                 )
             else:
                 self.exit_json(
-                    changed=True,
-                    msg=f"Reserved lease for {identifier} would be converted to dynamic in scope '{scope_name}' (check mode).",
-                    api_response={"status": "ok", "check_mode": True}
+                    changed=False,
+                    msg=f"Lease for {identifier} is already dynamic in scope '{scope_name}'.",
+                    api_response={"status": "ok"}
                 )
 
-        # Implement idempotent behavior
-        # If lease is already dynamic, return success without changes
-        if is_already_dynamic:
+        # If not Reserved, fail with clear error
+        if lease_type != 'Reserved':
+            self.fail_json(
+                msg=f"Lease for {identifier} in scope '{scope_name}' has type '{lease_type}', not 'Reserved'. Only reserved leases can be converted to dynamic."
+            )
+
+        # Handle check mode - lease is Reserved and will be converted
+        if self.check_mode:
             self.exit_json(
-                changed=False,
-                msg=f"Lease for {identifier} is already dynamic in scope '{scope_name}'.",
-                api_response={"status": "ok"}
+                changed=True,
+                msg=f"Reserved lease for {identifier} would be converted to dynamic in scope '{scope_name}' (check mode).",
+                api_response={"status": "ok", "check_mode": True}
             )
 
         # Build API query parameters

@@ -197,13 +197,12 @@ class ConvertToReservedLeaseModule(TechnitiumModule):
         if not found_lease:
             self.fail_json(msg=f"DHCP lease for {identifier} does not exist in scope '{scope_name}'.")
 
-        # Check if lease is already reserved
+        # Check lease type and validate it can be converted
         lease_type = found_lease.get('type', '')
-        is_already_reserved = (lease_type == 'Reserved')
 
-        # Handle check mode - report what would be done without making changes
-        if self.check_mode:
-            if is_already_reserved:
+        # If already reserved, return idempotent success
+        if lease_type == 'Reserved':
+            if self.check_mode:
                 self.exit_json(
                     changed=False,
                     msg=f"Lease for {identifier} is already reserved in scope '{scope_name}' (check mode).",
@@ -211,18 +210,23 @@ class ConvertToReservedLeaseModule(TechnitiumModule):
                 )
             else:
                 self.exit_json(
-                    changed=True,
-                    msg=f"Dynamic lease for {identifier} would be converted to reserved in scope '{scope_name}' (check mode).",
-                    api_response={"status": "ok", "check_mode": True}
+                    changed=False,
+                    msg=f"Lease for {identifier} is already reserved in scope '{scope_name}'.",
+                    api_response={"status": "ok"}
                 )
 
-        # Implement idempotent behavior
-        # If lease is already reserved, return success without changes
-        if is_already_reserved:
+        # If not Dynamic, fail with clear error
+        if lease_type != 'Dynamic':
+            self.fail_json(
+                msg=f"Lease for {identifier} in scope '{scope_name}' has type '{lease_type}', not 'Dynamic'. Only dynamic leases can be converted to reserved."
+            )
+
+        # Handle check mode - lease is Dynamic and will be converted
+        if self.check_mode:
             self.exit_json(
-                changed=False,
-                msg=f"Lease for {identifier} is already reserved in scope '{scope_name}'.",
-                api_response={"status": "ok"}
+                changed=True,
+                msg=f"Dynamic lease for {identifier} would be converted to reserved in scope '{scope_name}' (check mode).",
+                api_response={"status": "ok", "check_mode": True}
             )
 
         # Build API query parameters
