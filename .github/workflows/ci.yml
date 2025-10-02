@@ -112,7 +112,10 @@ jobs:
 
       - name: Install collections
         run: |
+          # Install globally for the setup playbook
           ansible-galaxy collection install community.docker
+          # Also install to collection root for ansible-test to find (use --force to override "already installed" warning)
+          ansible-galaxy collection install community.docker -p ../../ --force
           ansible-galaxy collection build .
           ansible-galaxy collection install effectivelywild-technitium_dns-*.tar.gz
         working-directory: ./ansible_collections/effectivelywild/technitium_dns
@@ -190,10 +193,11 @@ jobs:
           notify_name_server: ${{ steps.get_server_values.outputs.technitium01_ip }}
 
           # Debugging options
-          debug: false
+          debug: true
 
           # Testing domain - unique per job to avoid conflicts
           testing_suffix: ${TESTING_SUFFIX}
+          container_suffix: ${CONTAINER_SUFFIX}
           EOF
           cat tests/integration/integration_config.yml
         working-directory: ./ansible_collections/effectivelywild/technitium_dns
@@ -201,14 +205,18 @@ jobs:
       - name: Run integration tests that don't require KSK in Ready state
         run: |
           ansible-test integration --color --retry-on-error --continue-on-error --diff --python ${{ matrix.python }} --coverage --requirements \
-          --exclude technitium_dns_update_dnskey_ttl 
+          --exclude technitium_dns_update_dnskey_ttl
         working-directory: ./ansible_collections/effectivelywild/technitium_dns
+        env:
+          ANSIBLE_COLLECTIONS_PATH: ../../
 
       - name: Run integration tests that require specific key states
         run: |
           ansible-test integration --color --retry-on-error --continue-on-error --diff --python ${{ matrix.python }} --coverage --requirements \
-          technitium_dns_update_dnskey_ttl 
+          technitium_dns_update_dnskey_ttl
         working-directory: ./ansible_collections/effectivelywild/technitium_dns
+        env:
+          ANSIBLE_COLLECTIONS_PATH: ../../
 
       - name: Generate coverage report
         run: ansible-test coverage xml -v --requirements --group-by command --group-by version

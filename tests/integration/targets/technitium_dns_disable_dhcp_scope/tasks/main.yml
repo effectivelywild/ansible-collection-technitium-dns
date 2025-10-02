@@ -1,0 +1,205 @@
+---
+# Integration test suite for technitium_dns_disable_dhcp_scope
+# This test validates DHCP scope disable functionality
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Ensure Default scope is enabled first
+- name: "Enable Default DHCP scope"
+  technitium_dns_enable_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "Default"
+  register: enable_for_test_result
+
+- name: "Debug enable result"
+  debug:
+    var: enable_for_test_result
+  when: debug | default(false)
+
+# Phase 3: Verify Default scope is enabled
+- name: "List DHCP scopes to verify Default is enabled"
+  technitium_dns_list_dhcp_scopes:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: list_scopes_before_disable
+
+- name: "Assert Default scope is enabled"
+  assert:
+    that:
+      - default_scope_enabled.enabled == true
+    fail_msg: "Default scope should be enabled before testing disable"
+  vars:
+    default_scope_enabled: "{{ list_scopes_before_disable.scopes | selectattr('name', 'equalto', 'Default') | first }}"
+
+# Phase 4: Test check mode for disabling
+- name: "Test check mode for disabling DHCP scope"
+  technitium_dns_disable_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "Default"
+  check_mode: true
+  register: check_mode_result
+
+- name: "Assert check mode works correctly"
+  assert:
+    that:
+      - not check_mode_result.failed
+      - check_mode_result.changed
+      - "'would be disabled' in check_mode_result.msg"
+    fail_msg: "Check mode should work correctly"
+
+# Phase 5: Verify check mode didn't actually disable the scope
+- name: "List DHCP scopes after check mode"
+  technitium_dns_list_dhcp_scopes:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: list_after_check_mode
+
+- name: "Assert Default scope is still enabled after check mode"
+  assert:
+    that:
+      - default_scope_after_check.enabled == true
+    fail_msg: "Check mode should not have actually disabled the scope"
+  vars:
+    default_scope_after_check: "{{ list_after_check_mode.scopes | selectattr('name', 'equalto', 'Default') | first }}"
+
+# Phase 6: Disable the Default scope
+- name: "Disable Default DHCP scope"
+  technitium_dns_disable_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "Default"
+  register: disable_result
+
+- name: "Debug disable result"
+  debug:
+    var: disable_result
+  when: debug | default(false)
+
+- name: "Assert disable succeeded"
+  assert:
+    that:
+      - not disable_result.failed
+      - disable_result.changed
+      - disable_result.api_response is defined
+      - disable_result.api_response.status == "ok"
+      - "'disabled' in disable_result.msg"
+    fail_msg: "DHCP scope disable should have succeeded"
+
+# Phase 7: Verify Default scope is now disabled
+- name: "List DHCP scopes to verify Default is disabled"
+  technitium_dns_list_dhcp_scopes:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: list_scopes_after_disable
+
+- name: "Assert Default scope is disabled"
+  assert:
+    that:
+      - default_scope_disabled.enabled == false
+    fail_msg: "Default scope should be disabled after disable operation"
+  vars:
+    default_scope_disabled: "{{ list_scopes_after_disable.scopes | selectattr('name', 'equalto', 'Default') | first }}"
+
+# Phase 8: Test idempotency - disabling already disabled scope
+- name: "Disable Default scope again (should be idempotent)"
+  technitium_dns_disable_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "Default"
+  register: idempotent_disable_result
+
+- name: "Assert idempotency - no changes should be made"
+  assert:
+    that:
+      - not idempotent_disable_result.failed
+      - not idempotent_disable_result.changed
+      - "'already disabled' in idempotent_disable_result.msg"
+    fail_msg: "Disabling already disabled scope should be idempotent"
+
+# Phase 9: Test check mode with already disabled scope
+- name: "Test check mode with already disabled scope"
+  technitium_dns_disable_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "Default"
+  check_mode: true
+  register: check_mode_disabled_result
+
+- name: "Assert check mode with disabled scope reports no changes"
+  assert:
+    that:
+      - not check_mode_disabled_result.failed
+      - not check_mode_disabled_result.changed
+      - "'already disabled' in check_mode_disabled_result.msg"
+    fail_msg: "Check mode with disabled scope should report no changes"
+
+# Phase 10: Test error cases
+- name: "Test disabling non-existent scope"
+  technitium_dns_disable_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "NonExistentScope-{{ ansible_date_time.epoch }}"
+  register: nonexistent_scope_result
+  ignore_errors: true
+
+- name: "Assert failure with non-existent scope"
+  assert:
+    that:
+      - nonexistent_scope_result.failed
+      - "'does not exist' in nonexistent_scope_result.msg"
+    fail_msg: "Disabling non-existent scope should fail"
+
+- name: "Test invalid API token"
+  technitium_dns_disable_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "Default"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"
+
+# Phase 11: Cleanup - Re-enable Default scope for other tests
+- name: "Cleanup - Re-enable Default DHCP scope"
+  technitium_dns_enable_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "Default"
+  register: cleanup_enable_result
+
+- name: "Assert cleanup succeeded"
+  assert:
+    that:
+      - not cleanup_enable_result.failed
+    fail_msg: "Cleanup should have succeeded"

@@ -1,5 +1,7 @@
 from __future__ import (absolute_import, division, print_function)
 __metaclass__ = type
+import json
+from urllib.parse import urlencode
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.urls import fetch_url
 
@@ -30,10 +32,11 @@ class TechnitiumModule(AnsibleModule):
         self.name = self.params.get('name')
 
     def request(self, path, params=None, method='GET'):
-        from urllib.parse import urlencode
         url = f"{self.api_url}:{self.api_port}{path}"
         params = params or {}
         params['token'] = self.api_token
+
+        headers = {'Accept': 'application/json'}
 
         if method == 'GET':
             url_with_params = url + '?' + urlencode(params)
@@ -41,6 +44,7 @@ class TechnitiumModule(AnsibleModule):
         else:
             url_with_params = url
             data = urlencode(params)
+            headers['Content-Type'] = 'application/x-www-form-urlencoded'
 
         try:
             resp, info = fetch_url(
@@ -48,7 +52,7 @@ class TechnitiumModule(AnsibleModule):
                 url_with_params,
                 data=data,
                 method=method,
-                headers={'Accept': 'application/json'},
+                headers=headers,
                 timeout=10
             )
 
@@ -66,7 +70,6 @@ class TechnitiumModule(AnsibleModule):
                     error_msg += f": {info['msg']}"
                 self.fail_json(msg=error_msg)
 
-            import json
             return json.loads(resp.read().decode('utf-8'))
         except Exception as e:
             self.fail_json(msg=f"Technitium API request failed: {e}")
@@ -136,6 +139,39 @@ class TechnitiumModule(AnsibleModule):
         """Check if a group is a built-in/protected group that cannot be deleted"""
         builtin_groups = ['Administrators', 'DHCP Administrators', 'DNS Administrators']
         return group_name in builtin_groups
+
+    def get_dhcp_scope_status(self, scope_name):
+        """Get DHCP scope status including enabled/disabled state
+
+        Returns:
+            tuple: (exists: bool, scope_data: dict or None)
+            scope_data contains the full scope information including 'enabled' field
+        """
+        list_data = self.request('/api/dhcp/scopes/list')
+        self.validate_api_response(list_data)
+
+        scopes = list_data.get('response', {}).get('scopes', [])
+        matching_scope = next((s for s in scopes if s.get('name') == scope_name), None)
+
+        return matching_scope is not None, matching_scope
+
+    def normalize_mac_address(self, mac):
+        """Normalize MAC address to uppercase with hyphens for consistent comparison
+
+        Handles both colon-separated (00:11:22:33:44:55) and hyphen-separated
+        (00-11-22-33-44-55) formats, converting them to a standard format
+        (00-11-22-33-44-55 uppercase) for comparison.
+
+        Args:
+            mac (str): MAC address in any common format
+
+        Returns:
+            str: Normalized MAC address in format XX-XX-XX-XX-XX-XX
+        """
+        # Remove common separators and convert to uppercase
+        mac_clean = mac.replace(':', '').replace('-', '').upper()
+        # Format as XX-XX-XX-XX-XX-XX
+        return '-'.join([mac_clean[i:i + 2] for i in range(0, len(mac_clean), 2)])
 
     def validate_api_response(self, data, context=""):
         """Validate API response status and fail with standardized error message"""

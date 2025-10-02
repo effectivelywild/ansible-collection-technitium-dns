@@ -1,0 +1,468 @@
+---
+# Integration test suite for technitium_dns_convert_to_dynamic_lease
+# This test validates converting reserved DHCP leases to dynamic leases
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Create a Docker network for DHCP testing
+- name: "Create Docker network for DHCP testing"
+  community.docker.docker_network:
+    name: convert_dynamic_lease_test_network
+    driver: bridge
+    ipam_config:
+      - subnet: "10.103.0.0/24"
+        gateway: "10.103.0.1"
+    state: present
+  register: network_result
+
+- name: "Debug network result"
+  debug:
+    var: network_result
+  when: debug | default(false)
+
+# Phase 3: Connect Technitium container to test network so it can serve DHCP
+- name: "Get Technitium container name with suffix"
+  set_fact:
+    technitium_container_name: "technitium02{{ container_suffix | default('') }}"
+
+- name: "Connect Technitium container to test network"
+  community.docker.docker_network:
+    name: convert_dynamic_lease_test_network
+    connected:
+      - "{{ technitium_container_name }}"
+    appends: yes
+  register: connect_result
+
+- name: "Debug connect result"
+  debug:
+    var: connect_result
+  when: debug | default(false)
+
+# Phase 4: Create a test DHCP scope for lease testing
+- name: "Create test DHCP scope for lease conversion"
+  technitium_dns_set_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ConvertDynamicLeaseTestScope"
+    startingAddress: "10.103.0.100"
+    endingAddress: "10.103.0.200"
+    subnetMask: "255.255.255.0"
+    leaseTimeDays: 1
+    leaseTimeHours: 0
+    leaseTimeMinutes: 0
+  register: create_scope_result
+
+- name: "Debug create scope result"
+  debug:
+    var: create_scope_result
+  when: debug | default(false)
+
+# Phase 5: Enable the test DHCP scope
+- name: "Enable ConvertDynamicLeaseTestScope"
+  technitium_dns_enable_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ConvertDynamicLeaseTestScope"
+  register: enable_scope_result
+
+- name: "Debug enable scope result"
+  debug:
+    var: enable_scope_result
+  when: debug | default(false)
+
+# Phase 6: Create a static reservation for the MAC address we will assign to the container
+- name: "Add reserved lease for test MAC"
+  technitium_dns_add_reserved_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ConvertDynamicLeaseTestScope"
+    hardwareAddress: "02:42:ac:1a:00:55"
+    ipAddress: "10.103.0.150"
+    hostName: "test-reserved-host"
+  register: add_reserved_result
+
+- name: "Debug add reserved result"
+  debug:
+    var: add_reserved_result
+  when: debug | default(false)
+
+# Phase 7: Verify the static reservation exists using get_dhcp_scope
+- name: "Get scope details to verify reserved lease"
+  technitium_dns_get_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ConvertDynamicLeaseTestScope"
+  register: scope_before_conversion
+
+- name: "Debug scope before conversion"
+  debug:
+    var: scope_before_conversion
+  when: debug | default(false)
+
+- name: "Filter for our reserved lease in scope config"
+  set_fact:
+    reserved_lease_in_config: "{{ scope_before_conversion.scope_details.reservedLeases | selectattr('hardwareAddress', 'equalto', '02-42-AC-1A-00-55') | list }}"
+
+- name: "Assert reserved lease exists in scope configuration"
+  assert:
+    that:
+      - reserved_lease_in_config | length > 0
+      - reserved_lease_in_config[0].address == '10.103.0.150'
+    fail_msg: "Reserved lease should exist in scope configuration before conversion"
+
+# Phase 8: Create a container with a static MAC
+- name: "Create DHCP client container with static MAC"
+  community.docker.docker_container:
+    name: convert_dynamic_lease_test_client
+    image: alpine:latest
+    state: started
+    networks:
+      - name: convert_dynamic_lease_test_network
+    mac_address: "02:42:ac:1a:00:55"
+    command: "sh -c 'udhcpc -i eth0 && sleep 3600'"
+    detach: yes
+    cleanup: yes
+  register: container_result
+
+- name: "Debug container result"
+  debug:
+    var: container_result
+  when: debug | default(false)
+
+# Phase 9: Wait for DHCP lease to be obtained
+- name: "Wait for DHCP lease acquisition"
+  pause:
+    seconds: 10
+
+# Phase 10: Get all DHCP leases to verify a lease exists
+- name: "List all DHCP leases"
+  technitium_dns_list_dhcp_leases:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: list_leases_before
+
+- name: "Debug list leases before conversion"
+  debug:
+    var: list_leases_before
+  when: debug | default(false)
+
+- name: "Filter leases by our test MAC address"
+  set_fact:
+    test_lease_before: "{{ list_leases_before.leases | selectattr('hardwareAddress', 'equalto', '02-42-AC-1A-00-55') | list }}"
+
+- name: "Debug test lease before conversion"
+  debug:
+    var: test_lease_before
+  when: debug | default(false)
+
+- name: "Assert our test lease exists and is reserved"
+  assert:
+    that:
+      - test_lease_before | length > 0
+      - test_lease_before[0].hardwareAddress == '02-42-AC-1A-00-55'
+      - test_lease_before[0].scope == 'ConvertDynamicLeaseTestScope'
+      - test_lease_before[0].type == 'Reserved'
+      - test_lease_before[0].address == '10.103.0.150'
+    fail_msg: "Test reserved lease should exist before conversion"
+
+# Phase 11: Test check mode for converting the lease
+- name: "Test check mode for converting to dynamic lease"
+  technitium_dns_convert_to_dynamic_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ConvertDynamicLeaseTestScope"
+    hardwareAddress: "02:42:ac:1a:00:55"
+  check_mode: true
+  register: check_mode_result
+
+- name: "Assert check mode works correctly"
+  assert:
+    that:
+      - not check_mode_result.failed
+      - check_mode_result.changed
+      - "'would be converted' in check_mode_result.msg"
+    fail_msg: "Check mode should work correctly"
+
+# Phase 12: Verify check mode didn't actually convert the lease
+- name: "List leases again after check mode"
+  technitium_dns_list_dhcp_leases:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: list_after_check_mode
+
+- name: "Filter leases after check mode"
+  set_fact:
+    lease_after_check: "{{ list_after_check_mode.leases | selectattr('hardwareAddress', 'equalto', '02-42-AC-1A-00-55') | list }}"
+
+- name: "Assert check mode didn't actually convert the lease"
+  assert:
+    that:
+      - lease_after_check | length > 0
+      - lease_after_check[0].type == 'Reserved'
+    fail_msg: "Check mode should not have actually converted the lease"
+
+# Phase 13: Convert that lease to dynamic
+- name: "Convert the reserved lease to dynamic"
+  technitium_dns_convert_to_dynamic_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ConvertDynamicLeaseTestScope"
+    hardwareAddress: "02:42:ac:1a:00:55"
+  register: convert_result
+
+- name: "Debug convert result"
+  debug:
+    var: convert_result
+  when: debug | default(false)
+
+- name: "Assert conversion succeeded"
+  assert:
+    that:
+      - not convert_result.failed
+      - convert_result.changed
+      - convert_result.api_response is defined
+      - convert_result.api_response.status == "ok"
+      - "'converted to dynamic' in convert_result.msg"
+    fail_msg: "Converting lease to dynamic should have succeeded"
+
+# Phase 14: Use get_dhcp_scope to verify the static reservation no longer exists
+- name: "Get scope details to verify reserved lease removed"
+  technitium_dns_get_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ConvertDynamicLeaseTestScope"
+  register: scope_after_conversion
+
+- name: "Debug scope after conversion"
+  debug:
+    var: scope_after_conversion
+  when: debug | default(false)
+
+- name: "Filter for our reserved lease in scope config after conversion"
+  set_fact:
+    reserved_lease_after: "{{ scope_after_conversion.scope_details.reservedLeases | selectattr('hardwareAddress', 'equalto', '02-42-AC-1A-00-55') | list }}"
+
+- name: "Assert reserved lease no longer exists in scope configuration"
+  assert:
+    that:
+      - reserved_lease_after | length == 0
+    fail_msg: "Reserved lease should be removed from scope configuration after conversion"
+
+# Phase 15: Use list_dhcp_leases to verify the dynamic lease
+- name: "List leases to verify dynamic lease"
+  technitium_dns_list_dhcp_leases:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: list_leases_after
+
+- name: "Debug list leases after conversion"
+  debug:
+    var: list_leases_after
+  when: debug | default(false)
+
+- name: "Filter leases after conversion"
+  set_fact:
+    test_lease_after: "{{ list_leases_after.leases | selectattr('hardwareAddress', 'equalto', '02-42-AC-1A-00-55') | list }}"
+
+- name: "Assert lease is now dynamic"
+  assert:
+    that:
+      - test_lease_after | length > 0
+      - test_lease_after[0].type == 'Dynamic'
+      - test_lease_after[0].hardwareAddress == '02-42-AC-1A-00-55'
+      - test_lease_after[0].scope == 'ConvertDynamicLeaseTestScope'
+    fail_msg: "Lease should be converted to dynamic type"
+
+# Phase 16: Test idempotency - converting already dynamic lease
+- name: "Convert the same lease again (should be idempotent)"
+  technitium_dns_convert_to_dynamic_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ConvertDynamicLeaseTestScope"
+    hardwareAddress: "02:42:ac:1a:00:55"
+  register: idempotent_result
+
+- name: "Assert idempotency - no changes should be made"
+  assert:
+    that:
+      - not idempotent_result.failed
+      - not idempotent_result.changed
+      - "'already dynamic' in idempotent_result.msg"
+    fail_msg: "Converting already dynamic lease should be idempotent"
+
+# Phase 17: Test MAC address normalization (different formats)
+- name: "Add another reserved lease with different MAC"
+  technitium_dns_add_reserved_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ConvertDynamicLeaseTestScope"
+    hardwareAddress: "02:42:ac:1a:00:66"
+    ipAddress: "10.103.0.151"
+    hostName: "test-reserved-host2"
+  register: add_reserved2_result
+
+- name: "Create second DHCP client with different MAC"
+  community.docker.docker_container:
+    name: convert_dynamic_lease_test_client2
+    image: alpine:latest
+    state: started
+    networks:
+      - name: convert_dynamic_lease_test_network
+    mac_address: "02:42:ac:1a:00:66"
+    command: "sh -c 'udhcpc -i eth0 && sleep 3600'"
+    detach: yes
+    cleanup: yes
+  register: container2_result
+
+- name: "Wait for second lease acquisition"
+  pause:
+    seconds: 10
+
+# Phase 18: Convert lease using hyphen-separated MAC format
+- name: "Convert lease using hyphen-separated MAC"
+  technitium_dns_convert_to_dynamic_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ConvertDynamicLeaseTestScope"
+    hardwareAddress: "02-42-AC-1A-00-66"
+  register: convert_normalized_mac
+
+- name: "Assert MAC normalization works for conversion"
+  assert:
+    that:
+      - convert_normalized_mac.changed
+    fail_msg: "MAC normalization should allow conversion with different format"
+
+# Phase 19: Test error cases - non-existent lease
+- name: "Test converting non-existent lease"
+  technitium_dns_convert_to_dynamic_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ConvertDynamicLeaseTestScope"
+    hardwareAddress: "00:11:22:33:44:55"
+  register: nonexistent_lease_result
+  ignore_errors: true
+
+- name: "Assert failure with non-existent lease"
+  assert:
+    that:
+      - nonexistent_lease_result.failed
+      - "'does not exist' in nonexistent_lease_result.msg"
+    fail_msg: "Converting non-existent lease should fail"
+
+# Phase 20: Test error cases - non-existent scope
+- name: "Test converting lease from non-existent scope"
+  technitium_dns_convert_to_dynamic_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "NonExistentScope-{{ ansible_date_time.epoch }}"
+    hardwareAddress: "00:11:22:33:44:55"
+  register: nonexistent_scope_result
+  ignore_errors: true
+
+- name: "Assert failure with non-existent scope"
+  assert:
+    that:
+      - nonexistent_scope_result.failed
+      - "'does not exist' in nonexistent_scope_result.msg"
+    fail_msg: "Converting from non-existent scope should fail"
+
+# Phase 21: Test error cases - invalid API token
+- name: "Test invalid API token"
+  technitium_dns_convert_to_dynamic_lease:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ConvertDynamicLeaseTestScope"
+    hardwareAddress: "02:42:ac:1a:00:55"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"
+
+# Phase 22: Cleanup - Disconnect Technitium from test network
+- name: "Disconnect Technitium container from test network"
+  community.docker.docker_network:
+    name: convert_dynamic_lease_test_network
+    connected:
+      - "{{ technitium_container_name }}"
+    state: absent
+  ignore_errors: true
+
+# Phase 23: Cleanup - Stop and remove containers
+- name: "Stop and remove DHCP test client container"
+  community.docker.docker_container:
+    name: convert_dynamic_lease_test_client
+    state: absent
+  ignore_errors: true
+
+- name: "Stop and remove DHCP test client container 2"
+  community.docker.docker_container:
+    name: convert_dynamic_lease_test_client2
+    state: absent
+  ignore_errors: true
+
+# Phase 24: Cleanup - Remove Docker network
+- name: "Remove Docker test network"
+  community.docker.docker_network:
+    name: convert_dynamic_lease_test_network
+    state: absent
+  ignore_errors: true
+
+# Phase 25: Cleanup - Disable test scope
+- name: "Disable ConvertDynamicLeaseTestScope"
+  technitium_dns_disable_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ConvertDynamicLeaseTestScope"
+  ignore_errors: true
+
+# Phase 26: Cleanup - Delete test scope
+- name: "Delete ConvertDynamicLeaseTestScope"
+  technitium_dns_delete_dhcp_scope:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "ConvertDynamicLeaseTestScope"
+  ignore_errors: true

@@ -1,0 +1,75 @@
+---
+# Integration test suite for technitium_dns_list_dhcp_scopes
+# This test validates DHCP scope listing functionality
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Test successful DHCP scope listing
+- name: "List all DHCP scopes from Technitium DNS"
+  technitium_dns_list_dhcp_scopes:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: scopes_result
+
+- name: "Debug scopes result"
+  debug:
+    var: scopes_result
+  when: debug | default(false)
+
+- name: "Assert DHCP scope listing succeeded"
+  assert:
+    that:
+      - not scopes_result.failed
+      - scopes_result.scopes is defined
+      - scopes_result.scopes | length > 0
+      - not scopes_result.changed
+    fail_msg: "DHCP scope listing should have succeeded"
+
+# Phase 3: Verify Default scope exists
+- name: "Check if Default scope exists"
+  assert:
+    that:
+      - scopes_result.scopes | selectattr('name', 'equalto', 'Default') | list | length > 0
+    fail_msg: "Default scope should exist in the DHCP scope list"
+
+- name: "Verify Default scope has expected properties"
+  assert:
+    that:
+      - default_scope.name == 'Default'
+      - default_scope.enabled is defined
+      - default_scope.enabled is boolean
+      - default_scope.enabled == false
+      - default_scope.startingAddress is defined
+      - default_scope.startingAddress == '192.168.1.1'
+      - default_scope.endingAddress is defined
+      - default_scope.endingAddress == '192.168.1.254'
+      - default_scope.subnetMask is defined
+      - default_scope.subnetMask == '255.255.255.0'
+      - default_scope.networkAddress is defined
+      - default_scope.networkAddress == '192.168.1.0'
+      - default_scope.broadcastAddress is defined
+      - default_scope.broadcastAddress == '192.168.1.255'
+    fail_msg: "Default scope should have all expected properties"
+  vars:
+    default_scope: "{{ scopes_result.scopes | selectattr('name', 'equalto', 'Default') | first }}"
+
+# Phase 4: Test failure cases
+- name: "Test invalid API token"
+  technitium_dns_list_dhcp_scopes:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"

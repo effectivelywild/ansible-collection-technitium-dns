@@ -1,0 +1,269 @@
+#!/usr/bin/python
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+from __future__ import (absolute_import, division, print_function)
+__metaclass__ = type
+
+DOCUMENTATION = r'''
+---
+module: technitium_dns_add_reserved_lease
+short_description: Add a reserved DHCP lease to a scope in Technitium DNS server
+version_added: "0.6.0"
+description:
+    - Add a reserved lease entry to a specified DHCP scope.
+author:
+    - Frank Muise (@effectivelywild)
+seealso:
+  - module: effectivelywild.technitium_dns.technitium_dns_list_dhcp_leases
+    description: List all DHCP leases from Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_remove_reserved_lease
+    description: Remove a reserved DHCP lease from a scope in Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_convert_to_reserved_lease
+    description: Convert a dynamic DHCP lease to a reserved lease in Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_convert_to_dynamic_lease
+    description: Convert a reserved DHCP lease to a dynamic lease in Technitium DNS server
+  - module: effectivelywild.technitium_dns.technitium_dns_remove_dhcp_lease
+    description: Remove a DHCP lease from Technitium DNS server
+options:
+    api_port:
+        description:
+            - Port for the Technitium DNS API. Defaults to 5380
+        required: false
+        type: int
+        default: 5380
+    api_token:
+        description:
+            - API token for authenticating with the Technitium DNS API
+        required: true
+        type: str
+    api_url:
+        description:
+            - Base URL for the Technitium DNS API
+        required: true
+        type: str
+    validate_certs:
+        description:
+            - Whether to validate SSL certificates when making API requests
+        required: false
+        type: bool
+        default: true
+    name:
+        description:
+            - The name of the DHCP scope to add the reserved lease to
+        required: true
+        type: str
+    hardwareAddress:
+        description:
+            - The MAC address of the client (format can be colon or hyphen separated)
+        required: true
+        type: str
+    ipAddress:
+        description:
+            - The reserved IP address for the client
+        required: true
+        type: str
+    hostName:
+        description:
+            - The hostname of the client to override
+        required: false
+        type: str
+    comments:
+        description:
+            - Comments for the reserved lease entry
+        required: false
+        type: str
+'''
+
+EXAMPLES = r'''
+- name: Add a reserved DHCP lease
+  technitium_dns_add_reserved_lease:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    name: "Default"
+    hardwareAddress: "00:11:22:33:44:55"
+    ipAddress: "192.168.1.100"
+
+- name: Add reserved lease with hostname and comments
+  technitium_dns_add_reserved_lease:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    name: "Default"
+    hardwareAddress: "00-AA-BB-CC-DD-EE"
+    ipAddress: "192.168.1.200"
+    hostName: "server1.local"
+    comments: "Production web server"
+'''
+
+RETURN = r'''
+api_response:
+    description: Complete raw API response from Technitium DNS
+    type: dict
+    returned: always
+    contains:
+        response:
+            description: The core data payload from the API
+            type: dict
+            returned: always
+            sample: {}
+        status:
+            description: API response status
+            type: str
+            returned: always
+            sample: "ok"
+changed:
+    description: Whether the module made changes to add the reserved lease
+    type: bool
+    returned: always
+    sample: true
+failed:
+    description: Whether the module failed to add the reserved lease
+    type: bool
+    returned: always
+    sample: false
+msg:
+    description: Human-readable message describing the result
+    type: str
+    returned: always
+    sample: "Reserved lease for MAC '00:11:22:33:44:55' added to scope 'Default'."
+'''
+
+from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
+
+
+class AddReservedLeaseModule(TechnitiumModule):
+    argument_spec = dict(
+        **TechnitiumModule.get_common_argument_spec(),
+        name=dict(type='str', required=True),
+        hardwareAddress=dict(type='str', required=True),
+        ipAddress=dict(type='str', required=True),
+        hostName=dict(type='str', required=False),
+        comments=dict(type='str', required=False)
+    )
+    module_kwargs = dict(
+        supports_check_mode=True
+    )
+
+    def run(self):
+        scope_name = self.params['name']
+        hardware_address = self.params['hardwareAddress']
+        ip_address = self.params['ipAddress']
+        host_name = self.params.get('hostName')
+        comments = self.params.get('comments')
+
+        # Normalize MAC address for consistent comparison
+        normalized_mac = self.normalize_mac_address(hardware_address)
+
+        # Check if the scope exists
+        scope_exists, scope_info = self.get_dhcp_scope_status(scope_name)
+        if not scope_exists:
+            self.fail_json(msg=f"DHCP scope '{scope_name}' does not exist.")
+
+        # Get scope details to check reserved leases
+        scope_data = self.request('/api/dhcp/scopes/get', params={'name': scope_name})
+        self.validate_api_response(scope_data)
+
+        scope_details = scope_data.get('response', {})
+        reserved_leases = scope_details.get('reservedLeases', [])
+
+        # Helper function to normalize optional fields for comparison
+        def normalize_optional_field(value):
+            """Normalize optional field - treat None, empty string, and 'None' string as equivalent"""
+            if value in [None, '', 'None']:
+                return None
+            return value
+
+        # Check if a reserved lease with this MAC address already exists
+        existing_lease = None
+        needs_update = False
+
+        for reserved in reserved_leases:
+            reserved_mac = reserved.get('hardwareAddress', '')
+
+            # Normalize the reserved MAC for comparison
+            if reserved_mac:
+                normalized_reserved_mac = self.normalize_mac_address(reserved_mac)
+            else:
+                normalized_reserved_mac = ''
+
+            # Check if this MAC address already has a reservation
+            if normalized_reserved_mac == normalized_mac:
+                existing_lease = reserved
+
+                # Check if any settings differ
+                reserved_ip = reserved.get('address', '')
+                reserved_hostname = normalize_optional_field(reserved.get('hostName'))
+                reserved_comments = normalize_optional_field(reserved.get('comments'))
+
+                desired_hostname = normalize_optional_field(host_name)
+                desired_comments = normalize_optional_field(comments)
+
+                # Check if update is needed
+                if (reserved_ip != ip_address or
+                    reserved_hostname != desired_hostname or
+                        reserved_comments != desired_comments):
+                    needs_update = True
+
+                break
+
+        # If lease exists with same settings, return unchanged
+        if existing_lease and not needs_update:
+            self.exit_json(
+                changed=False,
+                msg=f"Reserved lease for MAC '{hardware_address}' already exists with desired settings in scope '{scope_name}'.",
+                api_response={"status": "ok"}
+            )
+
+        # Handle check mode
+        if self.check_mode:
+            if existing_lease:
+                msg = f"Reserved lease for MAC '{hardware_address}' would be updated in scope '{scope_name}' (check mode)."
+            else:
+                msg = f"Reserved lease for MAC '{hardware_address}' would be added to scope '{scope_name}' (check mode)."
+            self.exit_json(
+                changed=True,
+                msg=msg,
+                api_response={"status": "ok", "check_mode": True}
+            )
+
+        # If lease exists but needs update, remove it first
+        if existing_lease:
+            remove_query = {
+                'name': scope_name,
+                'hardwareAddress': hardware_address
+            }
+            remove_data = self.request('/api/dhcp/scopes/removeReservedLease', params=remove_query, method='POST')
+            self.validate_api_response(remove_data)
+
+        # Build API query parameters for add
+        query = {
+            'name': scope_name,
+            'hardwareAddress': hardware_address,
+            'ipAddress': ip_address
+        }
+
+        # Add optional parameters if provided
+        if host_name is not None:
+            query['hostName'] = host_name
+        if comments is not None:
+            query['comments'] = comments
+
+        # Add the reserved lease via the Technitium API
+        data = self.request('/api/dhcp/scopes/addReservedLease', params=query, method='POST')
+        self.validate_api_response(data)
+
+        # Return success
+        if existing_lease:
+            msg = f"Reserved lease for MAC '{hardware_address}' updated in scope '{scope_name}'."
+        else:
+            msg = f"Reserved lease for MAC '{hardware_address}' added to scope '{scope_name}'."
+
+        self.exit_json(
+            changed=True,
+            msg=msg,
+            api_response=data
+        )
+
+
+if __name__ == '__main__':
+    module = AddReservedLeaseModule()
+    module.run()
