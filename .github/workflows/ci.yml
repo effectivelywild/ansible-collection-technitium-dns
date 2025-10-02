@@ -112,7 +112,10 @@ jobs:
 
       - name: Install collections
         run: |
+          # Install globally for the setup playbook
           ansible-galaxy collection install community.docker
+          # Also install to collection root for ansible-test to find
+          ansible-galaxy collection install community.docker -p ../../
           ansible-galaxy collection build .
           ansible-galaxy collection install effectivelywild-technitium_dns-*.tar.gz
         working-directory: ./ansible_collections/effectivelywild/technitium_dns
