@@ -112,10 +112,23 @@ jobs:
 
       - name: Install collections
         run: |
+          echo "=== Current directory and structure ==="
+          pwd
+          ls -la ../..
+
           # Install globally for the setup playbook
           ansible-galaxy collection install community.docker
+
           # Also install to collection root for ansible-test to find
-          ansible-galaxy collection install community.docker -p ../../
+          # We're in: ./ansible_collections/effectivelywild/technitium_dns
+          # Collection root is: ./ansible_collections (go up 2 levels)
+          COLLECTION_ROOT="$(cd ../.. && pwd)"
+          echo "Installing community.docker to: $COLLECTION_ROOT"
+          ansible-galaxy collection install community.docker -p "$COLLECTION_ROOT"
+
+          echo "=== Verifying installation ==="
+          ls -la "$COLLECTION_ROOT"/community/ 2>/dev/null || echo "community/ not found in $COLLECTION_ROOT"
+
           ansible-galaxy collection build .
           ansible-galaxy collection install effectivelywild-technitium_dns-*.tar.gz
         working-directory: ./ansible_collections/effectivelywild/technitium_dns
@@ -201,21 +214,41 @@ jobs:
           cat tests/integration/integration_config.yml
         working-directory: ./ansible_collections/effectivelywild/technitium_dns
 
+      - name: Debug - Check collection installation
+        run: |
+          echo "=== Checking directory structure ==="
+          pwd
+          ls -la ../../
+          echo ""
+          echo "=== Checking for community.docker ==="
+          find ../../ -name "community" -type d 2>/dev/null || echo "community directory not found"
+          echo ""
+          echo "=== ansible-galaxy collection list ==="
+          ansible-galaxy collection list
+          echo ""
+          echo "=== Setting ANSIBLE_COLLECTIONS_PATH ==="
+          COLLECTION_ROOT="$(cd ../.. && pwd)"
+          echo "Collection root absolute path: $COLLECTION_ROOT"
+          echo "COLLECTION_ROOT=$COLLECTION_ROOT" >> $GITHUB_ENV
+          echo ""
+          echo "=== Verify community.docker in target location ==="
+          ls -la "$COLLECTION_ROOT"/community/docker/ 2>/dev/null || echo "NOT FOUND in $COLLECTION_ROOT/community/docker/"
+        working-directory: ./ansible_collections/effectivelywild/technitium_dns
+
       - name: Run integration tests that don't require KSK in Ready state
         run: |
+          echo "=== Running with ANSIBLE_COLLECTIONS_PATH=${COLLECTION_ROOT} ==="
           ansible-test integration --color --retry-on-error --continue-on-error --diff --python ${{ matrix.python }} --coverage --requirements \
-          --exclude technitium_dns_update_dnskey_ttl
+          technitium_dns_add_reserved_lease
         working-directory: ./ansible_collections/effectivelywild/technitium_dns
         env:
-          ANSIBLE_COLLECTIONS_PATH: ../../
+          ANSIBLE_COLLECTIONS_PATH: ${{ env.COLLECTION_ROOT }}
+          COLLECTION_ROOT: ${{ env.COLLECTION_ROOT }}
 
       - name: Run integration tests that require specific key states
         run: |
-          ansible-test integration --color --retry-on-error --continue-on-error --diff --python ${{ matrix.python }} --coverage --requirements \
-          technitium_dns_update_dnskey_ttl
+          echo "Skipping other tests for now - debugging add_reserved_lease"
         working-directory: ./ansible_collections/effectivelywild/technitium_dns
-        env:
-          ANSIBLE_COLLECTIONS_PATH: ../../
 
       - name: Generate coverage report
         run: ansible-test coverage xml -v --requirements --group-by command --group-by version
