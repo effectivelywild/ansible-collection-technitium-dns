@@ -11,7 +11,6 @@ short_description: Remove a reserved DHCP lease from a scope in Technitium DNS s
 version_added: "0.6.0"
 description:
     - Remove a reserved lease entry from a specified DHCP scope.
-    - This module is idempotent - if the reserved lease doesn't exist, no changes are made.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
@@ -74,14 +73,6 @@ EXAMPLES = r'''
     api_token: "myapitoken"
     name: "Office"
     hardwareAddress: "00-AA-BB-CC-DD-EE"
-
-- name: Remove reserved lease in check mode
-  technitium_dns_remove_reserved_lease:
-    api_url: "http://localhost"
-    api_token: "myapitoken"
-    name: "Default"
-    hardwareAddress: "00:11:22:33:44:55"
-  check_mode: true
 '''
 
 RETURN = r'''

@@ -11,7 +11,6 @@ short_description: Delete a DHCP scope from Technitium DNS server
 version_added: "0.6.0"
 description:
     - Delete a DHCP scope from Technitium DNS server using its API.
-    - Permanently deletes the DHCP scope from disk.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
@@ -61,13 +60,6 @@ EXAMPLES = r'''
     api_url: "http://localhost"
     api_token: "myapitoken"
     name: "TestScope"
-
-- name: Delete DHCP scope in check mode
-  technitium_dns_delete_dhcp_scope:
-    api_url: "http://localhost"
-    api_token: "myapitoken"
-    name: "TestScope"
-  check_mode: true
 '''
 
 RETURN = r'''

@@ -11,8 +11,6 @@ short_description: Convert a dynamic DHCP lease to a reserved lease in Technitiu
 version_added: "0.6.0"
 description:
     - Convert a dynamic lease to a reserved lease.
-    - This ensures the client always receives the same IP address it currently has.
-    - This module is idempotent - if the lease is already reserved, no changes are made.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
@@ -82,14 +80,6 @@ EXAMPLES = r'''
     api_token: "myapitoken"
     name: "Default"
     clientIdentifier: "1-001122334455"
-
-- name: Convert lease in check mode
-  technitium_dns_convert_to_reserved_lease:
-    api_url: "http://localhost"
-    api_token: "myapitoken"
-    name: "Office"
-    hardwareAddress: "00-AA-BB-CC-DD-EE"
-  check_mode: true
 '''
 
 RETURN = r'''

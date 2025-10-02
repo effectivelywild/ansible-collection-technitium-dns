@@ -342,14 +342,6 @@ EXAMPLES = r'''
     api_token: "myapitoken"
     name: "Office Network"
     newName: "Main Office Network"
-
-- name: Check what would change (check mode)
-  technitium_dns_set_dhcp_scope:
-    api_url: "http://localhost"
-    api_token: "myapitoken"
-    name: "Office Network"
-    leaseTimeDays: 14
-  check_mode: true
 '''
 
 RETURN = r'''

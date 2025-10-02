@@ -11,7 +11,6 @@ short_description: Disable a DHCP scope in Technitium DNS server
 version_added: "0.6.0"
 description:
     - Disable a DHCP scope, stopping any further lease allocations.
-    - This will prevent the DHCP server from allocating leases from this scope.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
@@ -61,13 +60,6 @@ EXAMPLES = r'''
     api_url: "http://localhost"
     api_token: "myapitoken"
     name: "Default"
-
-- name: Disable DHCP scope in check mode
-  technitium_dns_disable_dhcp_scope:
-    api_url: "http://localhost"
-    api_token: "myapitoken"
-    name: "Office Network"
-  check_mode: true
 '''
 
 RETURN = r'''

@@ -11,8 +11,6 @@ short_description: Remove a DHCP lease from Technitium DNS server
 version_added: "0.6.0"
 description:
     - Remove a dynamic or reserved lease allocation from a DHCP scope.
-    - This module must be used carefully to ensure no IP address conflicts are caused by removing a lease.
-    - This module is idempotent - if the lease doesn't exist, no changes are made.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
@@ -82,14 +80,6 @@ EXAMPLES = r'''
     api_token: "myapitoken"
     name: "Default"
     clientIdentifier: "1-001122334455"
-
-- name: Remove DHCP lease in check mode
-  technitium_dns_remove_dhcp_lease:
-    api_url: "http://localhost"
-    api_token: "myapitoken"
-    name: "Default"
-    hardwareAddress: "00-AA-BB-CC-DD-EE"
-  check_mode: true
 '''
 
 RETURN = r'''
