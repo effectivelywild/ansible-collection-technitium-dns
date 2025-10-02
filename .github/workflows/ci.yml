@@ -245,14 +245,6 @@ jobs:
           ANSIBLE_COLLECTIONS_PATH: ${{ env.COLLECTION_ROOT }}
           COLLECTION_ROOT: ${{ env.COLLECTION_ROOT }}
 
-      - name: Debug - List running containers
-        run: |
-          echo "=== Get logs from dhcp_test_client container ==="
-          docker logs dhcp_test_client 
-          echo ""
-          echo "=== Listing all running containers ==="
-          docker ps -a
-          echo ""
       - name: Run integration tests that require specific key states
         run: |
           echo "Skipping other tests for now - debugging add_reserved_lease"
