@@ -1,0 +1,166 @@
+---
+# Integration test suite for technitium_dns_delete_blocked_zone
+# This test validates deleting domains from blocked zones with idempotency
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Setup - Create test domains
+- name: "Flush blocked zones for clean state"
+  technitium_dns_flush_blocked_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  ignore_errors: true
+
+- name: "Add test blocked zones"
+  technitium_dns_add_blocked_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "{{ item }}"
+  loop:
+    - "delete-test1.test.local"
+    - "delete-test2.test.local"
+    - "delete-test3.test.local"
+
+# Phase 3: Test check mode deletion
+- name: "Check mode - delete blocked zone"
+  technitium_dns_delete_blocked_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "delete-test1.test.local"
+  check_mode: true
+  register: checkmode_delete_result
+
+- name: "Assert check mode reports change"
+  assert:
+    that:
+      - not checkmode_delete_result.failed
+      - checkmode_delete_result.changed
+      - "'would be deleted' in checkmode_delete_result.msg"
+    fail_msg: "Check mode should report change without deleting"
+
+# Phase 4: Verify check mode didn't delete
+- name: "List to verify check mode didn't delete"
+  technitium_dns_list_blocked_zones:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "delete-test1.test.local"
+  register: verify_checkmode_result
+
+- name: "Assert domain still exists after check mode"
+  assert:
+    that:
+      - not verify_checkmode_result.failed
+    fail_msg: "Domain should still exist after check mode delete"
+
+# Phase 5: Test actual deletion
+- name: "Delete blocked zone"
+  technitium_dns_delete_blocked_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "delete-test1.test.local"
+  register: delete_result
+
+- name: "Assert delete succeeded"
+  assert:
+    that:
+      - not delete_result.failed
+      - delete_result.changed
+      - "'deleted from blocked zones' in delete_result.msg"
+    fail_msg: "Deleting blocked zone should succeed and show changed"
+
+# Phase 6: Test idempotency - delete non-existent domain
+- name: "Delete same blocked zone again (idempotency test)"
+  technitium_dns_delete_blocked_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "delete-test1.test.local"
+  register: idempotent_result
+
+- name: "Assert idempotency - no change"
+  assert:
+    that:
+      - not idempotent_result.failed
+      - not idempotent_result.changed
+      - "'does not exist' in idempotent_result.msg"
+    fail_msg: "Deleting non-existent blocked zone should return unchanged"
+
+# Phase 7: Test check mode on non-existent domain
+- name: "Check mode - delete non-existent blocked zone"
+  technitium_dns_delete_blocked_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "nonexistent.test.local"
+  check_mode: true
+  register: checkmode_nonexistent_result
+
+- name: "Assert check mode on non-existent shows no change"
+  assert:
+    that:
+      - not checkmode_nonexistent_result.failed
+      - not checkmode_nonexistent_result.changed
+    fail_msg: "Check mode on non-existent domain should show no change"
+
+# Phase 8: Test deleting multiple domains
+- name: "Delete multiple blocked zones"
+  technitium_dns_delete_blocked_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "{{ item }}"
+  loop:
+    - "delete-test2.test.local"
+    - "delete-test3.test.local"
+  register: multi_delete_results
+
+- name: "Assert all deletions succeeded"
+  assert:
+    that:
+      - item.changed
+      - not item.failed
+    fail_msg: "All domain deletions should succeed"
+  loop: "{{ multi_delete_results.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+# Phase 9: Test with invalid API token
+- name: "Test delete with invalid API token"
+  technitium_dns_delete_blocked_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "test.local"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert invalid token fails"
+  assert:
+    that:
+      - invalid_token_result.failed
+    fail_msg: "Invalid token should cause failure"
+
+# Phase 10: Cleanup
+- name: "Flush blocked zones"
+  technitium_dns_flush_blocked_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  ignore_errors: true
