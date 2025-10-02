@@ -25,11 +25,11 @@
 # Phase 3: Connect Technitium container to test network so it can serve DHCP
 - name: "Get Technitium container name with suffix"
   set_fact:
-    technitium_container_name: "technitium02{{ lookup('env', 'CONTAINER_SUFFIX') | default('') }}"
+    technitium_container_name: "technitium02{{ container_suffix | default('') }}"
 
 - name: "Debug Technitium container name"
   debug:
-    msg: "Container name is: {{ technitium_container_name }}, CONTAINER_SUFFIX env: {{ lookup('env', 'CONTAINER_SUFFIX') | default('NOT SET') }}"
+    msg: "Container name is: {{ technitium_container_name }}, container_suffix var: {{ container_suffix | default('NOT SET') }}"
 
 - name: "Connect Technitium container to test network"
   community.docker.docker_network:
