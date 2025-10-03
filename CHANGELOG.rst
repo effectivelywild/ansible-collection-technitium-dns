@@ -4,6 +4,25 @@ effectivelywild.technitium\_dns Release Notes
 
 .. contents:: Topics
 
+v0.6.0
+======
+
+New Modules
+-----------
+
+- effectivelywild.technitium_dns.technitium_dns_add_reserved_lease - Add a reserved DHCP lease to a scope in Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_convert_to_dynamic_lease - Convert a reserved DHCP lease to a dynamic lease in Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_convert_to_reserved_lease - Convert a dynamic DHCP lease to a reserved lease in Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_delete_dhcp_scope - Delete a DHCP scope from Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_disable_dhcp_scope - Disable a DHCP scope in Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_enable_dhcp_scope - Enable a DHCP scope in Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_get_dhcp_scope - Get DHCP scope details from Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_list_dhcp_leases - List all DHCP leases from Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_list_dhcp_scopes - List all DHCP scopes from Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_remove_dhcp_lease - Remove a DHCP lease from Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_remove_reserved_lease - Remove a reserved DHCP lease from a scope in Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_set_dhcp_scope - Set DHCP scope configuration in Technitium DNS server.
+
 v0.5.0
 ======
 
