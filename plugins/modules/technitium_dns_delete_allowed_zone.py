@@ -119,26 +119,7 @@ class DeleteAllowedZoneModule(TechnitiumModule):
         domain = self.params['domain']
 
         # Check if the domain exists in allowed zones
-        list_params = {'domain': domain}
-        list_data = self.request('/api/allowed/list', params=list_params)
-        self.validate_api_response(list_data)
-
-        response = list_data.get('response', {})
-        zones = response.get('zones', [])
-        records = response.get('records', [])
-
-        # Check if domain exists in zones list or records
-        domain_exists = False
-
-        # Check in zones list
-        if domain in zones:
-            domain_exists = True
-
-        # Check in records list
-        for record in records:
-            if record.get('name') == domain:
-                domain_exists = True
-                break
+        domain_exists = self.check_allowed_blocked_zone_exists(domain, zone_type='allowed')
 
         # If domain doesn't exist, return unchanged (idempotent delete)
         if not domain_exists:

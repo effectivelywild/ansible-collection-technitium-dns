@@ -119,26 +119,7 @@ class AddAllowedZoneModule(TechnitiumModule):
         domain = self.params['domain']
 
         # Check if the domain already exists in allowed zones
-        list_params = {'domain': domain}
-        list_data = self.request('/api/allowed/list', params=list_params)
-        self.validate_api_response(list_data)
-
-        response = list_data.get('response', {})
-        zones = response.get('zones', [])
-        records = response.get('records', [])
-
-        # Check if domain exists in zones list or records
-        domain_exists = False
-
-        # Check in zones list
-        if domain in zones:
-            domain_exists = True
-
-        # Check in records list (domain might be in records as a zone)
-        for record in records:
-            if record.get('name') == domain:
-                domain_exists = True
-                break
+        domain_exists = self.check_allowed_blocked_zone_exists(domain, zone_type='allowed')
 
         # If domain already exists, return unchanged
         if domain_exists:
