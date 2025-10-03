@@ -214,5 +214,37 @@ class TechnitiumModule(AnsibleModule):
         existing_section = next((p for p in permissions if p.get('section') == section_name), None)
         return existing_section is not None, existing_section
 
+    def check_allowed_blocked_zone_exists(self, domain, zone_type='allowed'):
+        """Check if a domain exists in allowed/blocked zone lists (ACL)
+
+        Note: This is different from validate_zone_exists() which checks DNS zones.
+        This method checks the allowed/blocked zone access control lists.
+
+        Args:
+            domain (str): Domain name to check
+            zone_type (str): Either 'allowed' or 'blocked'
+
+        Returns:
+            bool: True if domain exists in the zone, False otherwise
+        """
+        list_params = {'domain': domain}
+        list_data = self.request(f'/api/{zone_type}/list', params=list_params)
+        self.validate_api_response(list_data)
+
+        response = list_data.get('response', {})
+        zones = response.get('zones', [])
+        records = response.get('records', [])
+
+        # Check if domain exists in zones list or records
+        if domain in zones:
+            return True
+
+        # Check in records list (domain might be in records as a zone)
+        for record in records:
+            if record.get('name') == domain:
+                return True
+
+        return False
+
     def __call__(self):
         self.run()

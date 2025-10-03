@@ -1,0 +1,140 @@
+---
+# Integration test suite for technitium_dns_flush_allowed_zone
+# This test validates flushing all allowed zones
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Setup - Add test domains
+- name: "Add test allowed zones"
+  technitium_dns_add_allowed_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "{{ item }}"
+  loop:
+    - "flush-test1.test.local"
+    - "flush-test2.test.local"
+    - "flush-test3.test.local"
+
+# Phase 3: Verify domains were added
+- name: "List allowed zones to verify setup"
+  technitium_dns_list_allowed_zones:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: pre_flush_result
+
+- name: "Assert zones exist before flush"
+  assert:
+    that:
+      - not pre_flush_result.failed
+      - (pre_flush_result.zones | default([]) | length > 0) or (pre_flush_result.records | default([]) | length > 0)
+    fail_msg: "Should have zones before flushing"
+
+# Phase 4: Test check mode flush
+- name: "Check mode - flush allowed zones"
+  technitium_dns_flush_allowed_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  check_mode: true
+  register: checkmode_flush_result
+
+- name: "Assert check mode reports change"
+  assert:
+    that:
+      - not checkmode_flush_result.failed
+      - checkmode_flush_result.changed
+      - "'would be flushed' in checkmode_flush_result.msg"
+    fail_msg: "Check mode should report change without flushing"
+
+# Phase 5: Verify check mode didn't flush
+- name: "List to verify check mode didn't flush"
+  technitium_dns_list_allowed_zones:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: verify_checkmode_result
+
+- name: "Assert zones still exist after check mode"
+  assert:
+    that:
+      - not verify_checkmode_result.failed
+      - (verify_checkmode_result.zones | default([]) | length > 0) or (verify_checkmode_result.records | default([]) | length > 0)
+    fail_msg: "Zones should still exist after check mode flush"
+
+# Phase 6: Test actual flush
+- name: "Flush allowed zones"
+  technitium_dns_flush_allowed_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: flush_result
+
+- name: "Assert flush succeeded"
+  assert:
+    that:
+      - not flush_result.failed
+      - flush_result.changed
+      - "'flushed' in flush_result.msg"
+    fail_msg: "Flushing allowed zones should succeed and show changed"
+
+# Phase 7: Verify zones were flushed
+- name: "List allowed zones after flush"
+  technitium_dns_list_allowed_zones:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_flush_result
+
+- name: "Debug post flush result"
+  debug:
+    var: post_flush_result
+  when: debug | default(false)
+
+- name: "Assert zones were cleared"
+  assert:
+    that:
+      - not post_flush_result.failed
+      - (post_flush_result.zones | default([]) | length == 0) or (post_flush_result.records | default([]) | length == 0)
+    fail_msg: "Zones should be empty after flush"
+
+# Phase 8: Test flush when already empty
+- name: "Flush allowed zones when already empty"
+  technitium_dns_flush_allowed_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: empty_flush_result
+
+- name: "Assert flush on empty still reports changed"
+  assert:
+    that:
+      - not empty_flush_result.failed
+      - empty_flush_result.changed
+    fail_msg: "Flush should always report changed (cannot detect if empty)"
+
+# Phase 9: Test with invalid API token
+- name: "Test flush with invalid API token"
+  technitium_dns_flush_allowed_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert invalid token fails"
+  assert:
+    that:
+      - invalid_token_result.failed
+    fail_msg: "Invalid token should cause failure"
