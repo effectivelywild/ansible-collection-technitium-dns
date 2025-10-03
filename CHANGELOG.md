@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/effectivelywild/ansible-collection-technitium-dns/compare/v0.5.0...v0.6.0) (2025-10-03)
+
+
+### Features
+
+* 0.6.0 - Add DHCP management modules ([#30](https://github.com/effectivelywild/ansible-collection-technitium-dns/issues/30)) ([08e7eb2](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/08e7eb2fb18a58593a3779c5ab03e15eacda02d9))
+
 ## [0.5.0](https://github.com/effectivelywild/ansible-collection-technitium-dns/compare/v0.4.0...v0.5.0) (2025-09-30)
 
 
