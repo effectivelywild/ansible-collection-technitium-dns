@@ -8,11 +8,9 @@ DOCUMENTATION = r'''
 ---
 module: technitium_dns_flush_blocked_zone
 short_description: Flush all blocked zones in Technitium DNS server
-version_added: "0.6.0"
+version_added: "0.7.0"
 description:
     - Flush the blocked zone to clear all records.
-    - This removes all domains from the blocked zones list.
-    - Use with caution as this operation cannot be undone.
 author:
     - Frank Muise (@effectivelywild)
 seealso:

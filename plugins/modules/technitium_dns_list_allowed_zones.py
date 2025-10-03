@@ -8,11 +8,9 @@ DOCUMENTATION = r'''
 ---
 module: technitium_dns_list_allowed_zones
 short_description: List allowed zones from Technitium DNS server
-version_added: "0.6.0"
+version_added: "0.7.0"
 description:
     - Retrieve a list of allowed zones from the Technitium DNS server.
-    - Allowed zones are domains that are explicitly permitted for resolution.
-    - Optionally filter by specific domain and browse direction.
 author:
     - Frank Muise (@effectivelywild)
 seealso:

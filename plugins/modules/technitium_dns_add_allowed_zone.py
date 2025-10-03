@@ -8,11 +8,9 @@ DOCUMENTATION = r'''
 ---
 module: technitium_dns_add_allowed_zone
 short_description: Add a domain to the allowed zones in Technitium DNS server
-version_added: "0.6.0"
+version_added: "0.7.0"
 description:
     - Add a domain name to the allowed zones.
-    - Allowed zones are domains that are explicitly permitted for resolution.
-    - This module is idempotent - adding an existing domain will return unchanged.
 author:
     - Frank Muise (@effectivelywild)
 seealso:

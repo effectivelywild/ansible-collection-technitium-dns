@@ -8,10 +8,9 @@ DOCUMENTATION = r'''
 ---
 module: technitium_dns_delete_blocked_zone
 short_description: Delete a domain from the blocked zones in Technitium DNS server
-version_added: "0.6.0"
+version_added: "0.7.0"
 description:
     - Delete a domain name from the blocked zones.
-    - This module is idempotent - deleting a non-existent domain will return unchanged.
 author:
     - Frank Muise (@effectivelywild)
 seealso:

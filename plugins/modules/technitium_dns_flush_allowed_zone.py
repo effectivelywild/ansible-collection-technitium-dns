@@ -8,11 +8,9 @@ DOCUMENTATION = r'''
 ---
 module: technitium_dns_flush_allowed_zone
 short_description: Flush all allowed zones in Technitium DNS server
-version_added: "0.6.0"
+version_added: "0.7.0"
 description:
     - Flush the allowed zone to clear all records.
-    - This removes all domains from the allowed zones list.
-    - Use with caution as this operation cannot be undone.
 author:
     - Frank Muise (@effectivelywild)
 seealso:

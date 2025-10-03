@@ -8,11 +8,9 @@ DOCUMENTATION = r'''
 ---
 module: technitium_dns_list_blocked_zones
 short_description: List blocked zones from Technitium DNS server
-version_added: "0.6.0"
+version_added: "0.7.0"
 description:
     - Retrieve a list of blocked zones from the Technitium DNS server.
-    - Blocked zones are domains that are explicitly blocked from resolution.
-    - Optionally filter by specific domain and browse direction.
 author:
     - Frank Muise (@effectivelywild)
 seealso:

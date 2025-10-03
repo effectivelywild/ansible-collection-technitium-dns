@@ -8,11 +8,9 @@ DOCUMENTATION = r'''
 ---
 module: technitium_dns_add_blocked_zone
 short_description: Add a domain to the blocked zones in Technitium DNS server
-version_added: "0.6.0"
+version_added: "0.7.0"
 description:
     - Add a domain name to the blocked zones.
-    - Blocked zones are domains that are explicitly blocked from resolution.
-    - This module is idempotent - adding an existing domain will return unchanged.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
