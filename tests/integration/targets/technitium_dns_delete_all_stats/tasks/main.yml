@@ -38,9 +38,9 @@
       - "'successfully' in initial_delete_result.msg.lower() or 'deleted' in initial_delete_result.msg.lower()"
     fail_msg: "Initial stats deletion should have succeeded"
 
-- name: "Pause 30 seconds to ensure delete updates stats"
+- name: "Pause 60 seconds to ensure delete updates stats"
   pause:
-    seconds: 30
+    seconds: 60
 
 # Phase 3: Perform DNS queries to generate stats
 - name: "Perform DNS query 1 to google.com (should be blocked)"
@@ -61,9 +61,9 @@
   register: query3_result
   ignore_errors: true
 
-- name: "Pause 30 seconds to ensure stats are updated"
+- name: "Pause 60 seconds to ensure stats are updated"
   pause:
-    seconds: 30
+    seconds: 60
 
 # Phase 4: Verify stats show the queries
 - name: "Get stats after queries"
@@ -110,9 +110,9 @@
       - "'successfully' in delete_result.msg.lower() or 'deleted' in delete_result.msg.lower()"
     fail_msg: "Stats deletion should have succeeded"
 
-- name: "Pause 30 seconds to ensure stats are updated after deletion"
+- name: "Pause 60 seconds to ensure stats are updated after deletion"
   pause:
-    seconds: 30
+    seconds: 60
 
 # Phase 6: Verify stats are cleared
 - name: "Get stats after deletion"
