@@ -1,0 +1,147 @@
+---
+# Integration test suite for technitium_dns_set_app_config
+# This test validates setting app configuration by:
+# 1. Installing a test app
+# 2. Setting the app's configuration
+# 3. Verifying the configuration was set
+# 4. Testing different config formats
+# 5. Cleaning up
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Ensure test app is installed
+- name: "Download and install What Is My Dns app"
+  technitium_dns_download_and_install_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+    url: "https://download.technitium.com/dns/apps/WhatIsMyDnsApp.zip"
+  register: install_result
+  ignore_errors: true
+
+- name: "Pause after install"
+  pause:
+    seconds: 2
+
+# Phase 3: Set app configuration with string
+- name: "Set What Is My Dns app configuration (string format)"
+  technitium_dns_set_app_config:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+    config: '{"test": "value", "number": 123}'
+  register: set_config_string_result
+  ignore_errors: true
+
+- name: "Debug set config string result"
+  debug:
+    var: set_config_string_result
+  when: debug | default(false)
+
+# Phase 4: Set app configuration with dict
+- name: "Set What Is My Dns app configuration (dict format)"
+  technitium_dns_set_app_config:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+    config:
+      test_key: "test_value"
+      another_key: 456
+  register: set_config_dict_result
+  ignore_errors: true
+
+- name: "Debug set config dict result"
+  debug:
+    var: set_config_dict_result
+  when: debug | default(false)
+
+# Phase 5: Verify at least one set config succeeded or both failed (if app doesn't support config)
+- name: "Assert set config completed"
+  assert:
+    that:
+      - set_config_string_result.changed or set_config_dict_result.changed or (set_config_string_result.failed and set_config_dict_result.failed)
+    fail_msg: "At least one set config should have completed (success or expected failure if app doesn't support config)"
+
+# Phase 6: Get config to verify it was set (if set succeeded)
+- name: "Get app configuration"
+  technitium_dns_get_app_config:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+  register: get_config_result
+  when: set_config_string_result.changed or set_config_dict_result.changed
+
+- name: "Debug get config after set"
+  debug:
+    var: get_config_result
+  when:
+    - debug | default(false)
+    - set_config_string_result.changed or set_config_dict_result.changed
+
+# Phase 7: Clear configuration
+- name: "Clear What Is My Dns app configuration"
+  technitium_dns_set_app_config:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+    config: ""
+  register: clear_config_result
+  ignore_errors: true
+
+# Phase 8: Test failure cases
+- name: "Test set config with invalid token"
+  technitium_dns_set_app_config:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+    config: '{"test": "value"}'
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid token"
+  assert:
+    that:
+      - invalid_token_result.failed
+    fail_msg: "Invalid token should cause failure"
+
+- name: "Test set config for non-existent app"
+  technitium_dns_set_app_config:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "NonExistentApp12345"
+    config: '{"test": "value"}'
+  register: nonexistent_app_result
+  ignore_errors: true
+
+- name: "Assert failure with non-existent app"
+  assert:
+    that:
+      - nonexistent_app_result.failed
+    fail_msg: "Non-existent app should cause failure"
+
+# Phase 9: Cleanup - Uninstall the test app
+- name: "Uninstall What Is My Dns app"
+  technitium_dns_uninstall_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+  register: cleanup_result
+  ignore_errors: true

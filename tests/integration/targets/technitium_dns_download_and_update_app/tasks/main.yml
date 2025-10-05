@@ -1,0 +1,117 @@
+---
+# Integration test suite for technitium_dns_download_and_update_app
+# This test validates updating an installed DNS app by:
+# 1. Installing a test app first
+# 2. Updating the app from a URL
+# 3. Verifying the update succeeded
+# 4. Testing error cases
+# 5. Cleaning up
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Ensure test app is installed
+- name: "Download and install What Is My Dns app"
+  technitium_dns_download_and_install_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+    url: "https://download.technitium.com/dns/apps/WhatIsMyDnsApp.zip"
+  register: install_result
+  ignore_errors: true
+
+- name: "Pause after install"
+  pause:
+    seconds: 2
+
+# Phase 3: Update the app
+- name: "Download and update What Is My Dns app"
+  technitium_dns_download_and_update_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+    url: "https://download.technitium.com/dns/apps/WhatIsMyDnsApp.zip"
+  register: update_result
+
+- name: "Debug update result"
+  debug:
+    var: update_result
+  when: debug | default(false)
+
+- name: "Assert update succeeded"
+  assert:
+    that:
+      - not update_result.failed
+      - update_result.changed
+      - update_result.updated_app is defined
+      - update_result.updated_app.name is defined
+      - update_result.updated_app.version is defined
+      - update_result.msg is defined
+    fail_msg: "App update should have succeeded"
+
+# Phase 4: Verify app still exists and is functional
+- name: "List apps after update"
+  technitium_dns_list_apps:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: apps_after_update
+
+- name: "Assert What Is My Dns app is still in the list"
+  assert:
+    that:
+      - apps_after_update.apps | selectattr('name', 'match', '(?i)what.*is.*my.*dns') | list | length > 0
+    fail_msg: "What Is My Dns app should still be in the installed apps list after update"
+
+# Phase 5: Test failure cases
+- name: "Test update with non-https URL"
+  technitium_dns_download_and_update_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+    url: "http://example.com/test.zip"
+  register: non_https_result
+  ignore_errors: true
+
+- name: "Assert failure with non-https URL"
+  assert:
+    that:
+      - non_https_result.failed
+      - "'https://' in (non_https_result.msg | lower)"
+    fail_msg: "Non-https URL should cause failure"
+
+- name: "Test update with invalid token"
+  technitium_dns_download_and_update_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+    url: "https://download.technitium.com/dns/apps/WhatIsMyDnsApp.zip"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid token"
+  assert:
+    that:
+      - invalid_token_result.failed
+    fail_msg: "Invalid token should cause failure"
+
+# Phase 6: Cleanup - Uninstall the test app
+- name: "Uninstall What Is My Dns app"
+  technitium_dns_uninstall_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+  register: cleanup_result
+  ignore_errors: true

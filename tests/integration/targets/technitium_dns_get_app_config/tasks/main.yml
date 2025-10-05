@@ -1,0 +1,113 @@
+---
+# Integration test suite for technitium_dns_get_app_config
+# This test validates getting app configuration by:
+# 1. Installing a test app
+# 2. Getting the app's configuration
+# 3. Verifying the response structure
+# 4. Testing error cases
+# 5. Cleaning up
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Ensure test app is installed
+- name: "Download and install What Is My Dns app"
+  technitium_dns_download_and_install_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+    url: "https://download.technitium.com/dns/apps/WhatIsMyDnsApp.zip"
+  register: install_result
+  ignore_errors: true
+
+- name: "Pause after install"
+  pause:
+    seconds: 2
+
+# Phase 3: Get app configuration
+- name: "Get What Is My Dns app configuration"
+  technitium_dns_get_app_config:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+  register: get_config_result
+
+- name: "Debug get config result"
+  debug:
+    var: get_config_result
+  when: debug | default(false)
+
+- name: "Assert get config succeeded"
+  assert:
+    that:
+      - not get_config_result.failed
+      - not get_config_result.changed
+      - get_config_result.config is defined
+    fail_msg: "Get config should have succeeded"
+
+# Phase 4: Test idempotency - getting config again
+- name: "Get app configuration again"
+  technitium_dns_get_app_config:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+  register: get_config_again
+
+- name: "Assert results are consistent"
+  assert:
+    that:
+      - not get_config_again.failed
+      - not get_config_again.changed
+      - get_config_again.config == get_config_result.config
+    fail_msg: "Get config should return consistent results"
+
+# Phase 5: Test failure cases
+- name: "Test get config with invalid token"
+  technitium_dns_get_app_config:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid token"
+  assert:
+    that:
+      - invalid_token_result.failed
+    fail_msg: "Invalid token should cause failure"
+
+- name: "Test get config for non-existent app"
+  technitium_dns_get_app_config:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "NonExistentApp12345"
+  register: nonexistent_app_result
+  ignore_errors: true
+
+- name: "Assert failure with non-existent app"
+  assert:
+    that:
+      - nonexistent_app_result.failed
+    fail_msg: "Non-existent app should cause failure"
+
+# Phase 6: Cleanup - Uninstall the test app
+- name: "Uninstall What Is My Dns app"
+  technitium_dns_uninstall_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+  register: cleanup_result
+  ignore_errors: true

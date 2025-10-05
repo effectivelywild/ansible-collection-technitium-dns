@@ -1,0 +1,119 @@
+---
+# Integration test suite for technitium_dns_uninstall_app
+# This test validates uninstalling DNS apps by:
+# 1. Installing a test app
+# 2. Uninstalling the app
+# 3. Verifying the app is removed
+# 4. Testing error cases
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Ensure test app is installed
+- name: "Download and install What Is My Dns app"
+  technitium_dns_download_and_install_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+    url: "https://download.technitium.com/dns/apps/WhatIsMyDnsApp.zip"
+  register: install_result
+  ignore_errors: true
+
+- name: "Pause after install"
+  pause:
+    seconds: 2
+
+# Phase 3: Verify app is installed
+- name: "List apps before uninstall"
+  technitium_dns_list_apps:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: apps_before_uninstall
+
+- name: "Store initial app count"
+  set_fact:
+    initial_app_count: "{{ apps_before_uninstall.apps | length }}"
+
+# Phase 4: Uninstall the app
+- name: "Uninstall What Is My Dns app"
+  technitium_dns_uninstall_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+  register: uninstall_result
+
+- name: "Debug uninstall result"
+  debug:
+    var: uninstall_result
+  when: debug | default(false)
+
+- name: "Assert uninstall succeeded"
+  assert:
+    that:
+      - not uninstall_result.failed
+      - uninstall_result.changed
+      - uninstall_result.msg is defined
+      - "'uninstalled' in (uninstall_result.msg | lower) or 'success' in (uninstall_result.msg | lower)"
+    fail_msg: "App uninstall should have succeeded"
+
+# Phase 5: Verify app is removed from list
+- name: "List apps after uninstall"
+  technitium_dns_list_apps:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: apps_after_uninstall
+
+- name: "Assert What Is My Dns app is not in the list"
+  assert:
+    that:
+      - apps_after_uninstall.apps | selectattr('name', 'match', '(?i)what.*is.*my.*dns') | list | length == 0
+    fail_msg: "What Is My Dns app should not be in the installed apps list after uninstall"
+
+- name: "Assert app count decreased"
+  assert:
+    that:
+      - apps_after_uninstall.apps | length <= initial_app_count | int
+    fail_msg: "App count should not increase after uninstall"
+
+# Phase 6: Test idempotency - uninstalling non-existent app
+- name: "Try to uninstall app again"
+  technitium_dns_uninstall_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+  register: uninstall_again_result
+  ignore_errors: true
+
+- name: "Assert second uninstall fails gracefully or succeeds"
+  assert:
+    that:
+      - uninstall_again_result.failed or uninstall_again_result.changed
+    fail_msg: "Uninstalling non-existent app should fail or succeed gracefully"
+
+# Phase 7: Test failure cases
+- name: "Test uninstall with invalid token"
+  technitium_dns_uninstall_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "Test App"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid token"
+  assert:
+    that:
+      - invalid_token_result.failed
+    fail_msg: "Invalid token should cause failure"

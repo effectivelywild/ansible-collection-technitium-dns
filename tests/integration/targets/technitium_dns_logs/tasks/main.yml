@@ -1,0 +1,239 @@
+---
+# Integration test suite for Technitium DNS Logs modules
+# This test validates logs management functionality by:
+# 1. Listing log files
+# 2. Deleting a specific log file
+# 3. Deleting all log files
+# 4. Querying logs (if a query logger app is available)
+# 5. Testing error cases
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: List all log files
+- name: "List all log files"
+  technitium_dns_list_logs:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: list_logs_result
+
+- name: "Debug list logs result"
+  debug:
+    var: list_logs_result
+  when: debug | default(false)
+
+- name: "Assert list logs succeeded"
+  assert:
+    that:
+      - not list_logs_result.failed
+      - not list_logs_result.changed
+      - list_logs_result.log_files is defined
+      - list_logs_result.log_files is iterable
+    fail_msg: "List logs should have succeeded and returned a list"
+
+# Phase 3: Store log file count before operations
+- name: "Store initial log file count"
+  set_fact:
+    initial_log_count: "{{ list_logs_result.log_files | length }}"
+
+- name: "Debug initial log count"
+  debug:
+    msg: "Initial log file count: {{ initial_log_count }}"
+
+# Phase 4: Generate some activity to ensure logs exist
+- name: "Perform DNS queries to generate log entries"
+  command: docker exec technitium01{{ container_suffix }} dig @localhost google.com +short
+  delegate_to: localhost
+  register: query_result
+  ignore_errors: true
+  loop: "{{ range(1, 4) | list }}"
+
+- name: "Pause to ensure logs are written"
+  pause:
+    seconds: 5
+
+# Phase 5: List logs again after generating activity
+- name: "List log files after generating activity"
+  technitium_dns_list_logs:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: list_logs_after_activity
+
+- name: "Debug logs after activity"
+  debug:
+    var: list_logs_after_activity
+  when: debug | default(false)
+
+# Phase 6: Delete a specific log file (if any exist)
+- name: "Delete a specific log file"
+  technitium_dns_delete_log:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    log: "{{ list_logs_after_activity.log_files[0].fileName }}"
+  register: delete_log_result
+  when: list_logs_after_activity.log_files | length > 0
+  ignore_errors: true
+
+- name: "Debug delete log result"
+  debug:
+    var: delete_log_result
+  when:
+    - debug | default(false)
+    - list_logs_after_activity.log_files | length > 0
+
+- name: "Assert delete log succeeded"
+  assert:
+    that:
+      - delete_log_result.changed or delete_log_result is skipped
+      - delete_log_result.msg is defined or delete_log_result is skipped
+    fail_msg: "Delete log should have succeeded"
+  when: list_logs_after_activity.log_files | length > 0
+
+# Phase 7: Verify log was deleted
+- name: "List log files after deletion"
+  technitium_dns_list_logs:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: list_logs_after_delete
+  when: list_logs_after_activity.log_files | length > 0
+
+- name: "Assert log count decreased"
+  assert:
+    that:
+      - list_logs_after_delete.log_files | length < list_logs_after_activity.log_files | length
+    fail_msg: "Log file count should have decreased after deletion"
+  when: list_logs_after_activity.log_files | length > 0
+
+# Phase 8: Test query logs (if a query logger is installed)
+- name: "List installed apps to check for query logger"
+  technitium_dns_list_apps:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: apps_list
+
+- name: "Find query logger apps"
+  set_fact:
+    query_logger_apps: "{{ apps_list.apps | selectattr('dnsApps', 'defined') | map(attribute='dnsApps') | flatten | selectattr('isQueryLogger', 'equalto', true) | list }}"
+
+- name: "Debug query logger apps"
+  debug:
+    var: query_logger_apps
+  when: debug | default(false)
+
+- name: "Query logs from query logger app"
+  technitium_dns_query_logs:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "{{ apps_list.apps | selectattr('dnsApps', 'defined') | selectattr('dnsApps', 'search', 'isQueryLogger.*true') | map(attribute='name') | first }}"
+    class_path: "{{ query_logger_apps[0].classPath }}"
+    page_number: 1
+    entries_per_page: 10
+  register: query_logs_result
+  when: query_logger_apps | length > 0
+  ignore_errors: true
+
+- name: "Debug query logs result"
+  debug:
+    var: query_logs_result
+  when:
+    - debug | default(false)
+    - query_logger_apps | length > 0
+
+- name: "Assert query logs succeeded"
+  assert:
+    that:
+      - not query_logs_result.failed
+      - not query_logs_result.changed
+      - query_logs_result.entries is defined
+      - query_logs_result.total_entries is defined
+    fail_msg: "Query logs should have succeeded"
+  when: query_logger_apps | length > 0
+
+# Phase 9: Test failure cases
+- name: "Test delete log with invalid token"
+  technitium_dns_delete_log:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+    log: "2020-09-19"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"
+
+# Phase 10: Delete all logs
+- name: "Delete all log files"
+  technitium_dns_delete_all_logs:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: delete_all_logs_result
+
+- name: "Debug delete all logs result"
+  debug:
+    var: delete_all_logs_result
+  when: debug | default(false)
+
+- name: "Assert delete all logs succeeded"
+  assert:
+    that:
+      - not delete_all_logs_result.failed
+      - delete_all_logs_result.changed
+      - delete_all_logs_result.msg is defined
+    fail_msg: "Delete all logs should have succeeded"
+
+# Phase 11: Verify all logs were deleted
+- name: "List log files after deleting all"
+  technitium_dns_list_logs:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: list_logs_after_delete_all
+
+- name: "Debug logs after delete all"
+  debug:
+    var: list_logs_after_delete_all
+  when: debug | default(false)
+
+- name: "Assert all logs were deleted"
+  assert:
+    that:
+      - list_logs_after_delete_all.log_files | length == 0
+    fail_msg: "All log files should have been deleted"
+
+# Phase 12: Test idempotency - deleting again should succeed
+- name: "Delete all log files again (idempotency check)"
+  technitium_dns_delete_all_logs:
+    api_url: "{{ technitium_api_url }}"
+    api_token: "{{ technitium_api_token }}"
+    api_port: "{{ technitium_api_port | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: delete_all_again_result
+
+- name: "Assert second delete all succeeded"
+  assert:
+    that:
+      - not delete_all_again_result.failed
+      - delete_all_again_result.changed
+    fail_msg: "Second delete all should have succeeded"

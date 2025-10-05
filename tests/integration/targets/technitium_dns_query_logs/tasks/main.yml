@@ -1,0 +1,176 @@
+---
+# Integration test suite for technitium_dns_query_logs
+# This test validates querying logs from a DNS app by:
+# 1. Finding a query logger app
+# 2. Querying logs with various filters
+# 3. Testing pagination
+# 4. Testing error cases
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: List installed apps to find a query logger
+- name: "List all installed apps"
+  technitium_dns_list_apps:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: apps_list
+
+- name: "Debug apps list"
+  debug:
+    var: apps_list
+  when: debug | default(false)
+
+# Phase 3: Find query logger apps
+- name: "Find query logger apps"
+  set_fact:
+    query_logger_apps: "{{ apps_list.apps | selectattr('dnsApps', 'defined') | map(attribute='dnsApps') | flatten | selectattr('isQueryLogger', 'equalto', true) | list }}"
+
+- name: "Debug query logger apps"
+  debug:
+    var: query_logger_apps
+  when: debug | default(false)
+
+- name: "Find app name with query logger"
+  set_fact:
+    query_logger_app_name: "{{ item.name }}"
+  loop: "{{ apps_list.apps }}"
+  when:
+    - item.dnsApps is defined
+    - item.dnsApps | selectattr('isQueryLogger', 'equalto', true) | list | length > 0
+  register: find_app_name
+
+- name: "Set query logger details"
+  set_fact:
+    test_app_name: "{{ apps_list.apps | selectattr('dnsApps', 'defined') | selectattr('dnsApps', 'search', 'isQueryLogger.*true') | map(attribute='name') | first }}"
+    test_class_path: "{{ query_logger_apps[0].classPath }}"
+  when: query_logger_apps | length > 0
+
+# Phase 4: Query logs (if a query logger is available)
+- name: "Query logs from query logger app"
+  technitium_dns_query_logs:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "{{ test_app_name }}"
+    class_path: "{{ test_class_path }}"
+    page_number: 1
+    entries_per_page: 10
+  register: query_logs_result
+  when: query_logger_apps | length > 0
+
+- name: "Debug query logs result"
+  debug:
+    var: query_logs_result
+  when:
+    - debug | default(false)
+    - query_logger_apps | length > 0
+
+- name: "Assert query logs succeeded"
+  assert:
+    that:
+      - not query_logs_result.failed
+      - not query_logs_result.changed
+      - query_logs_result.entries is defined
+      - query_logs_result.total_entries is defined
+      - query_logs_result.page_number is defined
+      - query_logs_result.total_pages is defined
+    fail_msg: "Query logs should have succeeded"
+  when: query_logger_apps | length > 0
+
+# Phase 5: Query logs with filters
+- name: "Query logs with descending order filter"
+  technitium_dns_query_logs:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "{{ test_app_name }}"
+    class_path: "{{ test_class_path }}"
+    page_number: 1
+    entries_per_page: 5
+    descending_order: true
+  register: query_logs_filtered
+  when: query_logger_apps | length > 0
+
+- name: "Assert filtered query succeeded"
+  assert:
+    that:
+      - not query_logs_filtered.failed
+      - not query_logs_filtered.changed
+      - query_logs_filtered.entries is defined
+    fail_msg: "Filtered query logs should have succeeded"
+  when: query_logger_apps | length > 0
+
+# Phase 6: Query logs with protocol filter
+- name: "Query logs with protocol filter (Udp)"
+  technitium_dns_query_logs:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "{{ test_app_name }}"
+    class_path: "{{ test_class_path }}"
+    protocol: "Udp"
+  register: query_logs_protocol
+  when: query_logger_apps | length > 0
+  ignore_errors: true
+
+# Phase 7: Query logs with qname filter
+- name: "Query logs with qname filter"
+  technitium_dns_query_logs:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "{{ test_app_name }}"
+    class_path: "{{ test_class_path }}"
+    qname: "google.com"
+  register: query_logs_qname
+  when: query_logger_apps | length > 0
+  ignore_errors: true
+
+# Phase 8: Test failure cases
+- name: "Test query logs with invalid token"
+  technitium_dns_query_logs:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "TestApp"
+    class_path: "Test.Class"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid token"
+  assert:
+    that:
+      - invalid_token_result.failed
+    fail_msg: "Invalid token should cause failure"
+
+- name: "Test query logs with non-existent app"
+  technitium_dns_query_logs:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "NonExistentApp12345"
+    class_path: "NonExistent.Class"
+  register: nonexistent_app_result
+  ignore_errors: true
+
+- name: "Assert failure with non-existent app"
+  assert:
+    that:
+      - nonexistent_app_result.failed
+    fail_msg: "Non-existent app should cause failure"
+
+# Phase 9: Display warning if no query logger found
+- name: "Display warning if no query logger found"
+  debug:
+    msg: "WARNING: No query logger app found. Install a query logger app to fully test this module."
+  when: query_logger_apps | length == 0

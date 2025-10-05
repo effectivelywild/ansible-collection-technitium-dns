@@ -248,5 +248,23 @@ class TechnitiumModule(AnsibleModule):
 
         return False, list_data
 
+    def check_log_exists(self, log_name):
+        """Check if a log file exists and return log data if found
+
+        Args:
+            log_name (str): Name of the log file (e.g., "2025-10-05")
+
+        Returns:
+            tuple: (exists: bool, log_data: dict or None)
+                - exists: True if log file exists, False otherwise
+                - log_data: dict containing fileName and size if found, None otherwise
+        """
+        list_data = self.request('/api/logs/list')
+        self.validate_api_response(list_data)
+
+        log_files = list_data.get('response', {}).get('logFiles', [])
+        existing_log = next((log for log in log_files if log.get('fileName') == log_name), None)
+        return existing_log is not None, existing_log
+
     def __call__(self):
         self.run()

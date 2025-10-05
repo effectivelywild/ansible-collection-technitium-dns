@@ -1,0 +1,172 @@
+---
+# Integration test suite for technitium_dns_delete_log
+# This test validates deleting a specific log file by:
+# 1. Delete all log files to start fresh
+# 2. Generate queries to create logs
+# 3. Get all log files and store the first one's size for comparison
+# 4. Delete that specific log file
+# 5. Get all log files again and compare sizes
+# 6. Assert that the first log file size is greater than the new log file size
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Delete all log files to start fresh
+- name: "Delete all log files to start fresh"
+  technitium_dns_delete_all_logs:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: initial_delete_result
+
+- name: "Pause after initial deletion"
+  pause:
+    seconds: 5
+
+# Phase 3: Generate queries to create logs
+- name: "Perform DNS queries to generate logs"
+  command: docker exec technitium02{{ container_suffix }} dig @localhost test{{ item }}.example.com +short
+  delegate_to: localhost
+  register: query_result
+  ignore_errors: true
+  loop: "{{ range(1, 10) | list }}"
+
+- name: "Pause to ensure logs are written"
+  pause:
+    seconds: 5
+
+# Phase 4: Get all log files and store the first one's size
+- name: "List all log files before deletion"
+  technitium_dns_list_logs:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: logs_before_delete
+
+- name: "Debug logs before deletion"
+  debug:
+    var: logs_before_delete
+  when: debug | default(false)
+
+- name: "Store first log file name and size for comparison"
+  set_fact:
+    first_log_name: "{{ logs_before_delete.log_files[0].fileName }}"
+    first_log_size: "{{ logs_before_delete.log_files[0].size }}"
+  when: logs_before_delete.log_files | length > 0
+
+# Phase 5: Delete that specific log file
+- name: "Delete the first log file"
+  technitium_dns_delete_log:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    log: "{{ first_log_name }}"
+  register: delete_log_result
+  when: logs_before_delete.log_files | length > 0
+
+- name: "Debug delete log result"
+  debug:
+    var: delete_log_result
+  when:
+    - debug | default(false)
+    - logs_before_delete.log_files | length > 0
+
+- name: "Assert delete log succeeded"
+  assert:
+    that:
+      - not delete_log_result.failed
+      - delete_log_result.changed
+      - delete_log_result.msg is defined
+      - "'deleted' in (delete_log_result.msg | lower) or 'success' in (delete_log_result.msg | lower)"
+    fail_msg: "Delete log should have succeeded"
+  when: logs_before_delete.log_files | length > 0
+
+- name: "Pause after deletion to ensure it completes"
+  pause:
+    seconds: 3
+
+# Phase 6: Get all log files again (Technitium will recreate today's log)
+- name: "List log files after deletion"
+  technitium_dns_list_logs:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: logs_after_delete
+  when: logs_before_delete.log_files | length > 0
+
+- name: "Debug logs after deletion"
+  debug:
+    var: logs_after_delete
+  when:
+    - debug | default(false)
+    - logs_before_delete.log_files | length > 0
+
+- name: "Store new log file size"
+  set_fact:
+    new_log_size: "{{ logs_after_delete.log_files[0].size if logs_after_delete.log_files | length > 0 else '0 B' }}"
+  when: logs_before_delete.log_files | length > 0
+
+# Phase 7: Assert that the log file was deleted and recreated (size must be different)
+- name: "Assert log file was deleted and recreated (size changed)"
+  assert:
+    that:
+      - first_log_size != new_log_size
+    fail_msg: "Log file size must change after deletion - original: {{ first_log_size }}, after deletion: {{ new_log_size }}"
+  when: logs_before_delete.log_files | length > 0
+
+# Phase 6: Test failure cases
+- name: "Test delete log with invalid token"
+  technitium_dns_delete_log:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    log: "2020-01-01"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"
+
+- name: "Test delete non-existent log (should not report changed)"
+  technitium_dns_delete_log:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    log: "1900-01-01"
+  register: nonexistent_log_result
+
+- name: "Assert non-existent log deletion returns changed=false"
+  assert:
+    that:
+      - not nonexistent_log_result.failed
+      - not nonexistent_log_result.changed
+      - "'does not exist' in nonexistent_log_result.msg"
+    fail_msg: "Deleting non-existent log should return changed=false"
+
+- name: "Test delete log with invalid log name format (should not report changed)"
+  technitium_dns_delete_log:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    log: "invalid-log-name-format"
+  register: invalid_log_name_result
+
+- name: "Assert invalid log name returns changed=false"
+  assert:
+    that:
+      - not invalid_log_name_result.failed
+      - not invalid_log_name_result.changed
+      - "'does not exist' in invalid_log_name_result.msg"
+    fail_msg: "Deleting invalid log name should return changed=false"
