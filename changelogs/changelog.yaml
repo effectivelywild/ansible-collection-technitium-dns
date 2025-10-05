@@ -186,3 +186,30 @@ releases:
       name: technitium_dns_set_dhcp_scope
       namespace: ''
     release_date: '2025-10-03'
+  0.7.0:
+    modules:
+    - description: Add a domain to the allowed zones in Technitium DNS server.
+      name: technitium_dns_add_allowed_zone
+      namespace: ''
+    - description: Add a domain to the blocked zones in Technitium DNS server.
+      name: technitium_dns_add_blocked_zone
+      namespace: ''
+    - description: Delete a domain from the allowed zones in Technitium DNS server.
+      name: technitium_dns_delete_allowed_zone
+      namespace: ''
+    - description: Delete a domain from the blocked zones in Technitium DNS server.
+      name: technitium_dns_delete_blocked_zone
+      namespace: ''
+    - description: Flush all allowed zones in Technitium DNS server.
+      name: technitium_dns_flush_allowed_zone
+      namespace: ''
+    - description: Flush all blocked zones in Technitium DNS server.
+      name: technitium_dns_flush_blocked_zone
+      namespace: ''
+    - description: List allowed zones from Technitium DNS server.
+      name: technitium_dns_list_allowed_zones
+      namespace: ''
+    - description: List blocked zones from Technitium DNS server.
+      name: technitium_dns_list_blocked_zones
+      namespace: ''
+    release_date: '2025-10-05'

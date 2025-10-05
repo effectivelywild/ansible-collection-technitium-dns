@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/effectivelywild/ansible-collection-technitium-dns/compare/v0.6.0...v0.7.0) (2025-10-05)
+
+
+### Features
+
+* 0.7.0 - Add  allow and block zone modules ([#31](https://github.com/effectivelywild/ansible-collection-technitium-dns/issues/31)) ([62ca64b](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/62ca64bab9fec970b71a73cc05b03962d0a3be2e))
+
 ## [0.6.0](https://github.com/effectivelywild/ansible-collection-technitium-dns/compare/v0.5.0...v0.6.0) (2025-10-03)
 
 

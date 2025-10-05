@@ -4,6 +4,21 @@ effectivelywild.technitium\_dns Release Notes
 
 .. contents:: Topics
 
+v0.7.0
+======
+
+New Modules
+-----------
+
+- effectivelywild.technitium_dns.technitium_dns_add_allowed_zone - Add a domain to the allowed zones in Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_add_blocked_zone - Add a domain to the blocked zones in Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_delete_allowed_zone - Delete a domain from the allowed zones in Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_delete_blocked_zone - Delete a domain from the blocked zones in Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_flush_allowed_zone - Flush all allowed zones in Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_flush_blocked_zone - Flush all blocked zones in Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_list_allowed_zones - List allowed zones from Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_list_blocked_zones - List blocked zones from Technitium DNS server.
+
 v0.6.0
 ======
 
