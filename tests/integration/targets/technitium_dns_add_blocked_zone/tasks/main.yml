@@ -1,0 +1,209 @@
+---
+# Integration test suite for technitium_dns_add_blocked_zone
+# This test validates adding domains to blocked zones with idempotency
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Cleanup - Ensure clean state
+- name: "Flush blocked zones for clean state"
+  technitium_dns_flush_blocked_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  ignore_errors: true
+
+# Phase 3: Test adding a new blocked zone
+- name: "Add blocked zone"
+  technitium_dns_add_blocked_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "example.test.local"
+  register: add_result
+
+- name: "Assert add succeeded"
+  assert:
+    that:
+      - not add_result.failed
+      - add_result.changed
+      - "'added to blocked zones' in add_result.msg"
+    fail_msg: "Adding new blocked zone should succeed and show changed"
+
+# Phase 4: Test idempotency - add same domain again
+- name: "Add same blocked zone again (idempotency test)"
+  technitium_dns_add_blocked_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "example.test.local"
+  register: idempotent_result
+
+- name: "Assert idempotency - no change"
+  assert:
+    that:
+      - not idempotent_result.failed
+      - not idempotent_result.changed
+      - "'already exists' in idempotent_result.msg"
+    fail_msg: "Adding existing blocked zone should return unchanged"
+
+# Phase 5: Test check mode - new domain
+- name: "Check mode - add new blocked zone"
+  technitium_dns_add_blocked_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "checkmode.test.local"
+  check_mode: true
+  register: checkmode_add_result
+
+- name: "Assert check mode reports change"
+  assert:
+    that:
+      - not checkmode_add_result.failed
+      - checkmode_add_result.changed
+      - "'would be added' in checkmode_add_result.msg"
+    fail_msg: "Check mode should report change without making it"
+
+# Phase 6: Verify check mode didn't add domain
+- name: "List blocked zones to verify check mode didn't add"
+  technitium_dns_list_blocked_zones:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "checkmode.test.local"
+  register: verify_checkmode_result
+
+- name: "Assert check mode domain was not added"
+  assert:
+    that:
+      - not verify_checkmode_result.failed
+      - "'checkmode.test.local' not in (verify_checkmode_result.zones | default([]))"
+    fail_msg: "Check mode should not actually add the domain"
+
+# Phase 7: Test check mode - existing domain
+- name: "Check mode - add existing blocked zone"
+  technitium_dns_add_blocked_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "example.test.local"
+  check_mode: true
+  register: checkmode_existing_result
+
+- name: "Assert check mode existing shows no change"
+  assert:
+    that:
+      - not checkmode_existing_result.failed
+      - not checkmode_existing_result.changed
+    fail_msg: "Check mode on existing domain should show no change"
+
+# Phase 8: Test adding multiple domains
+- name: "Add multiple blocked zones"
+  technitium_dns_add_blocked_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "{{ item }}"
+  loop:
+    - "domain1.test.local"
+    - "domain2.test.local"
+    - "domain3.test.local"
+  register: multi_add_results
+
+- name: "Assert all additions succeeded"
+  assert:
+    that:
+      - item.changed
+      - not item.failed
+    fail_msg: "All domain additions should succeed"
+  loop: "{{ multi_add_results.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+# Phase 9: Test with invalid API token
+- name: "Test add with invalid API token"
+  technitium_dns_add_blocked_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "test.local"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert invalid token fails"
+  assert:
+    that:
+      - invalid_token_result.failed
+    fail_msg: "Invalid token should cause failure"
+
+# Phase 10: Test with empty domain string
+- name: "Test add with empty domain string"
+  technitium_dns_add_blocked_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: ""
+  register: empty_domain_result
+  ignore_errors: true
+
+- name: "Assert empty domain is handled gracefully"
+  assert:
+    that:
+      - empty_domain_result.failed or (not empty_domain_result.changed)
+    fail_msg: "Empty domain should either fail or return unchanged"
+
+# Phase 11: Test with invalid domain format (double dots)
+- name: "Test add with invalid domain format (double dots)"
+  technitium_dns_add_blocked_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "google..ca"
+  register: invalid_format_result
+  ignore_errors: true
+
+- name: "Assert invalid domain format fails"
+  assert:
+    that:
+      - invalid_format_result.failed
+      - "'Invalid domain name' in invalid_format_result.msg or 'label length' in invalid_format_result.msg"
+    fail_msg: "Invalid domain format should be rejected by API"
+
+# Phase 12: Test with invalid characters in domain
+- name: "Test add with invalid characters in domain"
+  technitium_dns_add_blocked_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "goog$le.ca"
+  register: invalid_char_result
+  ignore_errors: true
+
+- name: "Assert invalid characters are rejected"
+  assert:
+    that:
+      - invalid_char_result.failed
+      - "'Invalid domain name' in invalid_char_result.msg or 'invalid character' in invalid_char_result.msg"
+    fail_msg: "Invalid characters in domain should be rejected by API"
+
+# Phase 13: Cleanup
+- name: "Flush blocked zones"
+  technitium_dns_flush_blocked_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  ignore_errors: true

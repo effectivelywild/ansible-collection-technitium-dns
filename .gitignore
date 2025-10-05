@@ -22,5 +22,5 @@ __pycache__/
 *.py[cod]
 *.pyo
 
-# local claude files
+# Local claude files
 .claude/

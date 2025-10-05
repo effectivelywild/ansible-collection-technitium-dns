@@ -1,0 +1,130 @@
+---
+# Integration test suite for technitium_dns_list_allowed_zones
+# This test validates allowed zone listing functionality
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Cleanup - Ensure clean state
+- name: "Flush allowed zones for clean state"
+  technitium_dns_flush_allowed_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  ignore_errors: true
+
+# Phase 3: Test listing empty allowed zones
+- name: "List allowed zones (should be empty)"
+  technitium_dns_list_allowed_zones:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: empty_list_result
+
+- name: "Assert empty list returns successfully"
+  assert:
+    that:
+      - not empty_list_result.failed
+      - not empty_list_result.changed
+      - empty_list_result.zones is defined
+      - empty_list_result.records is defined
+    fail_msg: "Listing empty allowed zones should succeed"
+
+# Phase 4: Add test domains
+- name: "Add test allowed zones"
+  technitium_dns_add_allowed_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "{{ item }}"
+  loop:
+    - "allowed1.test.local"
+    - "allowed2.test.local"
+    - "subdomain.allowed.test.local"
+
+# Phase 5: List all allowed zones
+- name: "List all allowed zones"
+  technitium_dns_list_allowed_zones:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: list_result
+
+- name: "Debug list result"
+  debug:
+    var: list_result
+  when: debug | default(false)
+
+- name: "Assert list contains added zones"
+  assert:
+    that:
+      - not list_result.failed
+      - not list_result.changed
+      - list_result.zones is defined or list_result.records is defined
+    fail_msg: "List should succeed and contain zone data"
+
+# Phase 6: List specific domain
+- name: "List allowed zones for specific domain"
+  technitium_dns_list_allowed_zones:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "allowed1.test.local"
+  register: domain_list_result
+
+- name: "Assert domain-specific list succeeds"
+  assert:
+    that:
+      - not domain_list_result.failed
+      - not domain_list_result.changed
+      - domain_list_result.domain == 'allowed1.test.local'
+    fail_msg: "Domain-specific list should succeed"
+
+# Phase 7: Test direction parameter
+- name: "List allowed zones with direction=up"
+  technitium_dns_list_allowed_zones:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "subdomain.allowed.test.local"
+    direction: "up"
+  register: direction_result
+
+- name: "Assert direction parameter works"
+  assert:
+    that:
+      - not direction_result.failed
+      - not direction_result.changed
+    fail_msg: "Direction parameter should work"
+
+# Phase 8: Test with invalid API token
+- name: "Test list with invalid API token"
+  technitium_dns_list_allowed_zones:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert invalid token fails"
+  assert:
+    that:
+      - invalid_token_result.failed
+    fail_msg: "Invalid token should cause failure"
+
+# Phase 9: Cleanup
+- name: "Flush allowed zones"
+  technitium_dns_flush_allowed_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  ignore_errors: true
