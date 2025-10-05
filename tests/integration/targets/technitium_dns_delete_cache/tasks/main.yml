@@ -1,0 +1,208 @@
+---
+# Integration test suite for technitium_dns_delete_cache
+# This test validates DNS cache deletion functionality by verifying
+# that cached entries exist, deleting them, and verifying they're gone
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Populate cache with DNS query
+- name: "Flush DNS cache to start fresh"
+  technitium_dns_flush_cache:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+
+- name: "Perform DNS query to google.com to populate cache"
+  command: docker exec technitium02.{{ container_suffix }} dig @localhost google.com +short
+  delegate_to: localhost
+  register: query_result
+  ignore_errors: true
+
+- name: "Pause 5 seconds to ensure cache is populated"
+  pause:
+    seconds: 5
+
+# Phase 3: Verify cache entry exists
+- name: "List cached records for google.com to verify it exists"
+  technitium_dns_list_cache:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "google.com"
+  register: cache_before
+
+- name: "Debug cache before deletion"
+  debug:
+    var: cache_before
+  when: debug | default(false)
+
+- name: "Assert google.com is in cache"
+  assert:
+    that:
+      - cache_before.domain == "google.com"
+      - cache_before.records is defined
+    fail_msg: "google.com should be in cache before deletion"
+
+# Phase 4: Delete cached zone
+- name: "Delete cached zone for google.com"
+  technitium_dns_delete_cache:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "google.com"
+  register: delete_result
+
+- name: "Debug delete result"
+  debug:
+    var: delete_result
+  when: debug | default(false)
+
+- name: "Assert deletion succeeded"
+  assert:
+    that:
+      - not delete_result.failed
+      - delete_result.changed
+      - delete_result.msg is defined
+      - "'successfully' in delete_result.msg.lower() or 'deleted' in delete_result.msg.lower()"
+      - delete_result.domain == "google.com"
+    fail_msg: "Cache deletion should have succeeded"
+
+# Phase 5: Verify cache entry is gone
+- name: "List cached records for google.com to verify it's deleted"
+  technitium_dns_list_cache:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "google.com"
+  register: cache_after
+
+- name: "Debug cache after deletion"
+  debug:
+    var: cache_after
+  when: debug | default(false)
+
+- name: "Assert google.com cache is empty"
+  assert:
+    that:
+      - cache_after.domain == "google.com"
+      - cache_after.records is defined
+      - cache_after.records | length == 0
+    fail_msg: "google.com cache should be empty after deletion"
+
+# Phase 6: Test idempotency - deleting again should succeed
+- name: "Delete cached zone again (should succeed even if not in cache)"
+  technitium_dns_delete_cache:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "google.com"
+  register: delete_again_result
+
+- name: "Assert second deletion succeeded"
+  assert:
+    that:
+      - not delete_again_result.failed
+      - delete_again_result.changed
+    fail_msg: "Second deletion should have succeeded"
+
+# Phase 7: Test deleting multiple domains
+- name: "Perform DNS queries to populate cache with multiple domains"
+  command: docker exec technitium02.{{ container_suffix }} dig @localhost {{ item }} +short
+  delegate_to: localhost
+  loop:
+    - "example.com"
+    - "example.org"
+  ignore_errors: true
+
+- name: "Pause to ensure cache is populated"
+  pause:
+    seconds: 5
+
+- name: "Delete example.com from cache"
+  technitium_dns_delete_cache:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "example.com"
+  register: delete_example_result
+
+- name: "Assert example.com deletion succeeded"
+  assert:
+    that:
+      - not delete_example_result.failed
+      - delete_example_result.changed
+    fail_msg: "example.com deletion should have succeeded"
+
+# Phase 8: Test failure cases
+- name: "Test deletion with invalid API token"
+  technitium_dns_delete_cache:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "test.com"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"
+
+- name: "Test deletion with invalid domain characters (spaces)"
+  technitium_dns_delete_cache:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "invalid domain.com"
+  register: invalid_domain_spaces_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid domain (spaces)"
+  assert:
+    that:
+      - invalid_domain_spaces_result.failed
+    fail_msg: "Domain with spaces should cause failure"
+
+- name: "Test deletion with invalid domain characters (special chars)"
+  technitium_dns_delete_cache:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "invalid@domain!.com"
+  register: invalid_domain_special_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid domain (special chars)"
+  assert:
+    that:
+      - invalid_domain_special_result.failed
+    fail_msg: "Domain with special characters should cause failure"
+
+- name: "Test deletion with invalid domain characters (double dot)"
+  technitium_dns_delete_cache:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "invalid..com"
+  register: invalid_domain_doubledot_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid domain (double dot)"
+  assert:
+    that:
+      - invalid_domain_doubledot_result.failed
+    fail_msg: "Domain with double dot should cause failure"

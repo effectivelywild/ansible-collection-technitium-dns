@@ -1,0 +1,147 @@
+---
+# Integration test suite for technitium_dns_list_cache
+# This test validates DNS cache listing functionality
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Flush cache to start with clean state
+- name: "Flush DNS cache to start fresh"
+  technitium_dns_flush_cache:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: flush_result
+
+# Phase 3: Make DNS queries to populate cache
+- name: "Perform DNS query to google.com to populate cache"
+  command: docker exec technitium02.{{ container_suffix }} dig @localhost google.com +short
+  delegate_to: localhost
+  register: query1_result
+  ignore_errors: true
+
+- name: "Perform DNS query to example.com to populate cache"
+  command: docker exec technitium02.{{ container_suffix }} dig @localhost example.com +short
+  delegate_to: localhost
+  register: query2_result
+  ignore_errors: true
+
+- name: "Pause 5 seconds to ensure cache is populated"
+  pause:
+    seconds: 5
+
+# Phase 4: Test listing cache at root
+- name: "List cached zones at root"
+  technitium_dns_list_cache:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: root_cache_result
+
+- name: "Debug root cache result"
+  debug:
+    var: root_cache_result
+  when: debug | default(false)
+
+- name: "Assert root cache listing succeeded"
+  assert:
+    that:
+      - not root_cache_result.failed
+      - not root_cache_result.changed
+      - root_cache_result.domain is defined
+      - root_cache_result.zones is defined
+      - root_cache_result.records is defined
+    fail_msg: "Root cache listing should have succeeded"
+
+# Phase 5: Test listing cache for specific domain
+- name: "List cached records for google.com"
+  technitium_dns_list_cache:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "google.com"
+  register: google_cache_result
+
+- name: "Debug google.com cache result"
+  debug:
+    var: google_cache_result
+  when: debug | default(false)
+
+- name: "Assert google.com cache listing succeeded"
+  assert:
+    that:
+      - not google_cache_result.failed
+      - not google_cache_result.changed
+      - google_cache_result.domain == "google.com"
+      - google_cache_result.records is defined
+      - google_cache_result.records is sequence
+    fail_msg: "google.com cache listing should have succeeded"
+
+# Phase 6: Verify cached records structure
+- name: "Verify cached record structure if records exist"
+  assert:
+    that:
+      - record.name is defined
+      - record.type is defined
+      - record.ttl is defined
+      - record.rData is defined
+    fail_msg: "Each cached record should have expected properties"
+  loop: "{{ google_cache_result.records }}"
+  loop_control:
+    loop_var: record
+  when: google_cache_result.records | length > 0
+
+# Phase 7: Test with direction parameter
+- name: "List cache with direction=up"
+  technitium_dns_list_cache:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "google.com"
+    direction: "up"
+  register: direction_result
+
+- name: "Assert direction parameter works"
+  assert:
+    that:
+      - not direction_result.failed
+      - direction_result.domain is defined
+    fail_msg: "Direction parameter should work"
+
+# Phase 8: Test failure cases
+- name: "Test invalid API token"
+  technitium_dns_list_cache:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"
+
+- name: "Test invalid direction parameter"
+  technitium_dns_list_cache:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    direction: "sideways"
+  register: invalid_direction_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid direction"
+  assert:
+    that:
+      - invalid_direction_result.failed
+    fail_msg: "Invalid direction should cause failure"
