@@ -213,3 +213,24 @@ releases:
       name: technitium_dns_list_blocked_zones
       namespace: ''
     release_date: '2025-10-05'
+  0.8.0:
+    modules:
+    - description: Delete all statistics from Technitium DNS server.
+      name: technitium_dns_delete_all_stats
+      namespace: ''
+    - description: Delete a cached DNS zone from Technitium DNS server.
+      name: technitium_dns_delete_cache
+      namespace: ''
+    - description: Flush the entire DNS cache from Technitium DNS server.
+      name: technitium_dns_flush_cache
+      namespace: ''
+    - description: Get DNS statistics from server dashboard.
+      name: technitium_dns_get_stats
+      namespace: ''
+    - description: Get top statistics for a specific type.
+      name: technitium_dns_get_top_stats
+      namespace: ''
+    - description: List cached DNS zones and records from Technitium DNS server.
+      name: technitium_dns_list_cache
+      namespace: ''
+    release_date: '2025-10-05'

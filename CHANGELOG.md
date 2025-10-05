@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.8.0](https://github.com/effectivelywild/ansible-collection-technitium-dns/compare/v0.7.0...v0.8.0) (2025-10-05)
+
+
+### Features
+
+* Add cache modules ([40b741f](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/40b741f9afdcac21bce71cddaa530bc4e079906c))
+* Add cache modules ([c7e53d6](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/c7e53d685cb6a6f23ea85a2c1af8b5b88072a6b6))
+* Add dashboard stat modules ([ac1f455](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/ac1f45573106dfb7129f96f84827089528219c3c))
+* Add dashboard stat modules ([28809a4](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/28809a41fcc2508224d356c3e55d4605f37eda7b))
+
+
+### Bug Fixes
+
+* Increase stat wait 30 seconds ([d16774f](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/d16774ff7e087b6b9ee73f41ff6f1a4819a418b5))
+* Update container name for query tests ([6ba828d](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/6ba828dee9f0729a1f171a64d3c24afb69893dcc))
+* Update galaxy release back to 0.7.0 ([44e912f](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/44e912f1b73646603ef9a19911d0b652d60111b3))
+
 ## [0.7.0](https://github.com/effectivelywild/ansible-collection-technitium-dns/compare/v0.6.0...v0.7.0) (2025-10-05)
 
 
