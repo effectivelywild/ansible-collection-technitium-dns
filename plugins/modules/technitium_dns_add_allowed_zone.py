@@ -119,14 +119,14 @@ class AddAllowedZoneModule(TechnitiumModule):
         domain = self.params['domain']
 
         # Check if the domain already exists in allowed zones
-        domain_exists = self.check_allowed_blocked_zone_exists(domain, zone_type='allowed')
+        domain_exists, list_response = self.check_allowed_blocked_zone_exists(domain, zone_type='allowed')
 
         # If domain already exists, return unchanged
         if domain_exists:
             self.exit_json(
                 changed=False,
                 msg=f"Domain '{domain}' already exists in allowed zones.",
-                api_response={'status': 'ok'}
+                api_response=list_response
             )
 
         # Handle check mode
@@ -134,7 +134,7 @@ class AddAllowedZoneModule(TechnitiumModule):
             self.exit_json(
                 changed=True,
                 msg=f"Domain '{domain}' would be added to allowed zones (check mode).",
-                api_response={'status': 'ok', 'check_mode': True}
+                api_response={'status': 'ok', 'response': {}}
             )
 
         # Add the domain to allowed zones via the Technitium API

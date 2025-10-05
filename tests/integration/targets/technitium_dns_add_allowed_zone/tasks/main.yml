@@ -146,7 +146,60 @@
       - invalid_token_result.failed
     fail_msg: "Invalid token should cause failure"
 
-# Phase 10: Cleanup
+# Phase 10: Test with empty domain string
+- name: "Test add with empty domain string"
+  technitium_dns_add_allowed_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: ""
+  register: empty_domain_result
+  ignore_errors: true
+
+- name: "Assert empty domain is handled gracefully"
+  assert:
+    that:
+      - empty_domain_result.failed or (not empty_domain_result.changed)
+    fail_msg: "Empty domain should either fail or return unchanged"
+
+# Phase 11: Test with invalid domain format (double dots)
+- name: "Test add with invalid domain format (double dots)"
+  technitium_dns_add_allowed_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "google..ca"
+  register: invalid_format_result
+  ignore_errors: true
+
+- name: "Assert invalid domain format fails"
+  assert:
+    that:
+      - invalid_format_result.failed
+      - "'Invalid domain name' in invalid_format_result.msg or 'label length' in invalid_format_result.msg"
+    fail_msg: "Invalid domain format should be rejected by API"
+
+# Phase 12: Test with invalid characters in domain
+- name: "Test add with invalid characters in domain"
+  technitium_dns_add_allowed_zone:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    domain: "goog$le.ca"
+  register: invalid_char_result
+  ignore_errors: true
+
+- name: "Assert invalid characters are rejected"
+  assert:
+    that:
+      - invalid_char_result.failed
+      - "'Invalid domain name' in invalid_char_result.msg or 'invalid character' in invalid_char_result.msg"
+    fail_msg: "Invalid characters in domain should be rejected by API"
+
+# Phase 13: Cleanup
 - name: "Flush allowed zones"
   technitium_dns_flush_allowed_zone:
     api_url: "{{ technitium_api_url_2 }}"

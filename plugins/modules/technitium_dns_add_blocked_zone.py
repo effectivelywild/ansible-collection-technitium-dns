@@ -119,14 +119,14 @@ class AddBlockedZoneModule(TechnitiumModule):
         domain = self.params['domain']
 
         # Check if the domain already exists in blocked zones
-        domain_exists = self.check_allowed_blocked_zone_exists(domain, zone_type='blocked')
+        domain_exists, list_response = self.check_allowed_blocked_zone_exists(domain, zone_type='blocked')
 
         # If domain already exists, return unchanged
         if domain_exists:
             self.exit_json(
                 changed=False,
                 msg=f"Domain '{domain}' already exists in blocked zones.",
-                api_response={'status': 'ok'}
+                api_response=list_response
             )
 
         # Handle check mode
@@ -134,7 +134,7 @@ class AddBlockedZoneModule(TechnitiumModule):
             self.exit_json(
                 changed=True,
                 msg=f"Domain '{domain}' would be added to blocked zones (check mode).",
-                api_response={'status': 'ok', 'check_mode': True}
+                api_response={'status': 'ok', 'response': {}}
             )
 
         # Add the domain to blocked zones via the Technitium API

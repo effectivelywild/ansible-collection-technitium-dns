@@ -225,7 +225,9 @@ class TechnitiumModule(AnsibleModule):
             zone_type (str): Either 'allowed' or 'blocked'
 
         Returns:
-            bool: True if domain exists in the zone, False otherwise
+            tuple: (exists: bool, api_response: dict)
+                - exists: True if domain exists in the zone, False otherwise
+                - api_response: The full API response from the list endpoint
         """
         list_params = {'domain': domain}
         list_data = self.request(f'/api/{zone_type}/list', params=list_params)
@@ -237,14 +239,14 @@ class TechnitiumModule(AnsibleModule):
 
         # Check if domain exists in zones list or records
         if domain in zones:
-            return True
+            return True, list_data
 
         # Check in records list (domain might be in records as a zone)
         for record in records:
             if record.get('name') == domain:
-                return True
+                return True, list_data
 
-        return False
+        return False, list_data
 
     def __call__(self):
         self.run()

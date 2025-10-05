@@ -119,14 +119,14 @@ class DeleteAllowedZoneModule(TechnitiumModule):
         domain = self.params['domain']
 
         # Check if the domain exists in allowed zones
-        domain_exists = self.check_allowed_blocked_zone_exists(domain, zone_type='allowed')
+        domain_exists, list_response = self.check_allowed_blocked_zone_exists(domain, zone_type='allowed')
 
         # If domain doesn't exist, return unchanged (idempotent delete)
         if not domain_exists:
             self.exit_json(
                 changed=False,
                 msg=f"Domain '{domain}' does not exist in allowed zones.",
-                api_response={'status': 'ok'}
+                api_response=list_response
             )
 
         # Handle check mode
@@ -134,7 +134,7 @@ class DeleteAllowedZoneModule(TechnitiumModule):
             self.exit_json(
                 changed=True,
                 msg=f"Domain '{domain}' would be deleted from allowed zones (check mode).",
-                api_response={'status': 'ok', 'check_mode': True}
+                api_response={'status': 'ok', 'response': {}}
             )
 
         # Delete the domain from allowed zones via the Technitium API

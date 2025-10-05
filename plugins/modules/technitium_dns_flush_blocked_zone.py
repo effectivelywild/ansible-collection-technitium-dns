@@ -52,19 +52,6 @@ EXAMPLES = r'''
   technitium_dns_flush_blocked_zone:
     api_url: "http://localhost"
     api_token: "myapitoken"
-
-- name: Flush blocked zones with confirmation
-  block:
-    - name: Confirm flush operation
-      pause:
-        prompt: "Are you sure you want to flush all blocked zones? (yes/no)"
-      register: confirm
-
-    - name: Flush if confirmed
-      technitium_dns_flush_blocked_zone:
-        api_url: "http://localhost"
-        api_token: "myapitoken"
-      when: confirm.user_input | bool
 '''
 
 RETURN = r'''
@@ -117,7 +104,7 @@ class FlushBlockedZoneModule(TechnitiumModule):
             self.exit_json(
                 changed=True,
                 msg="All blocked zones would be flushed (check mode).",
-                api_response={'status': 'ok', 'check_mode': True}
+                api_response={'status': 'ok', 'response': {}}
             )
 
         # Flush all blocked zones via the Technitium API
