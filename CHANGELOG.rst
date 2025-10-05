@@ -4,6 +4,19 @@ effectivelywild.technitium\_dns Release Notes
 
 .. contents:: Topics
 
+v0.8.0
+======
+
+New Modules
+-----------
+
+- effectivelywild.technitium_dns.technitium_dns_delete_all_stats - Delete all statistics from Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_delete_cache - Delete a cached DNS zone from Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_flush_cache - Flush the entire DNS cache from Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_get_stats - Get DNS statistics from server dashboard.
+- effectivelywild.technitium_dns.technitium_dns_get_top_stats - Get top statistics for a specific type.
+- effectivelywild.technitium_dns.technitium_dns_list_cache - List cached DNS zones and records from Technitium DNS server.
+
 v0.7.0
 ======
 
