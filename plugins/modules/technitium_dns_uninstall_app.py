@@ -7,7 +7,7 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_uninstall_app
-short_description: Uninstall an app from Technitium DNS server
+short_description: Uninstall an app
 version_added: "0.9.0"
 description:
     - Uninstall an app from the DNS server.
@@ -58,16 +58,6 @@ EXAMPLES = r'''
     api_token: "myapitoken"
     name: "Wild IP"
   register: result
-
-- name: Uninstall multiple apps
-  technitium_dns_uninstall_app:
-    api_url: "http://localhost"
-    api_token: "myapitoken"
-    name: "{{ item }}"
-  loop:
-    - "Geo Continent"
-    - "Geo Country"
-    - "Wild IP"
 '''
 
 RETURN = r'''

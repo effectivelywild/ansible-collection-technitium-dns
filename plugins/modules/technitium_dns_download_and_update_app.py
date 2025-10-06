@@ -86,14 +86,14 @@ EXAMPLES = r'''
       technitium_dns_list_store_apps:
         api_url: "http://localhost"
         api_token: "myapitoken"
-      register: store_apps
+      register: store_apps_list
 
     - name: Update Query Logs app to latest version
       technitium_dns_download_and_update_app:
         api_url: "http://localhost"
         api_token: "myapitoken"
         name: "Query Logs (Sqlite)"
-        url: "{{ (store_apps.apps | selectattr('name', 'equalto', 'Query Logs (Sqlite)') | first).url }}"
+        url: "{{ (store_apps_list.store_apps | selectattr('name', 'equalto', 'Query Logs (Sqlite)') | first).url }}"
 '''
 
 RETURN = r'''

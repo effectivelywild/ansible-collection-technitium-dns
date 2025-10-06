@@ -1,40 +1,49 @@
 ---
 # Integration test suite for technitium_dns_get_app_config
 # This test validates getting app configuration by:
-# 1. Installing a test app
+# 1. Installing Query Logs (Sqlite) app which supports configuration
 # 2. Getting the app's configuration
-# 3. Verifying the response structure
-# 4. Testing error cases
-# 5. Cleaning up
+# 3. Verifying the response structure and expected config fields
+# 4. Testing idempotency
+# 5. Testing error cases
+# 6. Cleaning up
 
 # Phase 1: Setup - Load configuration
 - name: "Load test configuration"
   include_vars: ../../integration_config.yml
 
-# Phase 2: Ensure test app is installed
-- name: "Download and install What Is My Dns app"
+# Phase 2: Ensure Query Logs app is installed
+- name: "List store apps to get Query Logs URL"
+  technitium_dns_list_store_apps:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: store_apps_list
+
+- name: "Download and install Query Logs (Sqlite) app"
   technitium_dns_download_and_install_app:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
-    name: "What Is My Dns"
-    url: "https://download.technitium.com/dns/apps/WhatIsMyDnsApp.zip"
+    name: "Query Logs (Sqlite)"
+    url: "{{ (store_apps_list.store_apps | selectattr('name', 'equalto', 'Query Logs (Sqlite)') | first).url }}"
   register: install_result
-  ignore_errors: true
+  when: store_apps_list.store_apps | selectattr('name', 'equalto', 'Query Logs (Sqlite)') | list | length > 0
 
 - name: "Pause after install"
   pause:
-    seconds: 2
+    seconds: 3
 
 # Phase 3: Get app configuration
-- name: "Get What Is My Dns app configuration"
+- name: "Get Query Logs (Sqlite) app configuration"
   technitium_dns_get_app_config:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
-    name: "What Is My Dns"
+    name: "Query Logs (Sqlite)"
   register: get_config_result
 
 - name: "Debug get config result"
@@ -48,16 +57,40 @@
       - not get_config_result.failed
       - not get_config_result.changed
       - get_config_result.config is defined
+      - get_config_result.config | length > 0
     fail_msg: "Get config should have succeeded"
 
-# Phase 4: Test idempotency - getting config again
+# Phase 4: Parse and verify config structure
+- name: "Parse config JSON"
+  set_fact:
+    parsed_config: "{{ get_config_result.config | from_json }}"
+
+- name: "Debug parsed config"
+  debug:
+    var: parsed_config
+  when: debug | default(false)
+
+- name: "Assert config contains expected Query Logs fields"
+  assert:
+    that:
+      - parsed_config.enableLogging is defined
+      - parsed_config.maxQueueSize is defined
+      - parsed_config.maxLogDays is defined
+      - parsed_config.maxLogRecords is defined
+      - parsed_config.enableVacuum is defined
+      - parsed_config.useInMemoryDb is defined
+      - parsed_config.sqliteDbPath is defined
+      - parsed_config.connectionString is defined
+    fail_msg: "Config should contain expected Query Logs configuration fields"
+
+# Phase 5: Test idempotency - getting config again
 - name: "Get app configuration again"
   technitium_dns_get_app_config:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
-    name: "What Is My Dns"
+    name: "Query Logs (Sqlite)"
   register: get_config_again
 
 - name: "Assert results are consistent"
@@ -68,14 +101,14 @@
       - get_config_again.config == get_config_result.config
     fail_msg: "Get config should return consistent results"
 
-# Phase 5: Test failure cases
+# Phase 6: Test failure cases
 - name: "Test get config with invalid token"
   technitium_dns_get_app_config:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "invalid_token_12345"
     api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
-    name: "What Is My Dns"
+    name: "Query Logs (Sqlite)"
   register: invalid_token_result
   ignore_errors: true
 
@@ -101,13 +134,13 @@
       - nonexistent_app_result.failed
     fail_msg: "Non-existent app should cause failure"
 
-# Phase 6: Cleanup - Uninstall the test app
-- name: "Uninstall What Is My Dns app"
+# Phase 7: Cleanup - Uninstall the test app
+- name: "Uninstall Query Logs (Sqlite) app"
   technitium_dns_uninstall_app:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
-    name: "What Is My Dns"
+    name: "Query Logs (Sqlite)"
   register: cleanup_result
   ignore_errors: true
