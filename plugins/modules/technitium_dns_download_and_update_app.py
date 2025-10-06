@@ -11,6 +11,8 @@ short_description: Download and update an existing app on Technitium DNS server
 version_added: "0.9.0"
 description:
     - Download an app zip file from a given URL and update an existing app on the DNS server.
+    - This also supports "downgrading" to an earlier version by specifying an older version URL,
+      however this is not idempotent.
     - The URL must start with C(https://).
 author:
     - Frank Muise (@effectivelywild)
@@ -77,6 +79,21 @@ EXAMPLES = r'''
     api_token: "myapitoken"
     name: "Geo Continent"
     url: "https://download.technitium.com/dns/apps/GeoContinentApp.zip"
+
+- name: Get latest version URL from store and update app
+  block:
+    - name: List available apps from DNS App Store
+      technitium_dns_list_store_apps:
+        api_url: "http://localhost"
+        api_token: "myapitoken"
+      register: store_apps
+
+    - name: Update Query Logs app to latest version
+      technitium_dns_download_and_update_app:
+        api_url: "http://localhost"
+        api_token: "myapitoken"
+        name: "Query Logs (Sqlite)"
+        url: "{{ (store_apps.apps | selectattr('name', 'equalto', 'Query Logs (Sqlite)') | first).url }}"
 '''
 
 RETURN = r'''
@@ -181,6 +198,20 @@ class DownloadAndUpdateAppModule(TechnitiumModule):
 
         if not app_exists:
             self.fail_json(msg=f"App '{name}' is not installed. Use download_and_install_app module to install it first.")
+
+        # Check if update is needed based on updateAvailable flag and URL comparison
+        # The updateUrl field shows the latest available version, not the currently installed version
+        update_available = existing_app.get('updateAvailable', False)
+        existing_update_url = existing_app.get('updateUrl', '')
+
+        # If no update is available and user is trying to update to the "latest" version (updateUrl),
+        # then the app is already up-to-date
+        if not update_available and existing_update_url == url:
+            self.exit_json(
+                changed=False,
+                updated_app=existing_app,
+                msg=f"App '{name}' is already at the latest version (version {existing_app.get('version', 'unknown')})"
+            )
 
         # Download and update the app
         params = {
