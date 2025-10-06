@@ -75,28 +75,28 @@ releases:
     release_date: '2025-09-18'
   0.4.0:
     modules:
-    - description: Create a group in Technitium DNS server.
+    - description: Create a group.
       name: technitium_dns_create_group
       namespace: ''
     - description: Create a user account in Technitium DNS server.
       name: technitium_dns_create_user
       namespace: ''
-    - description: Delete a group from Technitium DNS server.
+    - description: Delete a group.
       name: technitium_dns_delete_group
       namespace: ''
-    - description: Delete a user account from Technitium DNS server.
+    - description: Delete a user account.
       name: technitium_dns_delete_user
       namespace: ''
-    - description: Get group details from Technitium DNS server.
+    - description: Get group details.
       name: technitium_dns_get_group_details
       namespace: ''
-    - description: Get user account profile details from Technitium DNS server.
+    - description: Get user account profile details.
       name: technitium_dns_get_user_details
       namespace: ''
-    - description: List all groups from Technitium DNS server.
+    - description: List all groups.
       name: technitium_dns_list_groups
       namespace: ''
-    - description: List all users from Technitium DNS server.
+    - description: List all users.
       name: technitium_dns_list_users
       namespace: ''
     - description: Publish all generated DNSSEC private keys in a zone.
@@ -108,90 +108,85 @@ releases:
     - description: Rollover DNSKEY for a DNSSEC-signed zone.
       name: technitium_dns_rollover_dnskey
       namespace: ''
-    - description: Set group details in Technitium DNS server.
+    - description: Set group details.
       name: technitium_dns_set_group_details
       namespace: ''
-    - description: Set user account profile details in Technitium DNS server.
+    - description: Set user account profile details.
       name: technitium_dns_set_user_details
       namespace: ''
     release_date: '2025-09-21'
   0.5.0:
     modules:
-    - description: Change password for the currently logged in user in Technitium
-        DNS server.
+    - description: Change password for the currently logged in user.
       name: technitium_dns_change_password
       namespace: ''
-    - description: Check for available updates from Technitium DNS server.
+    - description: Check for available updates.
       name: technitium_dns_check_for_update
       namespace: ''
-    - description: Create an API token for a user in Technitium DNS server.
+    - description: Create an API token for a user.
       name: technitium_dns_create_token
       namespace: ''
-    - description: Delete a user session from Technitium DNS server.
+    - description: Delete a user session.
       name: technitium_dns_delete_session
       namespace: ''
-    - description: Get permission details for a specific section from Technitium DNS
-        server.
+    - description: Get permission details for a specific section.
       name: technitium_dns_get_permission_details
       namespace: ''
-    - description: List all permissions from Technitium DNS server.
+    - description: List all permissions.
       name: technitium_dns_list_permissions
       namespace: ''
-    - description: List active user sessions from Technitium DNS server.
+    - description: List active user sessions.
       name: technitium_dns_list_sessions
       namespace: ''
-    - description: Set permission details for a specific section in Technitium DNS
-        server.
+    - description: Set permission details for a specific section.
       name: technitium_dns_set_permission_details
       namespace: ''
     release_date: '2025-09-30'
   0.6.0:
     modules:
-    - description: Add a reserved DHCP lease to a scope in Technitium DNS server.
+    - description: Add a reserved DHCP lease.
       name: technitium_dns_add_reserved_lease
       namespace: ''
-    - description: Convert a reserved DHCP lease to a dynamic lease in Technitium
-        DNS server.
+    - description: Convert a reserved DHCP lease to a dynamic lease.
       name: technitium_dns_convert_to_dynamic_lease
       namespace: ''
-    - description: Convert a dynamic DHCP lease to a reserved lease in Technitium
-        DNS server.
+    - description: Convert a dynamic DHCP lease to a reserved lease.
       name: technitium_dns_convert_to_reserved_lease
       namespace: ''
-    - description: Delete a DHCP scope from Technitium DNS server.
+    - description: Delete a DHCP scope.
       name: technitium_dns_delete_dhcp_scope
       namespace: ''
-    - description: Disable a DHCP scope in Technitium DNS server.
+    - description: Disable a DHCP scope.
       name: technitium_dns_disable_dhcp_scope
       namespace: ''
-    - description: Enable a DHCP scope in Technitium DNS server.
+    - description: Enable a DHCP scope.
       name: technitium_dns_enable_dhcp_scope
       namespace: ''
-    - description: Get DHCP scope details from Technitium DNS server.
+    - description: Get DHCP scope details.
       name: technitium_dns_get_dhcp_scope
       namespace: ''
-    - description: List all DHCP leases from Technitium DNS server.
+    - description: List all DHCP leases.
       name: technitium_dns_list_dhcp_leases
       namespace: ''
     - description: List all DHCP scopes from Technitium DNS server.
       name: technitium_dns_list_dhcp_scopes
       namespace: ''
-    - description: Remove a DHCP lease from Technitium DNS server.
+    - description: Remove a DHCP lease.
       name: technitium_dns_remove_dhcp_lease
       namespace: ''
-    - description: Remove a reserved DHCP lease from a scope in Technitium DNS server.
+    - description: Remove a reserved DHCP lease from a scope.
       name: technitium_dns_remove_reserved_lease
       namespace: ''
-    - description: Set DHCP scope configuration in Technitium DNS server.
+    - description: Set DHCP scope configuration.
       name: technitium_dns_set_dhcp_scope
       namespace: ''
     release_date: '2025-10-03'
   0.7.0:
     modules:
-    - description: Add a domain to the allowed zones in Technitium DNS server.
+    - description: Add a domain to the allowed zones.
       name: technitium_dns_add_allowed_zone
       namespace: ''
-    - description: Add a domain to the blocked zones in Technitium DNS server.
+    - description: Add a domain to the blocked zones.
       name: technitium_dns_add_blocked_zone
       namespace: ''
     - description: Delete a domain from the allowed zones in Technitium DNS server.
@@ -203,13 +198,13 @@ releases:
     - description: Flush all allowed zones in Technitium DNS server.
       name: technitium_dns_flush_allowed_zone
       namespace: ''
-    - description: Flush all blocked zones in Technitium DNS server.
+    - description: Flush all blocked zones.
       name: technitium_dns_flush_blocked_zone
       namespace: ''
-    - description: List allowed zones from Technitium DNS server.
+    - description: List allowed zones.
       name: technitium_dns_list_allowed_zones
       namespace: ''
-    - description: List blocked zones from Technitium DNS server.
+    - description: List blocked zones.
       name: technitium_dns_list_blocked_zones
       namespace: ''
     release_date: '2025-10-05'
@@ -218,10 +213,10 @@ releases:
     - description: Delete all statistics from Technitium DNS server.
       name: technitium_dns_delete_all_stats
       namespace: ''
-    - description: Delete a cached DNS zone from Technitium DNS server.
+    - description: Delete a cached DNS.
       name: technitium_dns_delete_cache
       namespace: ''
-    - description: Flush the entire DNS cache from Technitium DNS server.
+    - description: Flush the entire DNS cache.
       name: technitium_dns_flush_cache
       namespace: ''
     - description: Get DNS statistics from server dashboard.
@@ -230,7 +225,7 @@ releases:
     - description: Get top statistics for a specific type.
       name: technitium_dns_get_top_stats
       namespace: ''
-    - description: List cached DNS zones and records from Technitium DNS server.
+    - description: List cached DNS zones and records.
       name: technitium_dns_list_cache
       namespace: ''
     release_date: '2025-10-05'
@@ -266,4 +261,6 @@ releases:
     - description: Uninstall an app.
       name: technitium_dns_uninstall_app
       namespace: ''
+    release_date: '2025-10-06'
+  0.9.1:
     release_date: '2025-10-06'
