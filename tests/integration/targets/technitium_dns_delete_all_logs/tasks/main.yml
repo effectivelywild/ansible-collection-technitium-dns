@@ -1,37 +1,64 @@
 ---
 # Integration test suite for technitium_dns_delete_all_logs
 # This test validates deleting all log files by:
-# 1. Getting initial log file size
-# 2. Deleting all logs
-# 3. Generating new activity to create logs
-# 4. Verifying new logs are smaller than initial size (old logs were deleted)
-# 5. Testing idempotency
-# 6. Testing error cases
+# 1. Delete all log files to start fresh
+# 2. Generate API calls to create logs
+# 3. Get all log files and store the first one's size for comparison
+# 4. Delete all log files
+# 5. Get all log files again and compare sizes
+# 6. Assert that the first log file size is greater than the new log file size
 
 # Phase 1: Setup - Load configuration
 - name: "Load test configuration"
   include_vars: ../../integration_config.yml
 
-# Phase 2: Get initial log file size before deletion
-- name: "List log files to get initial size"
+# Phase 2: Delete all log files to start fresh
+- name: "Delete all log files to start fresh"
+  technitium_dns_delete_all_logs:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: initial_delete_result
+
+- name: "Pause after initial deletion"
+  pause:
+    seconds: 5
+
+# Phase 3: Generate API calls to create logs
+- name: "Perform API calls to generate base log activity"
+  technitium_dns_check_for_update:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  ignore_errors: true
+  loop: "{{ range(1, 10) | list }}"
+
+- name: "Pause to ensure logs are written"
+  pause:
+    seconds: 5
+
+# Phase 4: Get all log files and store the first one's size
+- name: "List all log files before deletion"
   technitium_dns_list_logs:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
-  register: initial_logs_list
+  register: logs_before_delete
 
-- name: "Store initial log file size (if logs exist)"
-  set_fact:
-    initial_log_size: "{{ initial_logs_list.log_files[0].size if initial_logs_list.log_files | length > 0 else '0 B' }}"
-    initial_log_count: "{{ initial_logs_list.log_files | length }}"
-
-- name: "Debug initial log state"
+- name: "Debug logs before deletion"
   debug:
-    msg: "Initial log count: {{ initial_log_count }}, first log size: {{ initial_log_size }}"
+    var: logs_before_delete
   when: debug | default(false)
 
-# Phase 3: Delete all log files
+- name: "Store first log file size for comparison"
+  set_fact:
+    first_log_size: "{{ logs_before_delete.log_files[0].size }}"
+  when: logs_before_delete.log_files | length > 0
+
+# Phase 5: Delete all log files
 - name: "Delete all log files"
   technitium_dns_delete_all_logs:
     api_url: "{{ technitium_api_url_2 }}"
@@ -39,11 +66,14 @@
     api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
   register: delete_all_logs_result
+  when: logs_before_delete.log_files | length > 0
 
 - name: "Debug delete all logs result"
   debug:
     var: delete_all_logs_result
-  when: debug | default(false)
+  when:
+    - debug | default(false)
+    - logs_before_delete.log_files | length > 0
 
 - name: "Assert delete all logs succeeded"
   assert:
@@ -53,50 +83,70 @@
       - delete_all_logs_result.msg is defined
       - "'deleted' in (delete_all_logs_result.msg | lower) or 'success' in (delete_all_logs_result.msg | lower)"
     fail_msg: "Delete all logs should have succeeded"
+  when: logs_before_delete.log_files | length > 0
 
-- name: "Pause after deletion to ensure deletion completes"
+- name: "Pause after deletion to ensure it completes"
   pause:
-    seconds: 5
+    seconds: 3
 
-# Phase 4: Generate new activity to create new logs
-- name: "Perform DNS queries to generate new logs"
-  command: docker exec technitium02{{ container_suffix }} dig @localhost test{{ item }}.example.com +short
-  delegate_to: localhost
-  register: query_result
-  ignore_errors: true
-  loop: "{{ range(1, 4) | list }}"
-
-- name: "Pause to ensure new logs are written"
-  pause:
-    seconds: 5
-
-# Phase 5: Verify logs were reset (new logs should be smaller than initial)
-- name: "List log files after deletion and new activity"
+# Phase 6: Get all log files again (Technitium will recreate today's log)
+- name: "List log files after deletion"
   technitium_dns_list_logs:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
-  register: list_logs_after_delete
+  register: logs_after_delete
+  when: logs_before_delete.log_files | length > 0
 
 - name: "Debug logs after deletion"
   debug:
-    var: list_logs_after_delete
-  when: debug | default(false)
+    var: logs_after_delete
+  when:
+    - debug | default(false)
+    - logs_before_delete.log_files | length > 0
 
-- name: "Store new log file size (if logs exist)"
+- name: "Store new log file size"
   set_fact:
-    new_log_size: "{{ list_logs_after_delete.log_files[0].size if list_logs_after_delete.log_files | length > 0 else '0 B' }}"
+    new_log_size: "{{ logs_after_delete.log_files[0].size if logs_after_delete.log_files | length > 0 else '0 B' }}"
+  when: logs_before_delete.log_files | length > 0
 
-- name: "Assert logs were deleted and recreated (size must be different)"
+# Phase 7: Assert that the log files were deleted and recreated
+# After deletion, new log should be much smaller (nearly empty) compared to the original
+# We convert size strings to bytes for proper numeric comparison
+- name: "Convert first log size to bytes"
+  set_fact:
+    first_log_bytes: >-
+      {{
+        (first_log_size.split()[0] | float * 1024 * 1024 * 1024) | int if 'GB' in first_log_size
+        else (first_log_size.split()[0] | float * 1024 * 1024) | int if 'MB' in first_log_size
+        else (first_log_size.split()[0] | float * 1024) | int if 'KB' in first_log_size
+        else first_log_size.split()[0] | int
+      }}
+
+- name: "Convert new log size to bytes"
+  set_fact:
+    new_log_bytes: >-
+      {{
+        (new_log_size.split()[0] | float * 1024 * 1024 * 1024) | int if 'GB' in new_log_size
+        else (new_log_size.split()[0] | float * 1024 * 1024) | int if 'MB' in new_log_size
+        else (new_log_size.split()[0] | float * 1024) | int if 'KB' in new_log_size
+        else new_log_size.split()[0] | int
+      }}
+
+- name: "Debug log_bytes"
+  debug:
+    msg: "First log bytes: {{ first_log_bytes }}, New log bytes: {{ new_log_bytes }}"
+  when: debug | default(false) 
+
+- name: "Assert log files were deleted and recreated (new log is smaller)"
   assert:
     that:
-      - initial_log_count | int > 0
-      - new_log_size != initial_log_size
-    fail_msg: "Log size must change after delete all - original: {{ initial_log_size }}, after deletion: {{ new_log_size }}"
-  when: initial_log_count | int > 0
+      - first_log_bytes | int > new_log_bytes | int
+    fail_msg: "New log should be smaller after deletion - original: {{ first_log_size }} ({{ first_log_bytes }} bytes), after deletion: {{ new_log_size }} ({{ new_log_bytes }} bytes)"
+  when: logs_before_delete.log_files | length > 0
 
-# Phase 6: Test idempotency - deleting again should succeed
+# Phase 8: Test idempotency - deleting again should succeed
 - name: "Delete all log files again (idempotency check)"
   technitium_dns_delete_all_logs:
     api_url: "{{ technitium_api_url_2 }}"
@@ -112,7 +162,7 @@
       - delete_all_again_result.changed
     fail_msg: "Second delete all should have succeeded"
 
-# Phase 7: Test failure cases
+# Phase 9: Test failure cases
 - name: "Test delete all logs with invalid API token"
   technitium_dns_delete_all_logs:
     api_url: "{{ technitium_api_url_2 }}"

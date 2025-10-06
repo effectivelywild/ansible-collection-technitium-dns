@@ -111,12 +111,39 @@
     new_log_size: "{{ logs_after_delete.log_files[0].size if logs_after_delete.log_files | length > 0 else '0 B' }}"
   when: logs_before_delete.log_files | length > 0
 
-# Phase 7: Assert that the log file was deleted and recreated (size must be different)
-- name: "Assert log file was deleted and recreated (size changed)"
+# Phase 7: Assert that the log file was deleted and recreated
+# After deletion, new log should be much smaller (nearly empty) compared to the original
+# We convert size strings to bytes for proper numeric comparison
+- name: "Convert first log size to bytes"
+  set_fact:
+    first_log_bytes: >-
+      {{
+        (first_log_size.split()[0] | float * 1024 * 1024 * 1024) | int if 'GB' in first_log_size
+        else (first_log_size.split()[0] | float * 1024 * 1024) | int if 'MB' in first_log_size
+        else (first_log_size.split()[0] | float * 1024) | int if 'KB' in first_log_size
+        else first_log_size.split()[0] | int
+      }}
+
+- name: "Convert new log size to bytes"
+  set_fact:
+    new_log_bytes: >-
+      {{
+        (new_log_size.split()[0] | float * 1024 * 1024 * 1024) | int if 'GB' in new_log_size
+        else (new_log_size.split()[0] | float * 1024 * 1024) | int if 'MB' in new_log_size
+        else (new_log_size.split()[0] | float * 1024) | int if 'KB' in new_log_size
+        else new_log_size.split()[0] | int
+      }}
+
+- name: "Debug log_bytes"
+  debug:
+    msg: "First log bytes: {{ first_log_bytes }}, New log bytes: {{ new_log_bytes }}"
+  when: debug | default(false) 
+
+- name: "Assert log file was deleted and recreated (new log is smaller)"
   assert:
     that:
-      - first_log_size != new_log_size
-    fail_msg: "Log file size must change after deletion - original: {{ first_log_size }}, after deletion: {{ new_log_size }}"
+      - first_log_bytes | int > new_log_bytes | int
+    fail_msg: "New log should be smaller after deletion - original: {{ first_log_size }} ({{ first_log_bytes }} bytes), after deletion: {{ new_log_size }} ({{ new_log_bytes }} bytes)"
   when: logs_before_delete.log_files | length > 0
 
 # Phase 6: Test failure cases
