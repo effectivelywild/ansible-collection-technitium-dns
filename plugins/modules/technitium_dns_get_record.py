@@ -11,7 +11,7 @@ short_description: Get DNS record(s)
 version_added: "0.1.0"
 author: Frank Muise (@effectivelywild)
 description:
-    - Get DNS resource records from a Technitium DNS authoritative zone using its API.
+    - Get DNS resource records from an authoritative zone.
 seealso:
     - module: effectivelywild.technitium_dns.technitium_dns_add_record
       description: Used to add DNS records

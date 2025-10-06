@@ -7,20 +7,20 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_create_token
-short_description: Create an API token for a user in Technitium DNS server
+short_description: Create an API token for a user
 version_added: "0.5.0"
 description:
-    - Create a non-expiring API token for a user in Technitium DNS server using its API.
+    - Create a non-expiring API token.
     - The token allows access to API calls with the same privileges as that of the user.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_list_sessions
-    description: List active user sessions from Technitium DNS server
+    description: List active user sessions
   - module: effectivelywild.technitium_dns.technitium_dns_create_user
-    description: Create a user account in Technitium DNS server
+    description: Create a user account
   - module: effectivelywild.technitium_dns.technitium_dns_list_users
-    description: List all users from Technitium DNS server
+    description: List all users
 options:
     api_port:
         description:

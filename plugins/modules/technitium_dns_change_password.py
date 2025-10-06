@@ -7,7 +7,7 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_change_password
-short_description: Change password for the currently logged in user in Technitium DNS server
+short_description: Change password for the currently logged in user
 version_added: "0.5.0"
 description:
     - Change the password for the current logged in user account.
@@ -15,13 +15,13 @@ author:
     - Frank Muise (@effectivelywild)
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_set_user_details
-    description: Set user account details in Technitium DNS server
+    description: Set user account details
   - module: effectivelywild.technitium_dns.technitium_dns_get_user_details
-    description: Get user account details in Technitium DNS server
+    description: Get user account details
   - module: effectivelywild.technitium_dns.technitium_dns_create_user
-    description: Create a user account in Technitium DNS server
+    description: Create a user account
   - module: effectivelywild.technitium_dns.technitium_dns_list_users
-    description: List all users from Technitium DNS server
+    description: List all users
 options:
     api_port:
         description:

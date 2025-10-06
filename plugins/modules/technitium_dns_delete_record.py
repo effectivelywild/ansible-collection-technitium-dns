@@ -11,7 +11,7 @@ short_description: Delete a DNS record
 version_added: "0.1.0"
 author: Frank Muise (@effectivelywild)
 description:
-    - Delete a a DNS record to a Technitium DNS zone.
+    - Delete a a DNS record.
     - You must include the record parameters when deleting a record.
     - The module supports all DNS record types.
     - Some parameters are only valid or required for specific record types.

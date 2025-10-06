@@ -7,23 +7,23 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_set_permission_details
-short_description: Set permission details for a specific section in Technitium DNS server
+short_description: Set permission details for a specific section
 version_added: "0.5.0"
 description:
-    - Change permissions for a specific section in Technitium DNS server.
+    - Change permissions for a specific section.
     - Allows setting user permissions and group permissions with view, modify, and delete access.
     - Built-in groups (Administrators, DHCP Administrators, DNS Administrators) are automatically preserved and cannot be cleared.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_get_permission_details
-    description: Get permission details for a specific section from Technitium DNS server
+    description: Get permission details for a specific section
   - module: effectivelywild.technitium_dns.technitium_dns_list_permissions
-    description: List all permissions from Technitium DNS server
+    description: List all permissions
   - module: effectivelywild.technitium_dns.technitium_dns_list_users
-    description: List all users from Technitium DNS server
+    description: List all users
   - module: effectivelywild.technitium_dns.technitium_dns_list_groups
-    description: List all groups from Technitium DNS server
+    description: List all groups
 options:
     api_port:
         description:
@@ -159,18 +159,6 @@ EXAMPLES = r'''
     api_token: "myapitoken"
     section: "Dashboard"
     groupPermissions: []  # Built-in groups like Administrators will be preserved
-
-- name: Check what would change (check mode)
-  technitium_dns_set_permission_details:
-    api_url: "http://localhost"
-    api_token: "myapitoken"
-    section: "Dashboard"
-    userPermissions:
-      - username: "testuser"
-        canView: true
-        canModify: true
-        canDelete: true
-  check_mode: true
 '''
 
 RETURN = r'''

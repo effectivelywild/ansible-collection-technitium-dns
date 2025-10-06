@@ -7,7 +7,7 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_add_allowed_zone
-short_description: Add a domain to the allowed zones in Technitium DNS server
+short_description: Add a domain to the allowed zones
 version_added: "0.7.0"
 description:
     - Add a domain name to the allowed zones.
@@ -15,7 +15,7 @@ author:
     - Frank Muise (@effectivelywild)
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_list_allowed_zones
-    description: List allowed zones from Technitium DNS server
+    description: List allowed zones
   - module: effectivelywild.technitium_dns.technitium_dns_delete_allowed_zone
     description: Delete a domain from the allowed zones
   - module: effectivelywild.technitium_dns.technitium_dns_flush_allowed_zone

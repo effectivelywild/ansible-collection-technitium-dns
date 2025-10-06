@@ -11,7 +11,7 @@ short_description: Sign a DNS zone
 version_added: "0.1.0"
 author: Frank Muise (@effectivelywild)
 description:
-  - Signs a primary DNS zone using the Technitium DNS API.
+  - Signs a primary DNS zone.
   - Will not update DNSSEC properties once intially signed.
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_unsign_zone

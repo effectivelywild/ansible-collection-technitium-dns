@@ -7,7 +7,7 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_flush_cache
-short_description: Flush the entire DNS cache from Technitium DNS server
+short_description: Flush the entire DNS cache
 version_added: "0.8.0"
 description:
     - Clear all cached DNS records.

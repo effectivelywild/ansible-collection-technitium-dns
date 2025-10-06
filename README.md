@@ -4,46 +4,22 @@
 
 Ansible collection for Technitium DNS based on the [API](https://github.com/TechnitiumSoftware/DnsServer/blob/master/APIDOCS.md).
 
-
-We follow the [Ansible Code of Conduct](https://docs.ansible.com/ansible/devel/community/code_of_conduct.html) in all our interactions within this project.
-
-If you encounter abusive behavior, please refer to the [policy violations](https://docs.ansible.com/ansible/devel/community/code_of_conduct.html#policy-violations) section of the Code for information on how to raise a complaint.
-
-## Communication
-
-For more information about communication, refer to the [Ansible Communication guide](https://docs.ansible.com/ansible/devel/community/communication.html).
+Almost all API calls have a module matching the call name. If anything is missing please open an issue.
 
 ## Contributing to this collection
 
-The content of this collection is made by people like you, a community of individuals collaborating on making the world better through developing automation software.
+We follow the [Ansible Code of Conduct](https://docs.ansible.com/ansible/devel/community/code_of_conduct.html) in all our interactions within this project.
 
-We are actively accepting new contributors.
+If you would like to contribute feel free to open a PR with detailed note on our changes. 
 
-Any kind of contribution is very welcome.
-
-You don't know how to start? Refer to our [contribution guide](CONTRIBUTING.md)!
-
-We use the following guidelines:
-
-* [CONTRIBUTING.md](CONTRIBUTING.md)
-* [REVIEW_CHECKLIST.md](REVIEW_CHECKLIST.md)
 * [Ansible Community Guide](https://docs.ansible.com/ansible/latest/community/index.html)
 * [Ansible Development Guide](https://docs.ansible.com/ansible/devel/dev_guide/index.html)
 * [Ansible Collection Development Guide](https://docs.ansible.com/ansible/devel/dev_guide/developing_collections.html#contributing-to-collections)
 
-## Collection maintenance
-
-The current maintainers are listed in the [MAINTAINERS](MAINTAINERS) file. If you have questions or need help, feel free to mention them in the proposals.
-
-To learn how to maintain / become a maintainer of this collection, refer to the [Maintainer guidelines](MAINTAINING.md).
-
-## Governance
-
-The process of decision making in this collection is based on discussing and finding consensus among participants.
-
-Every voice is important. If you have something on your mind, create an issue or dedicated discussion and let's discuss it!
 
 ## Compatibility Matrix
+
+This collection is tested against the latest released of Technitium DNS Server.
 
 This collection is tested against the following Ansible and Python versions:
 

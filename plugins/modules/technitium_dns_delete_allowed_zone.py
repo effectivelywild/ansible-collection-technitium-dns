@@ -15,7 +15,7 @@ author:
     - Frank Muise (@effectivelywild)
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_list_allowed_zones
-    description: List allowed zones from Technitium DNS server
+    description: List allowed zones
   - module: effectivelywild.technitium_dns.technitium_dns_add_allowed_zone
     description: Add a domain to the allowed zones
   - module: effectivelywild.technitium_dns.technitium_dns_flush_allowed_zone

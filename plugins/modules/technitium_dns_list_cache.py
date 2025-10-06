@@ -7,7 +7,7 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_list_cache
-short_description: List cached DNS zones and records from Technitium DNS server
+short_description: List cached DNS zones and records
 version_added: "0.8.0"
 description:
     - Retrieve cached DNS zones and records from server cache.

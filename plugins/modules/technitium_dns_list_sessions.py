@@ -7,19 +7,19 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_list_sessions
-short_description: List active user sessions from Technitium DNS server
+short_description: List active user sessions
 version_added: "0.5.0"
 description:
-    - Retrieve a list of all active user sessions from a Technitium DNS server.
+    - Retrieve a list of all active user sessions.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_delete_session
-    description: Delete active user sessions from Technitium DNS server
+    description: Delete active user sessions
   - module: effectivelywild.technitium_dns.technitium_dns_create_token
-    description: Create an API token for a user in Technitium DNS server
+    description: Create an API token for a user
   - module: effectivelywild.technitium_dns.technitium_dns_list_users
-    description: List all users from Technitium DNS server
+    description: List all users
 options:
     api_port:
         description:

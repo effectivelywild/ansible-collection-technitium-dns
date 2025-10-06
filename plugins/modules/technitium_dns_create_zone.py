@@ -11,7 +11,7 @@ short_description: Create a DNS zone
 version_added: "0.1.0"
 author: Frank Muise (@effectivelywild)
 description:
-    - Create a DNS zone in Technitium DNS server using its API.
+    - Create a DNS zone.
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_delete_zone
     description: Deletes DNS Zones

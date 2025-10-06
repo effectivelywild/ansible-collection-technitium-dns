@@ -7,22 +7,22 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_set_group_details
-short_description: Set group details in Technitium DNS server
+short_description: Set group details
 version_added: "0.4.0"
 description:
-    - Change group details in Technitium DNS server.
+    - Change group details.
     - Allows modifying description, renaming groups, and setting group members.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_create_group
-    description: Create a group in Technitium DNS server
+    description: Create a group
   - module: effectivelywild.technitium_dns.technitium_dns_delete_group
-    description: Delete a group from Technitium DNS server
+    description: Delete a group
   - module: effectivelywild.technitium_dns.technitium_dns_get_group_details
-    description: Get group details from Technitium DNS server
+    description: Get group details
   - module: effectivelywild.technitium_dns.technitium_dns_list_groups
-    description: List all groups from Technitium DNS server
+    description: List all groups
 options:
     api_port:
         description:
@@ -101,14 +101,6 @@ EXAMPLES = r'''
     description: "New description"
     members:
       - "admin"
-
-- name: Check what would change (check mode)
-  technitium_dns_set_group_details:
-    api_url: "http://localhost"
-    api_token: "myapitoken"
-    group: "testgroup"
-    description: "New description"
-  check_mode: true
 '''
 
 RETURN = r'''

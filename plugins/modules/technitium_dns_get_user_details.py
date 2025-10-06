@@ -7,23 +7,23 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_get_user_details
-short_description: Get user account profile details from Technitium DNS server
+short_description: Get user account profile details
 version_added: "0.4.0"
 description:
-    - Retrieve detailed information about a user account from Technitium DNS server.
+    - Retrieve detailed information about a user account.
     - Returns user profile, session information, and group memberships.
     - Groups information is always included in the response.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_create_user
-    description: Create a user account in Technitium DNS server
+    description: Create a user account
   - module: effectivelywild.technitium_dns.technitium_dns_delete_user
-    description: Delete a user from Technitium DNS server
+    description: Delete a user
   - module: effectivelywild.technitium_dns.technitium_dns_list_users
-    description: List all users from Technitium DNS server
+    description: List all users
   - module: effectivelywild.technitium_dns.technitium_dns_set_user_details
-    description: Set user account details on Technitium DNS server
+    description: Set user account details
 options:
     api_port:
         description:

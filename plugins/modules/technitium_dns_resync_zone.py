@@ -11,7 +11,7 @@ short_description: Resync a Secondary or Stub zone
 version_added: "0.4.0"
 author: Frank Muise (@effectivelywild)
 description:
-  - Allows resyncing a Secondary or Stub zone using the Technitium DNS API.
+  - Allows resyncing a Secondary or Stub zone.
   - This process will re-fetch all the records from the primary name server for the zone.
   - The zone will attempt to resync even if currently expired or has sync failures, as these may be resolved by the resync operation.
 seealso:
@@ -66,13 +66,6 @@ EXAMPLES = r'''
     api_port: 5381
     api_token: "{{ technitium_api_token }}"
     zone: "stub.example.com"
-
-- name: Check what would happen during resync (check mode)
-  technitium_dns_resync_zone:
-    api_url: "http://localhost:5380"
-    api_token: "{{ technitium_api_token }}"
-    zone: "secondary.example.com"
-  check_mode: true
 '''
 
 RETURN = r'''

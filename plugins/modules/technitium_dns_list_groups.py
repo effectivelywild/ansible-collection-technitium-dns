@@ -7,21 +7,21 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_list_groups
-short_description: List all groups from Technitium DNS server
+short_description: List all groups
 version_added: "0.4.0"
 description:
-    - Retrieve a list of all groups from a Technitium DNS server.
+    - Retrieve a list of all groups.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_create_group
-    description: Create a group in Technitium DNS server
+    description: Create a group
   - module: effectivelywild.technitium_dns.technitium_dns_delete_group
-    description: Delete a group from Technitium DNS server
+    description: Delete a group
   - module: effectivelywild.technitium_dns.technitium_dns_get_group_details
-    description: Get group details from Technitium DNS server
+    description: Get group details
   - module: effectivelywild.technitium_dns.technitium_dns_set_group_details
-    description: Set group details in Technitium DNS server
+    description: Set group details
 options:
     api_port:
         description:

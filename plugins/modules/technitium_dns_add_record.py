@@ -11,7 +11,7 @@ short_description: Add a DNS record
 version_added: "0.1.0"
 author: Frank Muise (@effectivelywild)
 description:
-    - Add a DNS record to a Technitium DNS zone.
+    - Add a DNS record.
     - The module supports all DNS record types.
     - Some parameters are only valid or required for specific record types.
     - For example, C(ipAddress) is required for A and AAAA records, while C(cname) is required for CNAME records.
