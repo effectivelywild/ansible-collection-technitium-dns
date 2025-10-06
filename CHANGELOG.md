@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/effectivelywild/ansible-collection-technitium-dns/compare/v0.9.0...v0.9.1) (2025-10-06)
+
+
+### Documentation
+
+* documentation updates ([#37](https://github.com/effectivelywild/ansible-collection-technitium-dns/issues/37)) ([51b10fd](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/51b10fd02c55e4fab8be6c82ccece7d904e94d6a))
+
 ## [0.9.0](https://github.com/effectivelywild/ansible-collection-technitium-dns/compare/v0.8.0...v0.9.0) (2025-10-06)
 
 
