@@ -22,7 +22,7 @@ seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_convert_to_reserved_lease
     description: Convert a dynamic DHCP lease to a reserved lease
   - module: effectivelywild.technitium_dns.technitium_dns_convert_to_dynamic_lease
-    description: Convert a reserved DHCP lease to a dynamic lease 
+    description: Convert a reserved DHCP lease to a dynamic lease
   - module: effectivelywild.technitium_dns.technitium_dns_remove_dhcp_lease
     description: Remove a DHCP lease
 options:
