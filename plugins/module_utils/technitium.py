@@ -266,5 +266,23 @@ class TechnitiumModule(AnsibleModule):
         existing_log = next((log for log in log_files if log.get('fileName') == log_name), None)
         return existing_log is not None, existing_log
 
+    def check_app_exists(self, app_name):
+        """Check if an app is installed and return app data if found
+
+        Args:
+            app_name (str): Name of the app (e.g., "Query Logs (Sqlite)")
+
+        Returns:
+            tuple: (exists: bool, app_data: dict or None)
+                - exists: True if app is installed, False otherwise
+                - app_data: dict containing app details if found, None otherwise
+        """
+        list_data = self.request('/api/apps/list')
+        self.validate_api_response(list_data)
+
+        apps = list_data.get('response', {}).get('apps', [])
+        existing_app = next((app for app in apps if app.get('name') == app_name), None)
+        return existing_app is not None, existing_app
+
     def __call__(self):
         self.run()

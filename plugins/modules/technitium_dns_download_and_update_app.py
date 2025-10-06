@@ -176,6 +176,12 @@ class DownloadAndUpdateAppModule(TechnitiumModule):
         if not url.startswith('https://'):
             self.fail_json(msg="URL must start with 'https://'")
 
+        # Check if app exists first (can't update non-existent app)
+        app_exists, existing_app = self.check_app_exists(name)
+
+        if not app_exists:
+            self.fail_json(msg=f"App '{name}' is not installed. Use download_and_install_app module to install it first.")
+
         # Download and update the app
         params = {
             'name': name,

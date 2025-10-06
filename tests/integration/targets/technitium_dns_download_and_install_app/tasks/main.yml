@@ -64,7 +64,33 @@
       - install_result.installed_app.name is defined
       - install_result.installed_app.version is defined
       - install_result.msg is defined
+      - "'installed successfully' in (install_result.msg | lower)"
     fail_msg: "App installation should have succeeded"
+
+# Phase 4b: Test idempotency - installing again should return changed=False
+- name: "Install What Is My Dns app again (idempotency test)"
+  technitium_dns_download_and_install_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+    url: "https://download.technitium.com/dns/apps/WhatIsMyDnsApp.zip"
+  register: install_again_result
+
+- name: "Debug install again result"
+  debug:
+    var: install_again_result
+  when: debug | default(false)
+
+- name: "Assert second install is idempotent (changed=False)"
+  assert:
+    that:
+      - not install_again_result.failed
+      - not install_again_result.changed
+      - install_again_result.installed_app is defined
+      - "'already installed' in (install_again_result.msg | lower)"
+    fail_msg: "Second installation should be idempotent with changed=False"
 
 # Phase 5: Verify app appears in installed list
 - name: "List apps after installation"
