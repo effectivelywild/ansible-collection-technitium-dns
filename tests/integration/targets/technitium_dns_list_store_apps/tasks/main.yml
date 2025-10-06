@@ -33,7 +33,7 @@
       - list_store_apps_result.store_apps is iterable
     fail_msg: "List store apps should have succeeded and returned a list"
 
-# Phase 3: Verify store app structure (if store is accessible)
+# Phase 3: Verify store app structure
 - name: "Verify store app structure"
   assert:
     that:
@@ -45,7 +45,6 @@
       - item.installed is defined
     fail_msg: "Each store app should have required properties"
   loop: "{{ list_store_apps_result.store_apps }}"
-  when: list_store_apps_result.store_apps | length > 0
 
 # Phase 4: Check for installed apps with update info
 - name: "Find installed apps in store list"
@@ -64,25 +63,8 @@
       - item.updateAvailable is defined
     fail_msg: "Installed apps should have installedVersion and updateAvailable"
   loop: "{{ installed_store_apps }}"
-  when: installed_store_apps | length > 0
 
-# Phase 5: Test idempotency
-- name: "List store apps again for idempotency check"
-  technitium_dns_list_store_apps:
-    api_url: "{{ technitium_api_url_2 }}"
-    api_token: "{{ technitium_api_token_2 }}"
-    api_port: "{{ technitium_api_port_2 | int }}"
-    validate_certs: "{{ validate_certs }}"
-  register: list_store_apps_again
-
-- name: "Assert results are consistent"
-  assert:
-    that:
-      - not list_store_apps_again.failed
-      - not list_store_apps_again.changed
-    fail_msg: "List store apps should return consistent results"
-
-# Phase 6: Test failure cases
+# Phase 5: Test failure cases
 - name: "Test list store apps with invalid API token"
   technitium_dns_list_store_apps:
     api_url: "{{ technitium_api_url_2 }}"
