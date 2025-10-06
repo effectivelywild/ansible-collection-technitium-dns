@@ -1,0 +1,234 @@
+#!/usr/bin/python
+# GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
+
+from __future__ import (absolute_import, division, print_function)
+__metaclass__ = type
+
+DOCUMENTATION = r'''
+---
+module: technitium_dns_download_and_update_app
+short_description: Download and update an existing app
+version_added: "0.9.0"
+description:
+    - Download an app zip file from a given URL and update an existing app on the DNS server.
+    - This also supports "downgrading" to an earlier version by specifying an older version URL,
+      however this is not idempotent.
+    - The URL must start with C(https://).
+author:
+    - Frank Muise (@effectivelywild)
+seealso:
+  - module: effectivelywild.technitium_dns.technitium_dns_list_apps
+    description: List all installed apps
+  - module: effectivelywild.technitium_dns.technitium_dns_list_store_apps
+    description: List all available apps from the DNS App Store
+  - module: effectivelywild.technitium_dns.technitium_dns_download_and_install_app
+    description: Download and install a new app
+  - module: effectivelywild.technitium_dns.technitium_dns_uninstall_app
+    description: Uninstall an app from the DNS server
+options:
+    api_port:
+        description:
+            - Port for the Technitium DNS API. Defaults to 5380
+        required: false
+        type: int
+        default: 5380
+    api_token:
+        description:
+            - API token for authenticating with the Technitium DNS API
+        required: true
+        type: str
+    api_url:
+        description:
+            - Base URL for the Technitium DNS API
+        required: true
+        type: str
+    validate_certs:
+        description:
+            - Whether to validate SSL certificates when making API requests.
+        required: false
+        type: bool
+        default: true
+    name:
+        description:
+            - The name of the app to update
+        required: true
+        type: str
+    url:
+        description:
+            - The URL of the app zip file
+            - URL must start with C(https://)
+        required: true
+        type: str
+'''
+
+EXAMPLES = r'''
+- name: Download and update Wild IP app
+  technitium_dns_download_and_update_app:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    name: "Wild IP"
+    url: "https://download.technitium.com/dns/apps/WildIpApp.zip"
+  register: result
+
+- debug:
+    var: result.updated_app
+
+- name: Update app from DNS App Store
+  technitium_dns_download_and_update_app:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    name: "Geo Continent"
+    url: "https://download.technitium.com/dns/apps/GeoContinentApp.zip"
+
+- name: Get latest version URL from store and update app
+  block:
+    - name: List available apps from DNS App Store
+      technitium_dns_list_store_apps:
+        api_url: "http://localhost"
+        api_token: "myapitoken"
+      register: store_apps_list
+
+    - name: Update Query Logs app to latest version
+      technitium_dns_download_and_update_app:
+        api_url: "http://localhost"
+        api_token: "myapitoken"
+        name: "Query Logs (Sqlite)"
+        url: "{{ (store_apps_list.store_apps | selectattr('name', 'equalto', 'Query Logs (Sqlite)') | first).url }}"
+'''
+
+RETURN = r'''
+updated_app:
+    description: Information about the updated app
+    type: dict
+    returned: success
+    contains:
+        name:
+            description: Name of the updated app
+            type: str
+            returned: always
+            sample: "Wild IP"
+        version:
+            description: Version of the updated app
+            type: str
+            returned: always
+            sample: "1.0"
+        dnsApps:
+            description: List of DNS application components
+            type: list
+            returned: always
+            elements: dict
+            contains:
+                classPath:
+                    description: Class path of the DNS app component
+                    type: str
+                    returned: always
+                    sample: "WildIp.App"
+                description:
+                    description: Description of the DNS app component
+                    type: str
+                    returned: always
+                    sample: "Returns the IP address that was embedded in the subdomain name"
+                isAppRecordRequestHandler:
+                    description: Whether this is an APP record request handler
+                    type: bool
+                    returned: always
+                    sample: true
+                isRequestController:
+                    description: Whether this is a request controller
+                    type: bool
+                    returned: always
+                    sample: false
+                isAuthoritativeRequestHandler:
+                    description: Whether this is an authoritative request handler
+                    type: bool
+                    returned: always
+                    sample: false
+                isRequestBlockingHandler:
+                    description: Whether this is a request blocking handler
+                    type: bool
+                    returned: always
+                    sample: false
+                isQueryLogger:
+                    description: Whether this is a query logger
+                    type: bool
+                    returned: always
+                    sample: false
+                isPostProcessor:
+                    description: Whether this is a post processor
+                    type: bool
+                    returned: always
+                    sample: false
+changed:
+    description: Whether the module made changes
+    type: bool
+    returned: always
+    sample: true
+failed:
+    description: Whether the module failed
+    type: bool
+    returned: always
+    sample: false
+msg:
+    description: Human-readable message about the operation
+    type: str
+    returned: always
+    sample: "App 'Wild IP' updated successfully"
+'''
+
+from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
+
+
+class DownloadAndUpdateAppModule(TechnitiumModule):
+    argument_spec = dict(
+        name=dict(type='str', required=True),
+        url=dict(type='str', required=True),
+        **TechnitiumModule.get_common_argument_spec()
+    )
+
+    def run(self):
+        name = self.params['name']
+        url = self.params['url']
+
+        # Validate URL starts with https://
+        if not url.startswith('https://'):
+            self.fail_json(msg="URL must start with 'https://'")
+
+        # Check if app exists first (can't update non-existent app)
+        app_exists, existing_app = self.check_app_exists(name)
+
+        if not app_exists:
+            self.fail_json(msg=f"App '{name}' is not installed. Use download_and_install_app module to install it first.")
+
+        # Check if update is needed based on updateAvailable flag and URL comparison
+        # The updateUrl field shows the latest available version, not the currently installed version
+        update_available = existing_app.get('updateAvailable', False)
+        existing_update_url = existing_app.get('updateUrl', '')
+
+        # If no update is available and user is trying to update to the "latest" version (updateUrl),
+        # then the app is already up-to-date
+        if not update_available and existing_update_url == url:
+            self.exit_json(
+                changed=False,
+                updated_app=existing_app,
+                msg=f"App '{name}' is already at the latest version (version {existing_app.get('version', 'unknown')})"
+            )
+
+        # Download and update the app
+        params = {
+            'name': name,
+            'url': url
+        }
+        data = self.request('/api/apps/downloadAndUpdate', params=params)
+        self.validate_api_response(data)
+
+        updated_app = data.get('response', {}).get('updatedApp', {})
+        self.exit_json(
+            changed=True,
+            updated_app=updated_app,
+            msg=f"App '{name}' updated successfully"
+        )
+
+
+if __name__ == '__main__':
+    module = DownloadAndUpdateAppModule()
+    module.run()

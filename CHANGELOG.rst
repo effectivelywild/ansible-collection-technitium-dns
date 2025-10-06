@@ -4,6 +4,23 @@ effectivelywild.technitium\_dns Release Notes
 
 .. contents:: Topics
 
+v0.9.0
+======
+
+New Modules
+-----------
+
+- effectivelywild.technitium_dns.technitium_dns_delete_log - Delete a log file.
+- effectivelywild.technitium_dns.technitium_dns_download_and_install_app - Download and install an app.
+- effectivelywild.technitium_dns.technitium_dns_download_and_update_app - Download and update an existing app.
+- effectivelywild.technitium_dns.technitium_dns_get_app_config - Get app configuration.
+- effectivelywild.technitium_dns.technitium_dns_list_apps - List all installed apps.
+- effectivelywild.technitium_dns.technitium_dns_list_logs - List all log files from Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_list_store_apps - List all available apps from Technitium DNS App Store.
+- effectivelywild.technitium_dns.technitium_dns_query_logs - Query logs from a specified DNS app on Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_set_app_config - Set app configuration on Technitium DNS server.
+- effectivelywild.technitium_dns.technitium_dns_uninstall_app - Uninstall an app.
+
 v0.8.0
 ======
 

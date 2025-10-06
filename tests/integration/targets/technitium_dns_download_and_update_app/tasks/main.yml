@@ -1,0 +1,244 @@
+---
+# Integration test suite for technitium_dns_download_and_update_app
+# This test validates updating an installed DNS app by:
+# 1. Installing a test app first
+# 2. Updating the app from a URL
+# 3. Testing idempotency (updating again with same URL should return changed=False)
+# 4. Verifying the update succeeded
+# 5. Testing error cases
+# 6. Cleaning up
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Ensure test app is installed
+- name: "Download and install What Is My Dns app"
+  technitium_dns_download_and_install_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+    url: "https://download.technitium.com/dns/apps/WhatIsMyDnsApp.zip"
+  register: install_result
+  ignore_errors: true
+
+- name: "Pause after install"
+  pause:
+    seconds: 2
+
+# Phase 3: Update the app to a specific version
+- name: "Download and update What Is My Dns app to v7"
+  technitium_dns_download_and_update_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+    url: "https://download.technitium.com/dns/apps/WhatIsMyDnsApp-v7.zip"
+  register: update_result
+
+- name: "Debug update result"
+  debug:
+    var: update_result
+  when: debug | default(false)
+
+- name: "Assert update succeeded"
+  assert:
+    that:
+      - not update_result.failed
+      - update_result.changed
+      - update_result.updated_app is defined
+      - update_result.updated_app.name is defined
+      - update_result.updated_app.version is defined
+      - update_result.msg is defined
+      - "'updated successfully' in (update_result.msg | lower)"
+    fail_msg: "App update should have succeeded"
+
+# Phase 3b: Test idempotency - updating again with same URL should return changed=False
+- name: "Update What Is My Dns app again with same URL (idempotency test)"
+  technitium_dns_download_and_update_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+    url: "https://download.technitium.com/dns/apps/WhatIsMyDnsApp-v7.zip"
+  register: update_again_result
+
+- name: "Debug update again result"
+  debug:
+    var: update_again_result
+  when: debug | default(false)
+
+- name: "Assert second update is idempotent (changed=False)"
+  assert:
+    that:
+      - not update_again_result.failed
+      - not update_again_result.changed
+      - update_again_result.updated_app is defined
+      - "'already at the latest version' in (update_again_result.msg | lower)"
+    fail_msg: "Second update with same URL should be idempotent with changed=False"
+
+# Phase 4: Test downgrade/custom version - update to v6 after v7
+- name: "Download and update What Is My Dns app to v6 (downgrade test)"
+  technitium_dns_download_and_update_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+    url: "https://download.technitium.com/dns/apps/WhatIsMyDnsApp-v6.zip"
+  register: downgrade_result
+
+- name: "Debug downgrade result"
+  debug:
+    var: downgrade_result
+  when: debug | default(false)
+
+- name: "Assert downgrade succeeded"
+  assert:
+    that:
+      - not downgrade_result.failed
+      - downgrade_result.changed
+      - downgrade_result.updated_app is defined
+      - "'updated successfully' in (downgrade_result.msg | lower) or 'downgrade' in (downgrade_result.msg | lower)"
+    fail_msg: "App downgrade to v6 should have succeeded"
+
+- name: "Pause after downgrade"
+  pause:
+    seconds: 2
+
+# Phase 4b: Verify downgrade worked by checking version
+- name: "List apps after downgrade to verify version"
+  technitium_dns_list_apps:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: apps_after_downgrade
+
+- name: "Debug apps after downgrade"
+  debug:
+    var: apps_after_downgrade
+  when: debug | default(false)
+
+- name: "Assert What Is My Dns app is at v6"
+  assert:
+    that:
+      - apps_after_downgrade.apps | selectattr('name', 'match', '(?i)what.*is.*my.*dns') | list | length > 0
+      - (apps_after_downgrade.apps | selectattr('name', 'match', '(?i)what.*is.*my.*dns') | first).version | string is match('6.*')
+    fail_msg: "What Is My Dns app should be at version 6.x after downgrade"
+
+# Phase 4c: Test idempotency for v6 - updating to v6 again should work
+# Note: Since v6 is not the latest version, updateAvailable will be true and updateUrl will point to v7
+# Our idempotency logic only returns changed=False when updateAvailable=false AND url==updateUrl
+# So this test will show that updating to an older version is NOT idempotent (which is expected behavior)
+- name: "Update What Is My Dns app to v6 again (idempotency test for non-latest version)"
+  technitium_dns_download_and_update_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+    url: "https://download.technitium.com/dns/apps/WhatIsMyDnsApp-v6.zip"
+  register: update_v6_again_result
+
+- name: "Debug update v6 again result"
+  debug:
+    var: update_v6_again_result
+  when: debug | default(false)
+
+- name: "Assert update to v6 again behavior"
+  assert:
+    that:
+      - not update_v6_again_result.failed
+      - update_v6_again_result.updated_app is defined
+    fail_msg: "Second update to v6 should complete successfully"
+  when: true  # Always run this assertion
+
+- name: "Display note about v6 idempotency"
+  debug:
+    msg: "Note: Updating to v6 again returned changed={{ update_v6_again_result.changed }}. Since v6 is not the latest version, updateAvailable=true, so idempotency cannot be guaranteed for non-latest versions."
+  when: debug | default(false) or update_v6_again_result.changed
+
+# Phase 5: Verify app still exists and is functional
+- name: "List apps after all updates"
+  technitium_dns_list_apps:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: apps_after_update
+
+- name: "Assert What Is My Dns app is still in the list"
+  assert:
+    that:
+      - apps_after_update.apps | selectattr('name', 'match', '(?i)what.*is.*my.*dns') | list | length > 0
+    fail_msg: "What Is My Dns app should still be in the installed apps list after update"
+
+# Phase 6: Test failure cases
+- name: "Test update with non-https URL"
+  technitium_dns_download_and_update_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+    url: "http://example.com/test.zip"
+  register: non_https_result
+  ignore_errors: true
+
+- name: "Assert failure with non-https URL"
+  assert:
+    that:
+      - non_https_result.failed
+      - "'https://' in (non_https_result.msg | lower)"
+    fail_msg: "Non-https URL should cause failure"
+
+- name: "Test update with invalid token"
+  technitium_dns_download_and_update_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+    url: "https://download.technitium.com/dns/apps/WhatIsMyDnsApp.zip"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid token"
+  assert:
+    that:
+      - invalid_token_result.failed
+    fail_msg: "Invalid token should cause failure"
+
+- name: "Test update non-existent app"
+  technitium_dns_download_and_update_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "NonExistentApp12345"
+    url: "https://example.com/test.zip"
+  register: nonexistent_app_result
+  ignore_errors: true
+
+- name: "Assert failure with non-existent app"
+  assert:
+    that:
+      - nonexistent_app_result.failed
+      - "'not installed' in (nonexistent_app_result.msg | lower)"
+    fail_msg: "Updating non-existent app should cause failure"
+
+# Phase 7: Cleanup - Uninstall the test app
+- name: "Uninstall What Is My Dns app"
+  technitium_dns_uninstall_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "What Is My Dns"
+  register: cleanup_result
+  ignore_errors: true

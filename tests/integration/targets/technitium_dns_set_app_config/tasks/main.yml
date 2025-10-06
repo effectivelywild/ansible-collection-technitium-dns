@@ -1,0 +1,229 @@
+---
+# Integration test suite for technitium_dns_set_app_config
+# This test validates setting app configuration by:
+# 1. Installing Query Logs (Sqlite) app which supports configuration
+# 2. Getting the initial configuration
+# 3. Setting new configuration values
+# 4. Verifying the configuration was set correctly
+# 5. Testing different config formats (string and dict)
+# 6. Testing error cases
+# 7. Cleaning up
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Ensure Query Logs app is installed
+- name: "List store apps to get Query Logs URL"
+  technitium_dns_list_store_apps:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: store_apps_list
+
+- name: "Download and install Query Logs (Sqlite) app"
+  technitium_dns_download_and_install_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "Query Logs (Sqlite)"
+    url: "{{ (store_apps_list.store_apps | selectattr('name', 'equalto', 'Query Logs (Sqlite)') | first).url }}"
+  register: install_result
+  ignore_errors: true
+  when: store_apps_list.store_apps | selectattr('name', 'equalto', 'Query Logs (Sqlite)') | list | length > 0
+
+- name: "Pause after install"
+  pause:
+    seconds: 3
+
+# Phase 3: Get initial configuration
+- name: "Get initial Query Logs app configuration"
+  technitium_dns_get_app_config:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "Query Logs (Sqlite)"
+  register: initial_config_result
+
+- name: "Debug initial config"
+  debug:
+    var: initial_config_result
+  when: debug | default(false)
+
+- name: "Parse initial config"
+  set_fact:
+    initial_config: "{{ initial_config_result.config | from_json }}"
+
+# Phase 4: Set app configuration with dict (modify maxLogDays)
+- name: "Set Query Logs app configuration (dict format) - change maxLogDays to 14"
+  technitium_dns_set_app_config:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "Query Logs (Sqlite)"
+    config:
+      enableLogging: true
+      maxQueueSize: 200000
+      maxLogDays: 14
+      maxLogRecords: 10000
+      enableVacuum: false
+      useInMemoryDb: false
+      sqliteDbPath: "querylogs.db"
+      connectionString: "Data Source='{sqliteDbPath}'; Cache=Shared;"
+  register: set_config_dict_result
+
+- name: "Debug set config dict result"
+  debug:
+    var: set_config_dict_result
+  when: debug | default(false)
+
+- name: "Assert set config succeeded"
+  assert:
+    that:
+      - not set_config_dict_result.failed
+      - set_config_dict_result.changed
+    fail_msg: "Set config with dict should have succeeded"
+
+- name: "Pause after config change"
+  pause:
+    seconds: 2
+
+# Phase 5: Verify configuration was set correctly
+- name: "Get app configuration after set"
+  technitium_dns_get_app_config:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "Query Logs (Sqlite)"
+  register: get_config_after_set
+
+- name: "Parse config after set"
+  set_fact:
+    config_after_set: "{{ get_config_after_set.config | from_json }}"
+
+- name: "Debug config after set"
+  debug:
+    var: config_after_set
+  when: debug | default(false)
+
+- name: "Assert maxLogDays was updated to 14"
+  assert:
+    that:
+      - config_after_set.maxLogDays == 14
+    fail_msg: "maxLogDays should have been updated to 14"
+
+# Phase 6: Set app configuration with string format
+- name: "Set Query Logs app configuration (string format) - change maxLogDays to 30"
+  technitium_dns_set_app_config:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "Query Logs (Sqlite)"
+    config: '{"enableLogging": true, "maxQueueSize": 200000, "maxLogDays": 30, "maxLogRecords": 10000, "enableVacuum": false, "useInMemoryDb": false, "sqliteDbPath": "querylogs.db", "connectionString": "Data Source=''{sqliteDbPath}''; Cache=Shared;"}'
+  register: set_config_string_result
+
+- name: "Debug set config string result"
+  debug:
+    var: set_config_string_result
+  when: debug | default(false)
+
+- name: "Assert set config with string succeeded"
+  assert:
+    that:
+      - not set_config_string_result.failed
+      - set_config_string_result.changed
+    fail_msg: "Set config with string should have succeeded"
+
+- name: "Pause after second config change"
+  pause:
+    seconds: 2
+
+# Phase 7: Verify second configuration change
+- name: "Get app configuration after second set"
+  technitium_dns_get_app_config:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "Query Logs (Sqlite)"
+  register: get_config_after_second_set
+
+- name: "Parse config after second set"
+  set_fact:
+    config_after_second_set: "{{ get_config_after_second_set.config | from_json }}"
+
+- name: "Assert maxLogDays was updated to 30"
+  assert:
+    that:
+      - config_after_second_set.maxLogDays == 30
+    fail_msg: "maxLogDays should have been updated to 30"
+
+# Phase 8: Restore initial configuration
+- name: "Restore initial Query Logs app configuration"
+  technitium_dns_set_app_config:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "Query Logs (Sqlite)"
+    config: "{{ initial_config }}"
+  register: restore_config_result
+
+- name: "Assert restore config succeeded"
+  assert:
+    that:
+      - not restore_config_result.failed
+      - restore_config_result.changed
+    fail_msg: "Restore config should have succeeded"
+
+# Phase 9: Test failure cases
+- name: "Test set config with invalid token"
+  technitium_dns_set_app_config:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "Query Logs (Sqlite)"
+    config: '{"maxLogDays": 7}'
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid token"
+  assert:
+    that:
+      - invalid_token_result.failed
+    fail_msg: "Invalid token should cause failure"
+
+- name: "Test set config for non-existent app"
+  technitium_dns_set_app_config:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "NonExistentApp12345"
+    config: '{"test": "value"}'
+  register: nonexistent_app_result
+  ignore_errors: true
+
+- name: "Assert failure with non-existent app"
+  assert:
+    that:
+      - nonexistent_app_result.failed
+    fail_msg: "Non-existent app should cause failure"
+
+# Phase 10: Cleanup - Uninstall the test app
+- name: "Uninstall Query Logs (Sqlite) app"
+  technitium_dns_uninstall_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "Query Logs (Sqlite)"
+  register: cleanup_result
+  ignore_errors: true
