@@ -26,10 +26,12 @@
     seconds: 5
 
 # Phase 3: Generate queries to create logs
-- name: "Perform DNS queries to generate logs"
-  command: docker exec technitium02{{ container_suffix }} dig @localhost test{{ item }}.example.com +short
-  delegate_to: localhost
-  register: query_result
+- name: "Perform API calls to generate base log activity"
+  technitium_dns_check_for_update:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
   ignore_errors: true
   loop: "{{ range(1, 10) | list }}"
 
