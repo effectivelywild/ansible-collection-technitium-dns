@@ -7,8 +7,7 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_delete_all_logs
-short_description: Delete all log files from Technitium DNS server
-version_added: "0.9.0"
+short_description: Delete all log files
 description:
     - Permanently delete all log files from disk.
 author:

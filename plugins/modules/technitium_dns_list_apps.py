@@ -7,10 +7,10 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_list_apps
-short_description: List all installed apps from Technitium DNS server
+short_description: List all installed apps
 version_added: "0.9.0"
 description:
-    - Retrieve a list of all installed DNS apps on the Technitium DNS server.
+    - Retrieve a list of all installed apps.
     - If the DNS server has Internet access and can retrieve data from DNS App Store, the API will also return if a store app has updates available.
 author:
     - Frank Muise (@effectivelywild)
@@ -57,18 +57,6 @@ EXAMPLES = r'''
 
 - debug:
     var: result.apps
-
-- name: Check if a specific app is installed
-  technitium_dns_list_apps:
-    api_url: "http://localhost"
-    api_token: "myapitoken"
-  register: apps_result
-
-- name: Verify Split Horizon app is installed
-  assert:
-    that:
-      - apps_result.apps | selectattr('name', 'equalto', 'Split Horizon') | list | length > 0
-    fail_msg: "Split Horizon app not found"
 '''
 
 RETURN = r'''

@@ -10,7 +10,7 @@ module: technitium_dns_list_logs
 short_description: List all log files from Technitium DNS server
 version_added: "0.9.0"
 description:
-    - Retrieve a list of all log files available on the DNS server.
+    - Retrieve a list of all log files.
 author:
     - Frank Muise (@effectivelywild)
 seealso:

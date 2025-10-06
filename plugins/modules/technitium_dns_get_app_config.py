@@ -7,7 +7,7 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_get_app_config
-short_description: Get app configuration from Technitium DNS server
+short_description: Get app configuration
 version_added: "0.9.0"
 description:
     - Retrieve the DNS application config from the C(dnsApp.config) file in the application folder.
@@ -70,7 +70,6 @@ EXAMPLES = r'''
 - name: Display config if it exists
   debug:
     msg: "App configuration: {{ app_config.config }}"
-  when: app_config.config is not none
 '''
 
 RETURN = r'''

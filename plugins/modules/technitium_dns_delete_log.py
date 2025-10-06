@@ -7,7 +7,7 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_delete_log
-short_description: Delete a log file from Technitium DNS server
+short_description: Delete a log file
 version_added: "0.9.0"
 description:
     - Permanently delete a log file from disk.

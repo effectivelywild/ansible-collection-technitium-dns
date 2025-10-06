@@ -7,7 +7,7 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_download_and_update_app
-short_description: Download and update an existing app on Technitium DNS server
+short_description: Download and update an existing app
 version_added: "0.9.0"
 description:
     - Download an app zip file from a given URL and update an existing app on the DNS server.

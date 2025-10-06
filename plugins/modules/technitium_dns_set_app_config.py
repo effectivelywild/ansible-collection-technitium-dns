@@ -72,12 +72,15 @@ EXAMPLES = r'''
       maxmind_db_path: "/opt/maxmind/GeoLite2-Country.mmdb"
       default_continent: "NA"
 
-- name: Clear app configuration
+- name: Set Query Logs configuration
   technitium_dns_set_app_config:
     api_url: "http://localhost"
     api_token: "myapitoken"
-    name: "Split Horizon"
-    config: ""
+    name: "Query Logs (Sqlite)"
+    config:
+      enableLogging: true
+      maxLogDays: 30
+      maxLogRecords: 10000
 '''
 
 RETURN = r'''
