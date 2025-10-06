@@ -1,0 +1,110 @@
+---
+# Integration test suite for technitium_dns_list_logs
+# This test validates listing log files by:
+# 1. Listing all log files
+# 2. Verifying the response structure
+# 3. Testing idempotency
+# 4. Testing error cases
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: List all log files
+- name: "List all log files"
+  technitium_dns_list_logs:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: list_logs_result
+
+- name: "Debug list logs result"
+  debug:
+    var: list_logs_result
+  when: debug | default(false)
+
+- name: "Assert list logs succeeded"
+  assert:
+    that:
+      - not list_logs_result.failed
+      - not list_logs_result.changed
+      - list_logs_result.log_files is defined
+      - list_logs_result.log_files is iterable
+    fail_msg: "List logs should have succeeded and returned a list"
+
+# Phase 3: Verify log file structure (if any logs exist)
+- name: "Verify log file structure"
+  assert:
+    that:
+      - item.fileName is defined
+      - item.size is defined
+    fail_msg: "Each log file should have fileName and size properties"
+  loop: "{{ list_logs_result.log_files }}"
+  when: list_logs_result.log_files | length > 0
+
+# Phase 4: Store initial log state
+- name: "Store initial log file count and size"
+  set_fact:
+    initial_log_count: "{{ list_logs_result.log_files | length }}"
+    initial_first_log_size: "{{ list_logs_result.log_files[0].size if list_logs_result.log_files | length > 0 else '0 B' }}"
+
+# Phase 5: Generate some activity to ensure base logs are created
+- name: "Perform API calls to generate base log activity"
+  technitium_dns_check_for_update:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  ignore_errors: true
+  loop: "{{ range(1, 5) | list }}"
+  loop_control:
+    pause: 1
+
+- name: "Pause to ensure logs are written"
+  pause:
+    seconds: 3
+
+# Phase 6: List logs again to verify logs grew
+- name: "List log files again"
+  technitium_dns_list_logs:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: list_logs_again
+
+- name: "Debug list logs again result"
+  debug:
+    var: list_logs_again
+  when: debug | default(false)
+
+- name: "Store new log file size"
+  set_fact:
+    new_log_count: "{{ list_logs_again.log_files | length }}"
+    new_first_log_size: "{{ list_logs_again.log_files[0].size if list_logs_again.log_files | length > 0 else '0 B' }}"
+
+- name: "Assert log count grew OR log size grew (proving logging is working)"
+  assert:
+    that:
+      - not list_logs_again.failed
+      - not list_logs_again.changed
+      - (new_log_count | int > initial_log_count | int) or (new_first_log_size != initial_first_log_size)
+    fail_msg: "Log count or size must grow after API activity - initial count: {{ initial_log_count }}, new count: {{ new_log_count }}, initial size: {{ initial_first_log_size }}, new size: {{ new_first_log_size }}"
+
+# Phase 6: Test failure cases
+- name: "Test list logs with invalid API token"
+  technitium_dns_list_logs:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"

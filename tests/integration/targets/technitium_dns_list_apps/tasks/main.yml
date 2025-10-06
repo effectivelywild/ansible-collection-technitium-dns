@@ -1,0 +1,159 @@
+---
+# Integration test suite for technitium_dns_list_apps
+# This test validates listing all installed DNS apps by:
+# 1. Installing a known app (Query Logs (Sqlite))
+# 2. List all installed apps
+# 3. Verify the structure of the returned apps
+# 4. Testing with invalid credentials
+# 5. Cleaning up by uninstalling the app
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: List store apps to find Query Logs (Sqlite) app
+- name: "List all store apps"
+  technitium_dns_list_store_apps:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: store_apps_list
+
+- name: "Debug store apps list"
+  debug:
+    var: store_apps_list
+  when: debug | default(false)
+
+- name: "Find Query Logs (Sqlite) app in store"
+  set_fact:
+    query_logs_app: "{{ store_apps_list.store_apps | selectattr('name', 'equalto', 'Query Logs (Sqlite)') | first }}"
+  when: store_apps_list.store_apps | selectattr('name', 'equalto', 'Query Logs (Sqlite)') | list | length > 0
+
+- name: "Debug Query Logs app details"
+  debug:
+    var: query_logs_app
+  when: debug | default(false)
+
+# Phase 3: Install Query Logs (Sqlite) app
+- name: "Install Query Logs (Sqlite) app"
+  technitium_dns_download_and_install_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "{{ query_logs_app.name }}"
+    url: "{{ query_logs_app.url }}"
+  register: install_app_result
+
+- name: "Debug install app result"
+  debug:
+    var: install_app_result
+  when:
+    - debug | default(false)
+    - query_logs_app is defined
+
+- name: "Assert app installation succeeded"
+  assert:
+    that:
+      - not install_app_result.failed
+      - install_app_result.changed or "'already installed' in (install_app_result.msg | lower)"
+    fail_msg: "App installation should have succeeded"
+
+- name: "Pause after app installation"
+  pause:
+    seconds: 3
+
+
+# Phase 4: List all installed apps
+- name: "List all installed apps"
+  technitium_dns_list_apps:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: list_apps_result
+
+- name: "Debug list apps result"
+  debug:
+    var: list_apps_result
+  when: debug | default(false)
+
+- name: "Assert list apps succeeded"
+  assert:
+    that:
+      - not list_apps_result.failed
+      - not list_apps_result.changed
+      - list_apps_result.apps is defined
+      - list_apps_result.apps is iterable
+    fail_msg: "List apps should have succeeded and returned a list"
+
+# Phase 5: Verify app structure (if any apps are installed)
+- name: "Verify app structure"
+  assert:
+    that:
+      - item.name == "Query Logs (Sqlite)"
+      - item.version is defined
+      - item.dnsApps is defined
+    fail_msg: "Each app should have name, version, and dnsApps properties"
+  loop: "{{ list_apps_result.apps }}"
+
+# Phase 6: Verify dnsApps structure
+- name: "Verify dnsApps structure"
+  assert:
+    that:
+      - dns_app.classPath is defined
+      - dns_app.description is defined
+      - dns_app.isAppRecordRequestHandler is defined
+      - dns_app.isRequestController is defined
+      - dns_app.isAuthoritativeRequestHandler is defined
+      - dns_app.isRequestBlockingHandler is defined
+      - dns_app.isQueryLogger is defined
+      - dns_app.isPostProcessor is defined
+    fail_msg: "Each dnsApp should have all required properties"
+  loop: "{{ list_apps_result.apps | map(attribute='dnsApps') | flatten }}"
+  loop_control:
+    loop_var: dns_app
+
+# Phase 7: Test failure cases
+- name: "Test list apps with invalid API token"
+  technitium_dns_list_apps:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure with invalid API token"
+  assert:
+    that:
+      - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
+    fail_msg: "Invalid token should cause failure"
+
+# Phase 8: Cleanup - Uninstall the Query Logs app
+- name: "Uninstall Query Logs (Sqlite) app"
+  technitium_dns_uninstall_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "Query Logs (Sqlite)"
+  register: uninstall_app_result
+  when: query_logs_app is defined
+
+- name: "Debug uninstall app result"
+  debug:
+    var: uninstall_app_result
+  when:
+    - debug | default(false)
+    - query_logs_app is defined
+
+- name: "Assert app uninstallation succeeded"
+  assert:
+    that:
+      - not uninstall_app_result.failed
+      - uninstall_app_result.changed or "'not installed' in (uninstall_app_result.msg | lower)"
+    fail_msg: "App uninstallation should have succeeded"
+  when: query_logs_app is defined
