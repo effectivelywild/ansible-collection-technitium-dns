@@ -10,7 +10,7 @@ module: technitium_dns_get_zone_info
 short_description: Get DNS zone(s)
 version_added: "0.1.0"
 description:
-    - Retrieve all DNS zones, or filter by zone type and/or name, from a Technitium DNS server.
+    - Retrieve all DNS zones, or filter by zone type and/or name.
     - Returns a subset of zone information compared to `technitium_dns_get_zone_options`
 author:
     - Frank Muise (@effectivelywild)

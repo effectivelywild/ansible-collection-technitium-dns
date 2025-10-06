@@ -11,7 +11,7 @@ short_description: Convert a signed DNS zone from NSEC to NSEC3
 version_added: "0.1.0"
 author: Frank Muise (@effectivelywild)
 description:
-  - Converts a primary DNS zone from NSEC to NSEC3 for proof of non-existence using the Technitium DNS API.
+  - Converts a primary DNS zone from NSEC to NSEC3.
   - Only works on zones that are already signed with DNSSEC using NSEC.
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_convert_to_nsec

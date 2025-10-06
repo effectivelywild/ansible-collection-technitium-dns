@@ -14,7 +14,6 @@ description:
   - Adds a private key to be used for signing a zone with DNSSEC.
   - The zone must already be signed with DNSSEC.
   - Supports RSA, ECDSA, and EDDSA algorithms with appropriate parameters.
-  - This module is not idempotent; it will add a new key each time it is run, limited by API constraints.
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_sign_zone
     description: Sign a zone with DNSSEC

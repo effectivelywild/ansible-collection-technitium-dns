@@ -15,7 +15,7 @@ author:
     - Frank Muise (@effectivelywild)
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_list_blocked_zones
-    description: List blocked zones from Technitium DNS server
+    description: List blocked zones
   - module: effectivelywild.technitium_dns.technitium_dns_add_blocked_zone
     description: Add a domain to the blocked zones
   - module: effectivelywild.technitium_dns.technitium_dns_flush_blocked_zone

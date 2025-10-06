@@ -10,7 +10,7 @@ module: technitium_dns_get_zone_options
 short_description: Get DNS zone options
 version_added: "0.1.0"
 description:
-    - Retrieve zone-specific options from a Technitium DNS server.
+    - Retrieve zone-specific options.
 author:
     - Frank Muise (@effectivelywild)
 seealso:

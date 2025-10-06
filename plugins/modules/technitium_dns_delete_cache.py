@@ -7,7 +7,7 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_delete_cache
-short_description: Delete a cached DNS zone from Technitium DNS server
+short_description: Delete a cached DNS
 version_added: "0.8.0"
 description:
     - Delete cached DNS records for a specific domain.

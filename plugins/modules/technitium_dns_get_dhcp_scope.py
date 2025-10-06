@@ -7,24 +7,24 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_get_dhcp_scope
-short_description: Get DHCP scope details from Technitium DNS server
+short_description: Get DHCP scope details
 version_added: "0.6.0"
 description:
-    - Retrieve complete details of a DHCP scope configuration from Technitium DNS server.
+    - Retrieve complete details of a DHCP scope configuration.
     - Returns all scope settings including lease times, DNS settings, exclusions, and reserved leases.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_list_dhcp_scopes
-    description: List all DHCP scopes from Technitium DNS server
+    description: List all DHCP scopes
   - module: effectivelywild.technitium_dns.technitium_dns_set_dhcp_scope
-    description: Set DHCP scope configuration in Technitium DNS server
+    description: Set DHCP scope configuration
   - module: effectivelywild.technitium_dns.technitium_dns_enable_dhcp_scope
-    description: Enable a DHCP scope in Technitium DNS server
+    description: Enable a DHCP scope
   - module: effectivelywild.technitium_dns.technitium_dns_disable_dhcp_scope
-    description: Disable a DHCP scope in Technitium DNS server
+    description: Disable a DHCP scope
   - module: effectivelywild.technitium_dns.technitium_dns_delete_dhcp_scope
-    description: Delete a DHCP scope from Technitium DNS server
+    description: Delete a DHCP scope
 options:
     api_port:
         description:

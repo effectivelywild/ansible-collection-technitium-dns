@@ -7,23 +7,23 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_get_group_details
-short_description: Get group details from Technitium DNS server
+short_description: Get group details
 version_added: "0.4.0"
 description:
-    - Retrieve detailed information about a group from Technitium DNS server.
+    - Retrieve detailed information about a group.
     - Returns group name, description, and user membership information.
     - Users information is always included in the response.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_create_group
-    description: Create a group in Technitium DNS server
+    description: Create a group
   - module: effectivelywild.technitium_dns.technitium_dns_delete_group
-    description: Delete a group from Technitium DNS server
+    description: Delete a group
   - module: effectivelywild.technitium_dns.technitium_dns_list_groups
-    description: List all groups from Technitium DNS server
+    description: List all groups
   - module: effectivelywild.technitium_dns.technitium_dns_set_group_details
-    description: Set group details in Technitium DNS server
+    description: Set group details
 options:
     api_port:
         description:

@@ -7,21 +7,21 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_delete_user
-short_description: Delete a user account from Technitium DNS server
+short_description: Delete a user account
 version_added: "0.4.0"
 description:
-    - Delete a user account from Technitium DNS server using its API.
+    - Delete a user account
 author:
     - Frank Muise (@effectivelywild)
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_create_user
-    description: Create a user account in Technitium DNS server
+    description: Create a user account
   - module: effectivelywild.technitium_dns.technitium_dns_list_users
-    description: List all users from Technitium DNS server
+    description: List all users
   - module: effectivelywild.technitium_dns.technitium_dns_set_user_details
-    description: Set user account details on Technitium DNS server
+    description: Set user account details
   - module: effectivelywild.technitium_dns.technitium_dns_get_user_details
-    description: Get user account details from Technitium DNS server
+    description: Get user account details
 options:
     api_port:
         description:
@@ -58,13 +58,6 @@ EXAMPLES = r'''
     api_url: "http://localhost"
     api_token: "myapitoken"
     username: "testuser"
-
-- name: Delete user in check mode
-  technitium_dns_delete_user:
-    api_url: "http://localhost"
-    api_token: "myapitoken"
-    username: "testuser"
-  check_mode: true
 '''
 
 RETURN = r'''

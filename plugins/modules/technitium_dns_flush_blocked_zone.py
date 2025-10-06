@@ -7,7 +7,7 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_flush_blocked_zone
-short_description: Flush all blocked zones in Technitium DNS server
+short_description: Flush all blocked zones
 version_added: "0.7.0"
 description:
     - Flush the blocked zone to clear all records.
@@ -15,7 +15,7 @@ author:
     - Frank Muise (@effectivelywild)
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_list_blocked_zones
-    description: List blocked zones from Technitium DNS server
+    description: List blocked zones
   - module: effectivelywild.technitium_dns.technitium_dns_add_blocked_zone
     description: Add a domain to the blocked zones
   - module: effectivelywild.technitium_dns.technitium_dns_delete_blocked_zone

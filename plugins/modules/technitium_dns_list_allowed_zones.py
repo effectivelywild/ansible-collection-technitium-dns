@@ -7,10 +7,10 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_list_allowed_zones
-short_description: List allowed zones from Technitium DNS server
+short_description: List allowed zones
 version_added: "0.7.0"
 description:
-    - Retrieve a list of allowed zones from the Technitium DNS server.
+    - Retrieve a list of allowed zones.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
@@ -21,7 +21,7 @@ seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_flush_allowed_zone
     description: Flush all allowed zones
   - module: effectivelywild.technitium_dns.technitium_dns_list_blocked_zones
-    description: List blocked zones from Technitium DNS server
+    description: List blocked zones
 options:
     api_port:
         description:

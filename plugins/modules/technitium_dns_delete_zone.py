@@ -11,7 +11,7 @@ short_description: Delete a DNS zone
 version_added: "0.1.0"
 author: Frank Muise (@effectivelywild)
 description:
-    - Delete a DNS zone in Technitium DNS server using its API.
+    - Delete a DNS zone.
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_create_zone
     description: Deletes DNS Zones

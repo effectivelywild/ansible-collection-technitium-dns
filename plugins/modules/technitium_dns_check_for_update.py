@@ -7,11 +7,10 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_check_for_update
-short_description: Check for available updates from Technitium DNS server
+short_description: Check for available updates
 version_added: "0.5.0"
 description:
-    - Check if a software update is available for the Technitium DNS server.
-    - This module is not idempotent and does not support check mode.
+    - Check if a software update is available.
     - Returns update information including current version, available version, and download links.
 author:
     - Frank Muise (@effectivelywild)

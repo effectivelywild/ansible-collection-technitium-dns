@@ -7,22 +7,22 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_set_user_details
-short_description: Set user account profile details in Technitium DNS server
+short_description: Set user account profile details
 version_added: "0.4.0"
 description:
-    - Change user account profile details in Technitium DNS server.
+    - Change user account profile details.
     - Allows modifying display name, username, password, enabled/disabled status, session timeout, and group memberships.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_create_user
-    description: Create a user account in Technitium DNS server
+    description: Create a user account
   - module: effectivelywild.technitium_dns.technitium_dns_delete_user
-    description: Delete a user from Technitium DNS server
+    description: Delete a user
   - module: effectivelywild.technitium_dns.technitium_dns_get_user_details
-    description: Get user account details from Technitium DNS server
+    description: Get user account details
   - module: effectivelywild.technitium_dns.technitium_dns_list_users
-    description: List all users from Technitium DNS server
+    description: List all users
 options:
     api_port:
         description:
@@ -128,15 +128,6 @@ EXAMPLES = r'''
     api_token: "myapitoken"
     username: "oldusername"
     newUsername: "newusername"
-
-- name: Check what would change (check mode)
-  technitium_dns_set_user_details:
-    api_url: "http://localhost"
-    api_token: "myapitoken"
-    username: "testuser"
-    displayName: "New Display Name"
-    disabled: false
-  check_mode: true
 '''
 
 RETURN = r'''

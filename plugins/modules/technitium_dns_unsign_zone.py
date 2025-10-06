@@ -11,7 +11,7 @@ short_description: Unsign a DNS zone
 version_added: "0.1.0"
 author: Frank Muise (@effectivelywild)
 description:
-  - Unsigns a DNS zone using the Technitium DNS API.
+  - Unsigns a DNS zone.
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_sign_zone
     description: Sign a zone with DNSSEC

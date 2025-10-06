@@ -10,7 +10,7 @@ module: technitium_dns_set_zone_options
 short_description: Set DNS zone options
 version_added: "0.1.0"
 description:
-    - Set zone-specific options on a Technitium DNS server.
+    - Set zone-specific options.
 author:
     - Frank Muise (@effectivelywild)
 seealso:

@@ -7,22 +7,22 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_list_permissions
-short_description: List all permissions from Technitium DNS server
+short_description: List all permissions
 version_added: "0.5.0"
 description:
-    - Retrieve a list of all permissions from a Technitium DNS server.
+    - Retrieve a list of all permissions.
     - This includes both user permissions and group permissions for each section.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_get_permission_details
-    description: Get permission details for a specific section from Technitium DNS server
+    description: Get permission details for a specific section
   - module: effectivelywild.technitium_dns.technitium_dns_set_permission_details
-    description: Set permission details for a specific section from Technitium DNS server
+    description: Set permission details for a specific section
   - module: effectivelywild.technitium_dns.technitium_dns_list_users
-    description: List all users from Technitium DNS server
+    description: List all users
   - module: effectivelywild.technitium_dns.technitium_dns_list_groups
-    description: List all groups from Technitium DNS server
+    description: List all groups
 options:
     api_port:
         description:

@@ -7,17 +7,17 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_delete_session
-short_description: Delete a user session from Technitium DNS server
+short_description: Delete a user session
 version_added: "0.5.0"
 description:
-    - Delete a specified user session from Technitium DNS server using its API.
+    - Delete a specified user session.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_list_sessions
-    description: List active user sessions from Technitium DNS server
+    description: List active user sessions
   - module: effectivelywild.technitium_dns.technitium_dns_create_token
-    description: Create an API token for a user in Technitium DNS server
+    description: Create an API token for a user
 options:
     api_port:
         description:
@@ -54,13 +54,6 @@ EXAMPLES = r'''
     api_url: "http://localhost"
     api_token: "myapitoken"
     partialToken: "ddfaecb8e9325e77"
-
-- name: Delete session in check mode
-  technitium_dns_delete_session:
-    api_url: "http://localhost"
-    api_token: "myapitoken"
-    partialToken: "ddfaecb8e9325e77"
-  check_mode: true
 '''
 
 RETURN = r'''

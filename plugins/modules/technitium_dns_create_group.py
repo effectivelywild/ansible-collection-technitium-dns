@@ -7,22 +7,22 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_create_group
-short_description: Create a group in Technitium DNS server
+short_description: Create a group
 version_added: "0.4.0"
 description:
-    - Create a new group in Technitium DNS server using its API.
+    - Create a new group.
     - This will not update existing groups; it only creates new ones (see technitium_dns_set_group_details).
 author:
     - Frank Muise (@effectivelywild)
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_list_groups
-    description: List all groups from Technitium DNS server
+    description: List all groups
   - module: effectivelywild.technitium_dns.technitium_dns_delete_group
-    description: Delete a group from Technitium DNS server
+    description: Delete a group
   - module: effectivelywild.technitium_dns.technitium_dns_get_group_details
-    description: Get group details from Technitium DNS server
+    description: Get group details
   - module: effectivelywild.technitium_dns.technitium_dns_set_group_details
-    description: Set group details in Technitium DNS server
+    description: Set group details
 options:
     api_port:
         description:
@@ -71,14 +71,6 @@ EXAMPLES = r'''
     api_url: "http://localhost"
     api_token: "myapitoken"
     group: "Simple Group"
-
-- name: Create group in check mode
-  technitium_dns_create_group:
-    api_url: "http://localhost"
-    api_token: "myapitoken"
-    group: "Check Group"
-    description: "Check mode group"
-  check_mode: true
 '''
 
 RETURN = r'''

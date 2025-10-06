@@ -7,7 +7,7 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_add_blocked_zone
-short_description: Add a domain to the blocked zones in Technitium DNS server
+short_description: Add a domain to the blocked zones
 version_added: "0.7.0"
 description:
     - Add a domain name to the blocked zones.
@@ -15,7 +15,7 @@ author:
     - Frank Muise (@effectivelywild)
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_list_blocked_zones
-    description: List blocked zones from Technitium DNS server
+    description: List blocked zones
   - module: effectivelywild.technitium_dns.technitium_dns_delete_blocked_zone
     description: Delete a domain from the blocked zones
   - module: effectivelywild.technitium_dns.technitium_dns_flush_blocked_zone

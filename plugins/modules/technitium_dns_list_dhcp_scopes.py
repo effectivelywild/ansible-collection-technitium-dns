@@ -10,20 +10,20 @@ module: technitium_dns_list_dhcp_scopes
 short_description: List all DHCP scopes from Technitium DNS server
 version_added: "0.6.0"
 description:
-    - Retrieve a list of all DHCP scopes available on the Technitium DNS server.
+    - Retrieve a list of all DHCP scopes.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_get_dhcp_scope
-    description: Get DHCP scope details from Technitium DNS server
+    description: Get DHCP scope details
   - module: effectivelywild.technitium_dns.technitium_dns_set_dhcp_scope
-    description: Set DHCP scope configuration in Technitium DNS server
+    description: Set DHCP scope configuration
   - module: effectivelywild.technitium_dns.technitium_dns_enable_dhcp_scope
-    description: Enable a DHCP scope in Technitium DNS server
+    description: Enable a DHCP scope
   - module: effectivelywild.technitium_dns.technitium_dns_disable_dhcp_scope
-    description: Disable a DHCP scope in Technitium DNS server
+    description: Disable a DHCP scope
   - module: effectivelywild.technitium_dns.technitium_dns_delete_dhcp_scope
-    description: Delete a DHCP scope from Technitium DNS server
+    description: Delete a DHCP scope
 options:
     api_port:
         description:
