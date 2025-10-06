@@ -1,74 +1,132 @@
 ---
 # Integration test suite for technitium_dns_query_logs
-# This test validates querying logs from a DNS app by:
-# 1. Finding a query logger app
-# 2. Querying logs with various filters
-# 3. Testing pagination
-# 4. Testing error cases
+# This test validates querying logs from a DNS query logger app by:
+# 1. Finding and installing the Query Logs (Sqlite) app from the store
+# 2. Getting the classPath of the installed app
+# 3. Performing a DNS query to generate log entries
+# 4. Verifying the query appears in the logs
+# 5. Testing various filter parameters
+# 6. Testing error cases
+# 7. Cleaning up by uninstalling the app
 
 # Phase 1: Setup - Load configuration
 - name: "Load test configuration"
   include_vars: ../../integration_config.yml
 
-# Phase 2: List installed apps to find a query logger
-- name: "List all installed apps"
+# Phase 2: List store apps to find Query Logs (Sqlite) app
+- name: "List all store apps"
+  technitium_dns_list_store_apps:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: store_apps_list
+
+- name: "Debug store apps list"
+  debug:
+    var: store_apps_list
+  when: debug | default(false)
+
+- name: "Find Query Logs (Sqlite) app in store"
+  set_fact:
+    query_logs_app: "{{ store_apps_list.store_apps | selectattr('name', 'equalto', 'Query Logs (Sqlite)') | first }}"
+  when: store_apps_list.store_apps | selectattr('name', 'equalto', 'Query Logs (Sqlite)') | list | length > 0
+
+- name: "Debug Query Logs app details"
+  debug:
+    var: query_logs_app
+  when: debug | default(false)
+
+# Phase 3: Install Query Logs (Sqlite) app
+- name: "Install Query Logs (Sqlite) app"
+  technitium_dns_download_and_install_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "{{ query_logs_app.name }}"
+    url: "{{ query_logs_app.url }}"
+  register: install_app_result
+
+- name: "Debug install app result"
+  debug:
+    var: install_app_result
+  when:
+    - debug | default(false)
+    - query_logs_app is defined
+
+- name: "Assert app installation succeeded"
+  assert:
+    that:
+      - not install_app_result.failed
+      - install_app_result.changed or "'already installed' in (install_app_result.msg | lower)"
+    fail_msg: "App installation should have succeeded"
+
+- name: "Pause after app installation"
+  pause:
+    seconds: 3
+
+# Phase 4: Get classPath of installed app
+- name: "List installed apps to get classPath"
   technitium_dns_list_apps:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
-  register: apps_list
+  register: installed_apps_list
 
-- name: "Debug apps list"
+- name: "Debug installed apps list"
   debug:
-    var: apps_list
-  when: debug | default(false)
-
-# Phase 3: Find query logger apps
-- name: "Find query logger apps"
-  set_fact:
-    query_logger_apps: "{{ apps_list.apps | selectattr('dnsApps', 'defined') | map(attribute='dnsApps') | flatten | selectattr('isQueryLogger', 'equalto', true) | list }}"
-
-- name: "Debug query logger apps"
-  debug:
-    var: query_logger_apps
-  when: debug | default(false)
-
-- name: "Find app name with query logger"
-  set_fact:
-    query_logger_app_name: "{{ item.name }}"
-  loop: "{{ apps_list.apps }}"
+    var: installed_apps_list
   when:
-    - item.dnsApps is defined
-    - item.dnsApps | selectattr('isQueryLogger', 'equalto', true) | list | length > 0
-  register: find_app_name
+    - debug | default(false)
+    - query_logs_app is defined
 
-- name: "Set query logger details"
+- name: "Find Query Logs app and extract classPath"
   set_fact:
-    test_app_name: "{{ apps_list.apps | selectattr('dnsApps', 'defined') | selectattr('dnsApps', 'search', 'isQueryLogger.*true') | map(attribute='name') | first }}"
-    test_class_path: "{{ query_logger_apps[0].classPath }}"
-  when: query_logger_apps | length > 0
+    query_logger_class_path: "{{ item.dnsApps | selectattr('isQueryLogger', 'equalto', true) | map(attribute='classPath') | first }}"
+  loop: "{{ installed_apps_list.apps }}"
 
-# Phase 4: Query logs (if a query logger is available)
-- name: "Query logs from query logger app"
+- name: "Debug classPath"
+  debug:
+    msg: "Query logger classPath: {{ query_logger_class_path }}"
+  when:
+    - debug | default(false)
+    - query_logger_class_path is defined
+
+# Phase 5: Perform a DNS query to generate log entries
+- name: "Perform DNS query to technitium.com"
+  command: docker exec technitium02{{ container_suffix }} dig @localhost technitium.com +short
+  delegate_to: localhost
+  register: dns_query_result
+  ignore_errors: true
+
+- name: "Debug DNS query result"
+  debug:
+    var: dns_query_result
+  when: debug | default(false)
+
+- name: "Pause to ensure query is logged"
+  pause:
+    seconds: 10
+
+# Phase 6: Query logs and verify technitium.com query appears
+- name: "Query logs from Query Logs app"
   technitium_dns_query_logs:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
-    name: "{{ test_app_name }}"
-    class_path: "{{ test_class_path }}"
+    name: "Query Logs (Sqlite)"
+    class_path: "{{ query_logger_class_path }}"
     page_number: 1
-    entries_per_page: 10
+    entries_per_page: 50
   register: query_logs_result
-  when: query_logger_apps | length > 0
 
 - name: "Debug query logs result"
   debug:
     var: query_logs_result
-  when:
-    - debug | default(false)
-    - query_logger_apps | length > 0
+  when: debug | default(false)
 
 - name: "Assert query logs succeeded"
   assert:
@@ -80,59 +138,141 @@
       - query_logs_result.page_number is defined
       - query_logs_result.total_pages is defined
     fail_msg: "Query logs should have succeeded"
-  when: query_logger_apps | length > 0
 
-# Phase 5: Query logs with filters
-- name: "Query logs with descending order filter"
+- name: "Verify technitium.com query appears in logs"
+  assert:
+    that:
+      - query_logs_result.entries | selectattr('qname', 'equalto', 'technitium.com') | list | length > 0
+    fail_msg: "technitium.com query should appear in logs"
+
+# Phase 7: Test various filter parameters
+- name: "Query logs with qname filter for technitium.com"
   technitium_dns_query_logs:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
-    name: "{{ test_app_name }}"
-    class_path: "{{ test_class_path }}"
-    page_number: 1
-    entries_per_page: 5
-    descending_order: true
-  register: query_logs_filtered
-  when: query_logger_apps | length > 0
+    name: "Query Logs (Sqlite)"
+    class_path: "{{ query_logger_class_path }}"
+    qname: "technitium.com"
+  register: query_logs_qname_filter
 
-- name: "Assert filtered query succeeded"
+- name: "Assert qname filter returns only technitium.com entries"
   assert:
     that:
-      - not query_logs_filtered.failed
-      - not query_logs_filtered.changed
-      - query_logs_filtered.entries is defined
-    fail_msg: "Filtered query logs should have succeeded"
-  when: query_logger_apps | length > 0
+      - not query_logs_qname_filter.failed
+      - query_logs_qname_filter.entries | length > 0
+      - query_logs_qname_filter.entries | selectattr('qname', 'equalto', 'technitium.com') | list | length == query_logs_qname_filter.entries | length
+    fail_msg: "qname filter should return only technitium.com entries"
 
-# Phase 6: Query logs with protocol filter
 - name: "Query logs with protocol filter (Udp)"
   technitium_dns_query_logs:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
-    name: "{{ test_app_name }}"
-    class_path: "{{ test_class_path }}"
+    name: "Query Logs (Sqlite)"
+    class_path: "{{ query_logger_class_path }}"
     protocol: "Udp"
-  register: query_logs_protocol
-  when: query_logger_apps | length > 0
-  ignore_errors: true
+  register: query_logs_protocol_filter
 
-# Phase 7: Query logs with qname filter
-- name: "Query logs with qname filter"
+- name: "Assert protocol filter succeeded"
+  assert:
+    that:
+      - not query_logs_protocol_filter.failed
+      - query_logs_protocol_filter.entries is defined
+    fail_msg: "Protocol filter should succeed"
+
+- name: "Query logs with qtype filter (A)"
   technitium_dns_query_logs:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
-    name: "{{ test_app_name }}"
-    class_path: "{{ test_class_path }}"
-    qname: "google.com"
-  register: query_logs_qname
-  when: query_logger_apps | length > 0
-  ignore_errors: true
+    name: "Query Logs (Sqlite)"
+    class_path: "{{ query_logger_class_path }}"
+    qtype: "A"
+  register: query_logs_qtype_filter
+
+- name: "Assert qtype filter succeeded"
+  assert:
+    that:
+      - not query_logs_qtype_filter.failed
+      - query_logs_qtype_filter.entries is defined
+    fail_msg: "Qtype filter should succeed"
+
+- name: "Query logs with rcode filter (NoError)"
+  technitium_dns_query_logs:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "Query Logs (Sqlite)"
+    class_path: "{{ query_logger_class_path }}"
+    rcode: "NoError"
+  register: query_logs_rcode_filter
+
+- name: "Assert rcode filter succeeded"
+  assert:
+    that:
+      - not query_logs_rcode_filter.failed
+      - query_logs_rcode_filter.entries is defined
+    fail_msg: "Rcode filter should succeed"
+
+- name: "Query logs with client IP filter (127.0.0.1)"
+  technitium_dns_query_logs:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "Query Logs (Sqlite)"
+    class_path: "{{ query_logger_class_path }}"
+    client_ip_address: "127.0.0.1"
+  register: query_logs_client_ip_filter
+
+- name: "Assert client IP filter succeeded"
+  assert:
+    that:
+      - not query_logs_client_ip_filter.failed
+      - query_logs_client_ip_filter.entries is defined
+    fail_msg: "Client IP filter should succeed"
+
+- name: "Query logs with descending order"
+  technitium_dns_query_logs:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "Query Logs (Sqlite)"
+    class_path: "{{ query_logger_class_path }}"
+    descending_order: true
+    entries_per_page: 10
+  register: query_logs_descending
+
+- name: "Assert descending order succeeded"
+  assert:
+    that:
+      - not query_logs_descending.failed
+      - query_logs_descending.entries is defined
+    fail_msg: "Descending order query should succeed"
+
+- name: "Query logs with pagination (page 2)"
+  technitium_dns_query_logs:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "Query Logs (Sqlite)"
+    class_path: "{{ query_logger_class_path }}"
+    page_number: 2
+    entries_per_page: 5
+  register: query_logs_page2
+
+- name: "Assert pagination query succeeded or failed gracefully"
+  assert:
+    that:
+      - query_logs_page2.page_number is defined or query_logs_page2.failed
+    fail_msg: "Pagination query should succeed or fail gracefully"
 
 # Phase 8: Test failure cases
 - name: "Test query logs with invalid token"
@@ -141,8 +281,8 @@
     api_token: "invalid_token_12345"
     api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
-    name: "TestApp"
-    class_path: "Test.Class"
+    name: "Query Logs (Sqlite)"
+    class_path: "{{ query_logger_class_path | default('Test.Class') }}"
   register: invalid_token_result
   ignore_errors: true
 
@@ -150,6 +290,7 @@
   assert:
     that:
       - invalid_token_result.failed
+      - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
     fail_msg: "Invalid token should cause failure"
 
 - name: "Test query logs with non-existent app"
@@ -159,7 +300,7 @@
     api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     name: "NonExistentApp12345"
-    class_path: "NonExistent.Class"
+    class_path: "NonExistent.Class.Path"
   register: nonexistent_app_result
   ignore_errors: true
 
@@ -169,8 +310,28 @@
       - nonexistent_app_result.failed
     fail_msg: "Non-existent app should cause failure"
 
-# Phase 9: Display warning if no query logger found
-- name: "Display warning if no query logger found"
+# Phase 9: Cleanup - Uninstall the Query Logs app
+- name: "Uninstall Query Logs (Sqlite) app"
+  technitium_dns_uninstall_app:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    name: "Query Logs (Sqlite)"
+  register: uninstall_app_result
+  when: query_logs_app is defined
+
+- name: "Debug uninstall app result"
   debug:
-    msg: "WARNING: No query logger app found. Install a query logger app to fully test this module."
-  when: query_logger_apps | length == 0
+    var: uninstall_app_result
+  when:
+    - debug | default(false)
+    - query_logs_app is defined
+
+- name: "Assert app uninstallation succeeded"
+  assert:
+    that:
+      - not uninstall_app_result.failed
+      - uninstall_app_result.changed or "'not installed' in (uninstall_app_result.msg | lower)"
+    fail_msg: "App uninstallation should have succeeded"
+  when: query_logs_app is defined
