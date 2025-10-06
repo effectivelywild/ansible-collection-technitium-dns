@@ -19,6 +19,8 @@ If you would like to contribute feel free to open a PR with detailed note on our
 
 ## Compatibility Matrix
 
+This collection is tested against the latest released of Technitium DNS Server.
+
 This collection is tested against the following Ansible and Python versions:
 
 | Ansible Version | Python 3.10 | Python 3.11 | Python 3.12 | Python 3.13 |
