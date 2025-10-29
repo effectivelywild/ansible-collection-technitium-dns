@@ -1,19 +1,19 @@
 ---
-# AAAA Record Tests for technitium_dns_record module
+# ANAME Record Tests for technitium_dns_record module
 # Tests record set functionality with 'records' parameter and overwrite modes
 
 # =============================================================================
 # Test 1: Shorthand Single Record - Create, Update, Delete
 # =============================================================================
-- name: "Test 1.1: Create single AAAA record using shorthand syntax"
+- name: "Test 1.1: Create single ANAME record using shorthand syntax"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "shorthand-aaaa-test.{{ primary_zone_name }}"
+    name: "shorthand-aname.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
-    type: AAAA
-    ipAddress: "2001:db8::1"
+    type: ANAME
+    aname: "target.{{ primary_zone_name }}"
     ttl: 3600
     comments: "Created via shorthand"
     state: present
@@ -29,15 +29,15 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "shorthand-aaaa-test.{{ primary_zone_name }}"
+    name: "shorthand-aname.{{ primary_zone_name }}"
   register: test1_verify
 
 - name: "Test 1.2: Assert record values"
   ansible.builtin.assert:
     that:
       - test1_verify.records | length == 1
-      - test1_verify.records[0].type == 'AAAA'
-      - test1_verify.records[0].rData.ipAddress == '2001:db8::1'
+      - test1_verify.records[0].type == 'ANAME'
+      - test1_verify.records[0].rData.aname == 'target.' + primary_zone_name
       - test1_verify.records[0].ttl == 3600
 
 - name: "Test 1.3: Idempotency - Run same create again"
@@ -45,10 +45,10 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "shorthand-aaaa-test.{{ primary_zone_name }}"
+    name: "shorthand-aname.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
-    type: AAAA
-    ipAddress: "2001:db8::1"
+    type: ANAME
+    aname: "target.{{ primary_zone_name }}"
     ttl: 3600
     comments: "Created via shorthand"
     state: present
@@ -59,15 +59,15 @@
     that:
       - test1_idempotent is not changed
 
-- name: "Test 1.4: Update IP address (overwrite=true by default)"
+- name: "Test 1.4: Update aname target (overwrite=true by default)"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "shorthand-aaaa-test.{{ primary_zone_name }}"
+    name: "shorthand-aname.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
-    type: AAAA
-    ipAddress: "2001:db8::2"
+    type: ANAME
+    aname: "newtarget.{{ primary_zone_name }}"
     ttl: 3600
     state: present
   register: test1_update
@@ -77,28 +77,28 @@
     that:
       - test1_update is changed
 
-- name: "Test 1.5: Verify updated IP"
+- name: "Test 1.5: Verify updated aname"
   technitium_dns_get_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "shorthand-aaaa-test.{{ primary_zone_name }}"
+    name: "shorthand-aname.{{ primary_zone_name }}"
   register: test1_verify_update
 
-- name: "Test 1.5: Assert IP was updated"
+- name: "Test 1.5: Assert aname was updated"
   ansible.builtin.assert:
     that:
       - test1_verify_update.records | length == 1
-      - test1_verify_update.records[0].rData.ipAddress == '2001:db8::2'
+      - test1_verify_update.records[0].rData.aname == 'newtarget.' + primary_zone_name
 
 - name: "Test 1.6: Delete record using shorthand"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "shorthand-aaaa-test.{{ primary_zone_name }}"
+    name: "shorthand-aname.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
-    type: AAAA
+    type: ANAME
     state: absent
   register: test1_delete
 
@@ -112,7 +112,7 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "shorthand-aaaa-test.{{ primary_zone_name }}"
+    name: "shorthand-aname.{{ primary_zone_name }}"
   register: test1_verify_delete
   ignore_errors: true
 
@@ -124,19 +124,19 @@
 # =============================================================================
 # Test 2: Records List - Multiple Records in a Set
 # =============================================================================
-- name: "Test 2.1: Create multiple AAAA records using records parameter"
+- name: "Test 2.1: Create multiple ANAME records using records parameter"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "multi-aaaa.{{ primary_zone_name }}"
+    name: "multi-aname.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
-    type: AAAA
+    type: ANAME
     ttl: 7200
     records:
-      - ipAddress: "2001:db8:1::1"
-      - ipAddress: "2001:db8:1::2"
-      - ipAddress: "2001:db8:1::3"
+      - aname: "target1.{{ primary_zone_name }}"
+      - aname: "target2.{{ primary_zone_name }}"
+      - aname: "target3.example.net"
     state: present
   register: test2_create
 
@@ -150,31 +150,28 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "multi-aaaa.{{ primary_zone_name }}"
+    name: "multi-aname.{{ primary_zone_name }}"
   register: test2_verify
 
-- name: "Test 2.2: Assert 3 AAAA records exist"
+- name: "Test 2.2: Assert 3 ANAME records exist"
   ansible.builtin.assert:
     that:
       - test2_verify.records | length == 3
-      - test2_verify.records | selectattr('type', 'equalto', 'AAAA') | list | length == 3
-      - "'2001:db8:1::1' in (test2_verify.records | map(attribute='rData') | map(attribute='ipAddress') | list)"
-      - "'2001:db8:1::2' in (test2_verify.records | map(attribute='rData') | map(attribute='ipAddress') | list)"
-      - "'2001:db8:1::3' in (test2_verify.records | map(attribute='rData') | map(attribute='ipAddress') | list)"
+      - test2_verify.records | selectattr('type', 'equalto', 'ANAME') | list | length == 3
 
 - name: "Test 2.3: Idempotency - Run same create again"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "multi-aaaa.{{ primary_zone_name }}"
+    name: "multi-aname.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
-    type: AAAA
+    type: ANAME
     ttl: 7200
     records:
-      - ipAddress: "2001:db8:1::1"
-      - ipAddress: "2001:db8:1::2"
-      - ipAddress: "2001:db8:1::3"
+      - aname: "target1.{{ primary_zone_name }}"
+      - aname: "target2.{{ primary_zone_name }}"
+      - aname: "target3.example.net"
     state: present
   register: test2_idempotent
 
@@ -191,13 +188,13 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "multi-aaaa.{{ primary_zone_name }}"
+    name: "multi-aname.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
-    type: AAAA
+    type: ANAME
     ttl: 7200
     records:
-      - ipAddress: "2001:db8:2::1"
-      - ipAddress: "2001:db8:2::2"
+      - aname: "newtarget1.{{ primary_zone_name }}"
+      - aname: "newtarget2.example.com"
     state: present
   register: test3_replace
 
@@ -211,18 +208,13 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "multi-aaaa.{{ primary_zone_name }}"
+    name: "multi-aname.{{ primary_zone_name }}"
   register: test3_verify
 
 - name: "Test 3.2: Assert only new records exist"
   ansible.builtin.assert:
     that:
       - test3_verify.records | length == 2
-      - "'2001:db8:2::1' in (test3_verify.records | map(attribute='rData') | map(attribute='ipAddress') | list)"
-      - "'2001:db8:2::2' in (test3_verify.records | map(attribute='rData') | map(attribute='ipAddress') | list)"
-      - "'2001:db8:1::1' not in (test3_verify.records | map(attribute='rData') | map(attribute='ipAddress') | list)"
-      - "'2001:db8:1::2' not in (test3_verify.records | map(attribute='rData') | map(attribute='ipAddress') | list)"
-      - "'2001:db8:1::3' not in (test3_verify.records | map(attribute='rData') | map(attribute='ipAddress') | list)"
 
 # =============================================================================
 # Test 4: Additive Mode (overwrite=false) - Add to existing set
@@ -232,14 +224,14 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "multi-aaaa.{{ primary_zone_name }}"
+    name: "multi-aname.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
-    type: AAAA
+    type: ANAME
     ttl: 7200
     overwrite: false
     records:
-      - ipAddress: "2001:db8:3::1"
-      - ipAddress: "2001:db8:3::2"
+      - aname: "additive1.example.org"
+      - aname: "additive2.{{ primary_zone_name }}"
     state: present
   register: test4_add
 
@@ -253,31 +245,27 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "multi-aaaa.{{ primary_zone_name }}"
+    name: "multi-aname.{{ primary_zone_name }}"
   register: test4_verify
 
 - name: "Test 4.2: Assert 4 total records (2 old + 2 new)"
   ansible.builtin.assert:
     that:
       - test4_verify.records | length == 4
-      - "'2001:db8:2::1' in (test4_verify.records | map(attribute='rData') | map(attribute='ipAddress') | list)"
-      - "'2001:db8:2::2' in (test4_verify.records | map(attribute='rData') | map(attribute='ipAddress') | list)"
-      - "'2001:db8:3::1' in (test4_verify.records | map(attribute='rData') | map(attribute='ipAddress') | list)"
-      - "'2001:db8:3::2' in (test4_verify.records | map(attribute='rData') | map(attribute='ipAddress') | list)"
 
 - name: "Test 4.3: Idempotency with overwrite=false"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "multi-aaaa.{{ primary_zone_name }}"
+    name: "multi-aname.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
-    type: AAAA
+    type: ANAME
     ttl: 7200
     overwrite: false
     records:
-      - ipAddress: "2001:db8:3::1"
-      - ipAddress: "2001:db8:3::2"
+      - aname: "additive1.example.org"
+      - aname: "additive2.{{ primary_zone_name }}"
     state: present
   register: test4_idempotent
 
@@ -294,12 +282,12 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "multi-aaaa.{{ primary_zone_name }}"
+    name: "multi-aname.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
-    type: AAAA
+    type: ANAME
     records:
-      - ipAddress: "2001:db8:3::1"
-      - ipAddress: "2001:db8:3::2"
+      - aname: "additive1.example.org"
+      - aname: "additive2.{{ primary_zone_name }}"
     state: absent
   register: test5_delete_specific
 
@@ -314,17 +302,13 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "multi-aaaa.{{ primary_zone_name }}"
+    name: "multi-aname.{{ primary_zone_name }}"
   register: test5_verify
 
 - name: "Test 5.2: Assert only 2 records remain"
   ansible.builtin.assert:
     that:
       - test5_verify.records | length == 2
-      - "'2001:db8:2::1' in (test5_verify.records | map(attribute='rData') | map(attribute='ipAddress') | list)"
-      - "'2001:db8:2::2' in (test5_verify.records | map(attribute='rData') | map(attribute='ipAddress') | list)"
-      - "'2001:db8:3::1' not in (test5_verify.records | map(attribute='rData') | map(attribute='ipAddress') | list)"
-      - "'2001:db8:3::2' not in (test5_verify.records | map(attribute='rData') | map(attribute='ipAddress') | list)"
 
 # =============================================================================
 # Test 6: Delete Entire Record Set (no records specified)
@@ -334,9 +318,9 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "multi-aaaa.{{ primary_zone_name }}"
+    name: "multi-aname.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
-    type: AAAA
+    type: ANAME
     state: absent
   register: test6_delete_all
 
@@ -351,7 +335,7 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "multi-aaaa.{{ primary_zone_name }}"
+    name: "multi-aname.{{ primary_zone_name }}"
   register: test6_verify
   ignore_errors: true
 
@@ -365,9 +349,9 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "multi-aaaa.{{ primary_zone_name }}"
+    name: "multi-aname.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
-    type: AAAA
+    type: ANAME
     state: absent
   register: test6_delete_idempotent
 
@@ -384,10 +368,10 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "check-mode-aaaa-test.{{ primary_zone_name }}"
+    name: "check-mode-aname.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
-    type: AAAA
-    ipAddress: "2001:db8:9::1"
+    type: ANAME
+    aname: "checktarget.{{ primary_zone_name }}"
     state: present
   check_mode: true
   register: test7_check_create
@@ -402,7 +386,7 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "check-mode-aaaa-test.{{ primary_zone_name }}"
+    name: "check-mode-aname.{{ primary_zone_name }}"
   register: test7_verify_not_created
   ignore_errors: true
 
@@ -412,181 +396,132 @@
       - test7_verify_not_created is failed
 
 # =============================================================================
-# Test 8: Mixed IPv6 Address Formats
+# Test 8: Negative Tests - Missing Required Parameters
 # =============================================================================
-- name: "Test 8.1: Create records with different IPv6 formats"
+- name: "Test 8.1: Missing aname with shorthand (state=present)"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "ipv6-formats.{{ primary_zone_name }}"
+    name: "missing-aname.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
-    type: AAAA
-    records:
-      - ipAddress: "2001:db8:0:0:0:0:0:1"
-      - ipAddress: "::1"
-      - ipAddress: "fe80::1"
-    state: present
-  register: test8_create
-
-- name: "Test 8.1: Assert records created"
-  ansible.builtin.assert:
-    that:
-      - test8_create is changed
-
-- name: "Test 8.2: Cleanup IPv6 format test"
-  effectivelywild.technitium_dns.technitium_dns_record:
-    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token_2 }}"
-    api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "ipv6-formats.{{ primary_zone_name }}"
-    zone: "{{ primary_zone_name }}"
-    type: AAAA
-    state: absent
-  register: test8_cleanup
-
-# =============================================================================
-# Test 9: Negative Tests - Missing Required Parameters
-# =============================================================================
-- name: "Test 9.1: Missing ipAddress with shorthand (state=present)"
-  effectivelywild.technitium_dns.technitium_dns_record:
-    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token_2 }}"
-    api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "missing-ipv6.{{ primary_zone_name }}"
-    zone: "{{ primary_zone_name }}"
-    type: AAAA
+    type: ANAME
     ttl: 3600
     state: present
-  register: test9_missing_ip
+  register: test8_missing_aname
   ignore_errors: true
 
-- name: "Test 9.1: Assert missing parameter error"
+- name: "Test 8.1: Assert missing parameter error"
   ansible.builtin.assert:
     that:
-      - test9_missing_ip is failed
-      - test9_missing_ip.msg is search("No records specified|ipAddress")
+      - test8_missing_aname is failed
+      - test8_missing_aname.msg is search("No records specified|aname")
 
-- name: "Test 9.2: Missing required field in records list"
+- name: "Test 8.2: Missing required field in records list"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "missing-field-aaaa.{{ primary_zone_name }}"
+    name: "missing-field-aname.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
-    type: AAAA
+    type: ANAME
     records:
       - ttl: 3600
     state: present
-  register: test9_missing_field
+  register: test8_missing_field
   ignore_errors: true
 
-- name: "Test 9.2: Assert missing field error"
+- name: "Test 8.2: Assert missing field error"
   ansible.builtin.assert:
     that:
-      - test9_missing_field is failed
-      - test9_missing_field.msg is search("missing required field 'ipAddress'")
+      - test8_missing_field is failed
+      - test8_missing_field.msg is search("missing required field 'aname'")
 
 # =============================================================================
-# Test 10: Negative Tests - Invalid Record Data
+# Test 9: Negative Tests - Unsupported Parameters
 # =============================================================================
-- name: "Test 10.1: Invalid IPv6 address format"
+- name: "Test 9.1: Unsupported parameter for ANAME record (ipAddress)"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "invalid-ipv6.{{ primary_zone_name }}"
+    name: "bad-param-aname.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
-    type: AAAA
-    ipAddress: "gggg::1"
+    type: ANAME
+    aname: "target.{{ primary_zone_name }}"
+    ipAddress: "192.0.2.70"
     state: present
-  register: test10_invalid_ipv6
+  register: test9_bad_param
   ignore_errors: true
 
-- name: "Test 10.1: Assert invalid IPv6 error"
+- name: "Test 9.1: Assert unsupported parameter error"
   ansible.builtin.assert:
     that:
-      - test10_invalid_ipv6 is failed
+      - test9_bad_param is failed
+      - test9_bad_param.msg is search("not supported for record type")
 
-- name: "Test 10.2: IPv4 address in AAAA record"
+- name: "Test 9.2: Unsupported parameter in records list (cname)"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "ipv4-in-aaaa.{{ primary_zone_name }}"
+    name: "bad-field-aname.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
-    type: AAAA
-    ipAddress: "192.0.2.1"
+    type: ANAME
+    records:
+      - aname: "target.{{ primary_zone_name }}"
+        cname: "other.example.com"
     state: present
-  register: test10_ipv4_in_aaaa
+  register: test9_bad_field
   ignore_errors: true
 
-- name: "Test 10.2: Assert IPv4 in AAAA record error"
+- name: "Test 9.2: Assert unsupported field error"
   ansible.builtin.assert:
     that:
-      - test10_ipv4_in_aaaa is failed
-
-- name: "Test 10.3: Unsupported parameter for AAAA record (cname)"
-  effectivelywild.technitium_dns.technitium_dns_record:
-    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
-    api_token: "{{ technitium_api_token_2 }}"
-    api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "bad-param-aaaa.{{ primary_zone_name }}"
-    zone: "{{ primary_zone_name }}"
-    type: AAAA
-    ipAddress: "2001:db8::100"
-    cname: "other.example.com"
-    state: present
-  register: test10_bad_param
-  ignore_errors: true
-
-- name: "Test 10.3: Assert unsupported parameter error"
-  ansible.builtin.assert:
-    that:
-      - test10_bad_param is failed
-      - test10_bad_param.msg is search("not supported for record type")
+      - test9_bad_field is failed
+      - test9_bad_field.msg is search("contains unsupported field")
 
 # =============================================================================
-# Test 11: Negative Tests - Delete Operations
+# Test 10: Negative Tests - Delete Operations
 # =============================================================================
-- name: "Test 11.1: Delete with missing identifying fields"
+- name: "Test 10.1: Delete with missing identifying fields"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "missing-id-aaaa.{{ primary_zone_name }}"
+    name: "missing-id-aname.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
-    type: AAAA
+    type: ANAME
     records:
       - ttl: 3600
     state: absent
-  register: test11_missing_id
+  register: test10_missing_id
   ignore_errors: true
 
-- name: "Test 11.1: Assert missing identifying field error"
+- name: "Test 10.1: Assert missing identifying field error"
   ansible.builtin.assert:
     that:
-      - test11_missing_id is failed
-      - test11_missing_id.msg is search("missing required field|missing identifying fields")
+      - test10_missing_id is failed
+      - test10_missing_id.msg is search("missing required field|missing identifying fields")
 
-- name: "Test 11.2: Delete non-existent AAAA record (idempotent)"
+- name: "Test 10.2: Delete non-existent ANAME record (idempotent)"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "never-existed-aaaa.{{ primary_zone_name }}"
+    name: "never-existed-aname.{{ primary_zone_name }}"
     zone: "{{ primary_zone_name }}"
-    type: AAAA
+    type: ANAME
     records:
-      - ipAddress: "2001:db8:9999::1"
+      - aname: "nonexistent.example.com"
     state: absent
-  register: test11_delete_nonexistent
+  register: test10_delete_nonexistent
 
-- name: "Test 11.2: Assert no changes"
+- name: "Test 10.2: Assert no changes"
   ansible.builtin.assert:
     that:
-      - test11_delete_nonexistent is not changed
+      - test10_delete_nonexistent is not changed
 
 - name: "Test Completion Message"
   ansible.builtin.debug:
-    msg: "AAAA Record tests completed successfully! (Including negative tests)"
+    msg: "ANAME Record tests completed successfully!"

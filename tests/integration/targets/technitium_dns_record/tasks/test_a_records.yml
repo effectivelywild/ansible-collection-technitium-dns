@@ -1,5 +1,6 @@
 ---
 # A Record Tests for technitium_dns_record module
+# Tests record set functionality with 'records' parameter and overwrite modes
 
 # =============================================================================
 # Test 1: Shorthand Single Record - Create, Update, Delete
