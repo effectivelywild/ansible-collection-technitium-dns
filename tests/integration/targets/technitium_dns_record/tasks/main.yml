@@ -24,8 +24,14 @@
     var: zone_creation_results
   when: debug | default(false)
 
-- name: "Include comprehensive A record tests"
+- name: "Include v1.0.0 A record tests"
   ansible.builtin.include_tasks: test_a_records.yml
+
+- name: "Include v1.0.0 AAAA record tests"
+  ansible.builtin.include_tasks: test_aaaa_records.yml
+
+# - name: "Include comprehensive A record tests (pre-v1.0.0)"
+#   ansible.builtin.include_tasks: test_a_records.yml
 
 # - name: "Include state-based record tests (POC - will be deprecated)"
 #   ansible.builtin.include_tasks: test_state_based_records.yml

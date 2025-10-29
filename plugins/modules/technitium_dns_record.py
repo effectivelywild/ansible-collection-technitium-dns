@@ -680,6 +680,137 @@ UPDATE_PARAM_MAPPINGS = {
 # other fields change, but won't trigger updates on their own.
 COMMON_UPDATE_PARAMS = ['ttl', 'expiryTtl']
 
+# Record type schemas define the structure for each DNS record type
+# Used for normalization, validation, and identifying records within a set
+RECORD_SCHEMAS = {
+    'A': {
+        'required_fields': ['ipAddress'],
+        'optional_fields': ['ptr', 'createPtrZone', 'updateSvcbHints'],
+        'identifying_fields': ['ipAddress'],
+        'shorthand_primary': 'ipAddress'
+    },
+    'AAAA': {
+        'required_fields': ['ipAddress'],
+        'optional_fields': ['ptr', 'createPtrZone', 'updateSvcbHints'],
+        'identifying_fields': ['ipAddress'],
+        'shorthand_primary': 'ipAddress'
+    },
+    'NS': {
+        'required_fields': ['nameServer'],
+        'optional_fields': ['glue'],
+        'identifying_fields': ['nameServer'],
+        'shorthand_primary': 'nameServer'
+    },
+    'CNAME': {
+        'required_fields': ['cname'],
+        'optional_fields': [],
+        'identifying_fields': ['cname'],
+        'shorthand_primary': 'cname'
+    },
+    'PTR': {
+        'required_fields': ['ptrName'],
+        'optional_fields': [],
+        'identifying_fields': ['ptrName'],
+        'shorthand_primary': 'ptrName'
+    },
+    'MX': {
+        'required_fields': ['exchange', 'preference'],
+        'optional_fields': [],
+        'identifying_fields': ['exchange', 'preference'],
+        'shorthand_required': ['exchange', 'preference']
+    },
+    'TXT': {
+        'required_fields': ['text'],
+        'optional_fields': ['splitText'],
+        'identifying_fields': ['text'],
+        'shorthand_primary': 'text'
+    },
+    'SRV': {
+        'required_fields': ['priority', 'weight', 'srv_port', 'target'],
+        'optional_fields': [],
+        'identifying_fields': ['priority', 'weight', 'srv_port', 'target'],
+        'shorthand_required': ['priority', 'weight', 'srv_port', 'target']
+    },
+    'NAPTR': {
+        'required_fields': ['naptrOrder', 'naptrPreference', 'naptrFlags', 'naptrServices', 'naptrRegexp', 'naptrReplacement'],
+        'optional_fields': [],
+        'identifying_fields': ['naptrOrder', 'naptrPreference', 'naptrFlags', 'naptrServices', 'naptrRegexp', 'naptrReplacement'],
+        'shorthand_required': ['naptrOrder', 'naptrPreference', 'naptrFlags', 'naptrServices', 'naptrRegexp', 'naptrReplacement']
+    },
+    'DNAME': {
+        'required_fields': ['dname'],
+        'optional_fields': [],
+        'identifying_fields': ['dname'],
+        'shorthand_primary': 'dname'
+    },
+    'DS': {
+        'required_fields': ['keyTag', 'algorithm', 'digestType', 'digest'],
+        'optional_fields': [],
+        'identifying_fields': ['keyTag', 'algorithm', 'digestType', 'digest'],
+        'shorthand_required': ['keyTag', 'algorithm', 'digestType', 'digest']
+    },
+    'SSHFP': {
+        'required_fields': ['sshfpAlgorithm', 'sshfpFingerprintType', 'sshfpFingerprint'],
+        'optional_fields': [],
+        'identifying_fields': ['sshfpAlgorithm', 'sshfpFingerprintType', 'sshfpFingerprint'],
+        'shorthand_required': ['sshfpAlgorithm', 'sshfpFingerprintType', 'sshfpFingerprint']
+    },
+    'TLSA': {
+        'required_fields': ['tlsaCertificateUsage', 'tlsaSelector', 'tlsaMatchingType', 'tlsaCertificateAssociationData'],
+        'optional_fields': [],
+        'identifying_fields': ['tlsaCertificateUsage', 'tlsaSelector', 'tlsaMatchingType', 'tlsaCertificateAssociationData'],
+        'shorthand_required': ['tlsaCertificateUsage', 'tlsaSelector', 'tlsaMatchingType', 'tlsaCertificateAssociationData']
+    },
+    'SVCB': {
+        'required_fields': ['svcPriority', 'svcTargetName'],
+        'optional_fields': ['svcParams', 'autoIpv4Hint', 'autoIpv6Hint'],
+        'identifying_fields': ['svcPriority', 'svcTargetName'],
+        'shorthand_required': ['svcPriority', 'svcTargetName']
+    },
+    'HTTPS': {
+        'required_fields': ['svcPriority', 'svcTargetName'],
+        'optional_fields': ['svcParams', 'autoIpv4Hint', 'autoIpv6Hint'],
+        'identifying_fields': ['svcPriority', 'svcTargetName'],
+        'shorthand_required': ['svcPriority', 'svcTargetName']
+    },
+    'URI': {
+        'required_fields': ['uriPriority', 'uriWeight', 'uri'],
+        'optional_fields': [],
+        'identifying_fields': ['uriPriority', 'uriWeight', 'uri'],
+        'shorthand_required': ['uriPriority', 'uriWeight', 'uri']
+    },
+    'CAA': {
+        'required_fields': ['flags', 'tag', 'value'],
+        'optional_fields': [],
+        'identifying_fields': ['flags', 'tag', 'value'],
+        'shorthand_required': ['flags', 'tag', 'value']
+    },
+    'ANAME': {
+        'required_fields': ['aname'],
+        'optional_fields': [],
+        'identifying_fields': ['aname'],
+        'shorthand_primary': 'aname'
+    },
+    'FWD': {
+        'required_fields': ['protocol', 'forwarder'],
+        'optional_fields': ['forwarderPriority', 'dnssecValidation', 'proxyType', 'proxyAddress', 'proxyPort', 'proxyUsername', 'proxyPassword'],
+        'identifying_fields': ['protocol', 'forwarder'],
+        'shorthand_required': ['protocol', 'forwarder']
+    },
+    'APP': {
+        'required_fields': ['appName', 'classPath'],
+        'optional_fields': ['recordData'],
+        'identifying_fields': ['appName', 'classPath'],
+        'shorthand_required': ['appName', 'classPath']
+    },
+    'UNKNOWN': {
+        'required_fields': ['rdata'],
+        'optional_fields': [],
+        'identifying_fields': ['rdata'],
+        'shorthand_primary': 'rdata'
+    }
+}
+
 
 class RecordModule(TechnitiumModule):
     argument_spec = dict(
@@ -692,9 +823,12 @@ class RecordModule(TechnitiumModule):
         ]),
         state=dict(type='str', required=False, default='present', choices=['present', 'absent']),
         ttl=dict(type='int', required=False),
-        overwrite=dict(type='bool', required=False, default=False),
+        overwrite=dict(type='bool', required=False, default=True),  # v1.0.0: default=True for declarative behavior
         comments=dict(type='str', required=False),
         expiryTtl=dict(type='int', required=False),
+        # New v1.0.0: records list for managing record sets
+        records=dict(type='list', elements='dict', required=False),
+        # Legacy shorthand parameters (auto-converted to records list)
         ipAddress=dict(type='str', required=False),
         ptr=dict(type='bool', required=False),
         createPtrZone=dict(type='bool', required=False),
@@ -785,6 +919,13 @@ class RecordModule(TechnitiumModule):
         state = params['state']
         record_type = params['type'].upper()
 
+        # Normalize records to list format (handles shorthand conversion)
+        normalized_records, set_params = self._normalize_records(record_type, params)
+
+        # Store normalized data back in params
+        params['_normalized_records'] = normalized_records
+        params['_set_params'] = set_params
+
         # Validate parameters for the record type
         self._validate_parameters(record_type, params)
 
@@ -794,33 +935,165 @@ class RecordModule(TechnitiumModule):
         elif state == 'absent':
             self._ensure_absent(record_type, params)
 
+    def _normalize_records(self, record_type, params):
+        """
+        Convert shorthand single-record parameters to records list format.
+
+        Args:
+            record_type: The DNS record type (A, MX, etc.)
+            params: Module parameters
+
+        Returns:
+            tuple: (records_list, set_level_params)
+                - records_list: List of record dictionaries
+                - set_level_params: Dict of set-level parameters (ttl, comments, etc.)
+        """
+        # Extract set-level parameters
+        set_params = {
+            'ttl': params.get('ttl'),
+            'comments': params.get('comments'),
+            'expiryTtl': params.get('expiryTtl'),
+            'overwrite': params.get('overwrite')
+        }
+        # Remove None values
+        set_params = {k: v for k, v in set_params.items() if v is not None}
+
+        # Check for conflicting parameter usage (records vs shorthand)
+        if params.get('records') and record_type in RECORD_SCHEMAS:
+            schema = RECORD_SCHEMAS[record_type]
+            # Check if any record-specific shorthand parameters are also provided
+            conflicting_params = []
+            for field in schema['required_fields'] + schema['optional_fields']:
+                if params.get(field) is not None:
+                    conflicting_params.append(field)
+
+            if conflicting_params:
+                self.fail_json(
+                    msg=f"Cannot use both 'records' parameter and shorthand parameters. "
+                        f"Found both 'records' and: {', '.join(conflicting_params)}. "
+                        f"Use either 'records' list OR shorthand parameters, not both."
+                )
+
+        # If 'records' provided, use it directly
+        if params.get('records'):
+            records = params['records']
+            # Validate each record has required fields and no invalid fields
+            if record_type in RECORD_SCHEMAS:
+                schema = RECORD_SCHEMAS[record_type]
+                valid_fields = set(schema['required_fields'] + schema['optional_fields'])
+
+                for idx, record in enumerate(records):
+                    # Check for required fields
+                    for req_field in schema['required_fields']:
+                        if req_field not in record or record[req_field] is None:
+                            self.fail_json(
+                                msg=f"Record {idx} missing required field '{req_field}' for {record_type} record"
+                            )
+
+                    # Check for invalid/unsupported fields
+                    record_fields = set(record.keys())
+                    invalid_fields = record_fields - valid_fields
+                    if invalid_fields:
+                        self.fail_json(
+                            msg=f"Record {idx} contains unsupported field(s) for {record_type} record: {', '.join(sorted(invalid_fields))}"
+                        )
+            return records, set_params
+
+        # Otherwise, build from record-type-specific shorthand parameters
+        if record_type not in RECORD_SCHEMAS:
+            return [], set_params
+
+        schema = RECORD_SCHEMAS[record_type]
+        record_data = {}
+
+        # Collect all required and optional fields from params
+        for field in schema['required_fields'] + schema['optional_fields']:
+            if field in params and params[field] is not None:
+                record_data[field] = params[field]
+
+        # Check if we have required fields for shorthand mode
+        has_required = all(
+            params.get(field) is not None
+            for field in schema['required_fields']
+        )
+
+        if has_required:
+            # Remove None values
+            record_data = {k: v for k, v in record_data.items() if v is not None}
+            return [record_data], set_params
+
+        # No records provided via either method
+        return [], set_params
+
+    def _extract_set_params(self, params):
+        """Extract set-level parameters from params"""
+        set_params = {
+            'ttl': params.get('ttl'),
+            'comments': params.get('comments'),
+            'expiryTtl': params.get('expiryTtl')
+        }
+        return {k: v for k, v in set_params.items() if v is not None}
+
+    def _records_match(self, record1, record2, record_type):
+        """
+        Check if two records are the same based on identifying fields.
+
+        Args:
+            record1: First record dict (from API or user input)
+            record2: Second record dict
+            record_type: DNS record type
+
+        Returns:
+            bool: True if records match on identifying fields
+        """
+        if record_type not in RECORD_SCHEMAS:
+            return False
+
+        schema = RECORD_SCHEMAS[record_type]
+        identifying_fields = schema['identifying_fields']
+
+        for field in identifying_fields:
+            # Special handling for srv_port vs port
+            field1_name = 'port' if field == 'srv_port' else field
+            field2_name = field
+
+            val1 = record1.get(field1_name)
+            val2 = record2.get(field2_name)
+
+            # Use existing _values_match for robust comparison
+            if not self._values_match(val1, val2, field):
+                return False
+
+        return True
+
     def _validate_parameters(self, record_type, params):
         """Validate that parameters are appropriate for the record type"""
+        # v1.0.0: All record types now support 'records' parameter
         allowed_params = {
-            'A': {'ipAddress', 'ttl', 'overwrite', 'comments', 'expiryTtl', 'ptr', 'createPtrZone', 'updateSvcbHints'},
-            'AAAA': {'ipAddress', 'ttl', 'overwrite', 'comments', 'expiryTtl', 'ptr', 'createPtrZone', 'updateSvcbHints'},
-            'NS': {'nameServer', 'glue', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
-            'CNAME': {'cname', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
-            'PTR': {'ptrName', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
-            'MX': {'exchange', 'preference', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
-            'TXT': {'text', 'splitText', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
-            'SRV': {'priority', 'weight', 'srv_port', 'target', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
-            'NAPTR': {'naptrOrder', 'naptrPreference', 'naptrFlags', 'naptrServices', 'naptrRegexp', 'naptrReplacement',
+            'A': {'records', 'ipAddress', 'ttl', 'overwrite', 'comments', 'expiryTtl', 'ptr', 'createPtrZone', 'updateSvcbHints'},
+            'AAAA': {'records', 'ipAddress', 'ttl', 'overwrite', 'comments', 'expiryTtl', 'ptr', 'createPtrZone', 'updateSvcbHints'},
+            'NS': {'records', 'nameServer', 'glue', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'CNAME': {'records', 'cname', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'PTR': {'records', 'ptrName', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'MX': {'records', 'exchange', 'preference', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'TXT': {'records', 'text', 'splitText', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'SRV': {'records', 'priority', 'weight', 'srv_port', 'target', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'NAPTR': {'records', 'naptrOrder', 'naptrPreference', 'naptrFlags', 'naptrServices', 'naptrRegexp', 'naptrReplacement',
                       'ttl', 'overwrite', 'comments', 'expiryTtl'},
-            'DNAME': {'dname', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
-            'DS': {'keyTag', 'algorithm', 'digestType', 'digest', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
-            'SSHFP': {'sshfpAlgorithm', 'sshfpFingerprintType', 'sshfpFingerprint', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
-            'TLSA': {'tlsaCertificateUsage', 'tlsaSelector', 'tlsaMatchingType', 'tlsaCertificateAssociationData',
+            'DNAME': {'records', 'dname', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'DS': {'records', 'keyTag', 'algorithm', 'digestType', 'digest', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'SSHFP': {'records', 'sshfpAlgorithm', 'sshfpFingerprintType', 'sshfpFingerprint', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'TLSA': {'records', 'tlsaCertificateUsage', 'tlsaSelector', 'tlsaMatchingType', 'tlsaCertificateAssociationData',
                      'ttl', 'overwrite', 'comments', 'expiryTtl'},
-            'SVCB': {'svcPriority', 'svcTargetName', 'svcParams', 'autoIpv4Hint', 'autoIpv6Hint', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
-            'HTTPS': {'svcPriority', 'svcTargetName', 'svcParams', 'autoIpv4Hint', 'autoIpv6Hint', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
-            'CAA': {'flags', 'tag', 'value', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
-            'ANAME': {'aname', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
-            'FWD': {'ttl', 'protocol', 'forwarder', 'forwarderPriority', 'dnssecValidation', 'proxyType', 'proxyAddress',
+            'SVCB': {'records', 'svcPriority', 'svcTargetName', 'svcParams', 'autoIpv4Hint', 'autoIpv6Hint', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'HTTPS': {'records', 'svcPriority', 'svcTargetName', 'svcParams', 'autoIpv4Hint', 'autoIpv6Hint', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'CAA': {'records', 'flags', 'tag', 'value', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'ANAME': {'records', 'aname', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'FWD': {'records', 'ttl', 'protocol', 'forwarder', 'forwarderPriority', 'dnssecValidation', 'proxyType', 'proxyAddress',
                     'proxyPort', 'proxyUsername', 'proxyPassword', 'overwrite', 'comments', 'expiryTtl'},
-            'APP': {'appName', 'classPath', 'recordData', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
-            'UNKNOWN': {'rdata', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
-            'URI': {'uriPriority', 'uriWeight', 'uri', 'ttl', 'overwrite', 'comments', 'expiryTtl'}
+            'APP': {'records', 'appName', 'classPath', 'recordData', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'UNKNOWN': {'records', 'rdata', 'ttl', 'overwrite', 'comments', 'expiryTtl'},
+            'URI': {'records', 'uriPriority', 'uriWeight', 'uri', 'ttl', 'overwrite', 'comments', 'expiryTtl'}
         }
 
         required_params = {
@@ -847,29 +1120,108 @@ class RecordModule(TechnitiumModule):
             'URI': ['uriPriority', 'uriWeight', 'uri'],
         }
 
-        # Check for unsupported parameters
+        # Check for unsupported parameters (skip internal params and normalized data)
         if record_type in allowed_params:
             for param in params:
-                if param in ['api_url', 'api_port', 'api_token', 'domain', 'name', 'zone', 'type', 'validate_certs', 'state']:
+                if param in ['api_url', 'api_port', 'api_token', 'domain', 'name', 'zone', 'type',
+                           'validate_certs', 'state', '_normalized_records', '_set_params']:
                     continue
                 if params[param] is not None and param not in allowed_params[record_type]:
                     self.fail_json(
                         msg=f"Parameter '{param}' is not supported for record type '{record_type}'.")
 
-        # Check for required parameters
-        if record_type in required_params:
-            for req in required_params[record_type]:
-                param_value = params.get(req)
-                if param_value is None:
+        # Check for required parameters (v1.0.0: validated in _normalize_records)
+        # If using 'records' parameter, validation happens there
+        # If using shorthand, we need at least one record in normalized list
+        normalized_records = params.get('_normalized_records', [])
+        if not normalized_records and params.get('state') == 'present':
+            # No records provided via either method for state=present
+            if record_type in required_params:
+                missing = required_params[record_type]
+                self.fail_json(
+                    msg=f"No records specified for state=present. Either provide 'records' list or shorthand parameters: {', '.join(missing)}"
+                )
+
+        # For state=absent with records specified, validate records have identifying fields
+        # (Non-identifying fields are ignored during deletion - only identifying fields matter)
+        if params.get('state') == 'absent' and normalized_records and record_type in RECORD_SCHEMAS:
+            schema = RECORD_SCHEMAS[record_type]
+            identifying_fields = set(schema['identifying_fields'])
+
+            for record in normalized_records:
+                # Ensure at least the identifying fields are present
+                missing_identifying = identifying_fields - set(record.keys())
+                if missing_identifying:
                     self.fail_json(
-                        msg=f"Parameter '{req}' is required for record type '{record_type}'.")
-                # Special handling for parameters that can be 0 or empty string
-                if req in ['svcPriority'] and param_value == 0:
-                    continue  # 0 is valid for svcPriority (alias mode)
+                        msg=f"Record for deletion missing identifying fields: {', '.join(missing_identifying)}"
+                    )
 
     def _ensure_present(self, record_type, params):
-        """Ensure the record exists with the specified parameters"""
-        # First, try to find any existing records of this type/name that we could update
+        """
+        v1.0.0: Ensure the record set exists with the specified records.
+
+        Behavior:
+        - overwrite=true (default): Replace entire record set with specified records
+        - overwrite=false: Add specified records to existing set (don't delete others)
+        """
+        # Get normalized records and set-level params
+        desired_records = params.get('_normalized_records', [])
+        set_params = params.get('_set_params', {})
+        overwrite = set_params.get('overwrite', True)
+
+        # Get existing records of this type/name
+        existing_api_records = self._get_existing_records_from_api(record_type, params)
+
+        # Convert existing API records to normalized format for comparison
+        existing_records = self._convert_api_records_to_normalized(existing_api_records, record_type)
+
+        # Determine what operations are needed
+        changes = self._compute_record_set_changes(
+            existing_records,
+            desired_records,
+            existing_api_records,
+            record_type,
+            set_params,
+            overwrite
+        )
+
+        # Check if no changes needed (idempotent)
+        if not changes['needs_change']:
+            if self.check_mode:
+                self.exit_json(changed=False, msg="Record set already matches desired state (check mode).")
+            else:
+                self.exit_json(changed=False, msg="Record set already matches desired state.")
+
+        # Report what would change in check mode
+        if self.check_mode:
+            msg_parts = []
+            if changes['to_delete']:
+                msg_parts.append(f"delete {len(changes['to_delete'])} record(s)")
+            if changes['to_update']:
+                msg_parts.append(f"update {len(changes['to_update'])} record(s)")
+            if changes['to_add']:
+                msg_parts.append(f"add {len(changes['to_add'])} record(s)")
+
+            msg = f"Would {', '.join(msg_parts)} (check mode)."
+            self.exit_json(changed=True, msg=msg, changes=changes)
+
+        # Execute changes
+        results = self._apply_record_set_changes(record_type, params, changes, set_params)
+
+        # Build response message
+        msg_parts = []
+        if results['deleted']:
+            msg_parts.append(f"deleted {results['deleted']} record(s)")
+        if results['updated']:
+            msg_parts.append(f"updated {results['updated']} record(s)")
+        if results['added']:
+            msg_parts.append(f"added {results['added']} record(s)")
+
+        msg = f"Record set modified: {', '.join(msg_parts)}." if msg_parts else "Record set updated."
+        self.exit_json(changed=True, msg=msg, results=results)
+
+    def _get_existing_records_from_api(self, record_type, params):
+        """Fetch existing records from API"""
         get_query = {
             'domain': params['name'],
             'token': self.api_token
@@ -879,197 +1231,358 @@ class RecordModule(TechnitiumModule):
 
         try:
             get_resp = self.request('/api/zones/records/get', params=get_query)
-            existing_records = get_resp.get('response', {}).get('records', []) if get_resp.get('status') == 'ok' else []
+            all_records = get_resp.get('response', {}).get('records', []) if get_resp.get('status') == 'ok' else []
         except Exception:
-            existing_records = []
+            return []
 
         # Filter to records of the correct type
-        matching_type_records = [rec for rec in existing_records
-                                  if rec.get('type', '').upper() == record_type and
-                                  rec.get('name', '').lower() == params['name'].lower()]
+        matching_records = [
+            rec for rec in all_records
+            if rec.get('type', '').upper() == record_type and
+               rec.get('name', '').lower() == params['name'].lower()
+        ]
 
-        # Check if we have a record that exactly matches desired state (idempotency check)
-        for rec in matching_type_records:
-            if self._record_matches(record_type, params, rec):
-                # Found exact match - check if it needs updating anyway (e.g., TTL change)
-                needs_update, differences = self._record_needs_update(rec, params)
+        return matching_records
 
-                if needs_update is None and differences.get('_unsupported'):
-                    msg = (f"Record type '{record_type}' exists but update checking is not yet implemented. "
-                           f"Supported types for updates: {', '.join(UPDATE_PARAM_MAPPINGS.keys())}. "
-                           f"To update this record, delete it first with state=absent, then recreate it.")
-                    if self.check_mode:
-                        self.exit_json(changed=False, msg=f"{msg} (check mode - cannot verify if changes needed)")
-                    else:
-                        self.exit_json(changed=False, msg=msg)
+    def _convert_api_records_to_normalized(self, api_records, record_type):
+        """Convert API record format to normalized record dict format"""
+        if record_type not in RECORD_SCHEMAS:
+            return []
 
-                if not needs_update:
-                    # Perfect match - idempotent
-                    if self.check_mode:
-                        self.exit_json(changed=False, msg="Record already matches desired state (check mode).")
-                    else:
-                        self.exit_json(changed=False, msg="Record already matches desired state.")
+        schema = RECORD_SCHEMAS[record_type]
+        normalized = []
 
-                # Record matches required params but needs update (e.g., TTL changed)
-                if self.check_mode:
-                    diff_msg = ", ".join([f"{k}: {v['current']} → {v['new']}" for k, v in differences.items()])
-                    self.exit_json(changed=True, msg=f"Record would be updated: {diff_msg} (check mode).")
+        for api_rec in api_records:
+            rdata = api_rec.get('rData', {})
+            record = {}
 
-                data = self._update_record(record_type, rec, params, differences)
-                self.exit_json(changed=True, msg="DNS record updated.", api_response=data)
+            # Extract fields based on schema
+            for field in schema['required_fields'] + schema['optional_fields']:
+                # Special handling for srv_port
+                if field == 'srv_port':
+                    if 'port' in rdata:
+                        record['srv_port'] = rdata['port']
+                elif field in rdata:
+                    record[field] = rdata[field]
 
-        # No exact match found - check if we should update an existing record
-        # For record types that support updates, if there's exactly ONE record of this type/name,
-        # we should update it rather than create a duplicate
-        if len(matching_type_records) == 1 and record_type in UPDATE_PARAM_MAPPINGS:
-            # Check if this single record needs updating
-            current_record = matching_type_records[0]
-            needs_update, differences = self._record_needs_update(current_record, params)
+            # Include TTL and other top-level fields
+            record['_ttl'] = api_rec.get('ttl')
+            record['_api_record'] = api_rec  # Keep reference to original
 
-            if needs_update is None and differences.get('_unsupported'):
-                # Shouldn't happen since we checked UPDATE_PARAM_MAPPINGS, but be safe
-                pass
-            elif needs_update:
-                # Update the existing record
-                if self.check_mode:
-                    diff_msg = ", ".join([f"{k}: {v['current']} → {v['new']}" for k, v in differences.items()])
-                    self.exit_json(changed=True, msg=f"Record would be updated: {diff_msg} (check mode).")
+            normalized.append(record)
 
-                data = self._update_record(record_type, current_record, params, differences)
-                self.exit_json(changed=True, msg="DNS record updated.", api_response=data)
+        return normalized
 
-        # No matching record to update - create new record
-        if self.check_mode:
-            self.exit_json(changed=True, msg="Record would be created (check mode).")
+    def _convert_single_api_record_to_normalized(self, api_rec, record_type):
+        """Convert a single API record to normalized format"""
+        if record_type not in RECORD_SCHEMAS:
+            return {}
 
-        # Build query for API request
-        query = self._build_query(params)
-        query['token'] = self.api_token
-        query['domain'] = self.name
+        schema = RECORD_SCHEMAS[record_type]
+        rdata = api_rec.get('rData', {})
+        record = {}
 
-        # Make API request to create
+        # Extract fields based on schema
+        for field in schema['required_fields'] + schema['optional_fields']:
+            # Special handling for srv_port
+            if field == 'srv_port':
+                if 'port' in rdata:
+                    record['srv_port'] = rdata['port']
+            elif field in rdata:
+                record[field] = rdata[field]
+
+        # Include TTL and other top-level fields
+        record['_ttl'] = api_rec.get('ttl')
+        record['_api_record'] = api_rec  # Keep reference to original
+
+        return record
+
+    def _compute_record_set_changes(self, existing_records, desired_records, existing_api_records,
+                                     record_type, set_params, overwrite):
+        """
+        Determine what changes are needed to move from existing to desired state.
+
+        Returns dict with:
+            - needs_change: bool
+            - to_delete: list of API records to delete
+            - to_update: list of (API record, desired record, differences) tuples
+            - to_add: list of desired records to create
+        """
+        changes = {
+            'needs_change': False,
+            'to_delete': [],
+            'to_update': [],
+            'to_add': []
+        }
+
+        if overwrite:
+            # Overwrite mode: Delete all existing, add all desired
+            # But check for perfect match first (idempotency)
+            if self._record_sets_match(existing_records, desired_records, set_params, record_type):
+                return changes  # No changes needed
+
+            changes['needs_change'] = True
+            changes['to_delete'] = existing_api_records
+            changes['to_add'] = desired_records
+        else:
+            # Additive mode: Add records that don't exist, update those that do
+            for desired_rec in desired_records:
+                found_match = False
+                for idx, existing_rec in enumerate(existing_records):
+                    if self._records_match(desired_rec, existing_rec, record_type):
+                        found_match = True
+                        # Check if update needed (set-level params)
+                        if self._record_needs_set_level_update(existing_rec, set_params):
+                            changes['needs_change'] = True
+                            api_rec = existing_rec.get('_api_record')
+                            changes['to_update'].append((api_rec, desired_rec, set_params))
+                        break
+
+                if not found_match:
+                    changes['needs_change'] = True
+                    changes['to_add'].append(desired_rec)
+
+        return changes
+
+    def _record_sets_match(self, existing_records, desired_records, set_params, record_type):
+        """Check if existing and desired record sets are identical"""
+        # Must have same number of records
+        if len(existing_records) != len(desired_records):
+            return False
+
+        # Check set-level parameters
+        for existing_rec in existing_records:
+            if self._record_needs_set_level_update(existing_rec, set_params):
+                return False
+
+        # Check each desired record exists in existing
+        for desired_rec in desired_records:
+            found = False
+            for existing_rec in existing_records:
+                if self._records_match(desired_rec, existing_rec, record_type):
+                    # Also check all optional fields match
+                    if self._all_fields_match(desired_rec, existing_rec, record_type):
+                        found = True
+                        break
+            if not found:
+                return False
+
+        return True
+
+    def _record_needs_set_level_update(self, record, set_params):
+        """Check if record needs update for set-level params (ttl, etc.)"""
+        if 'ttl' in set_params:
+            current_ttl = record.get('_ttl')
+            if current_ttl != set_params['ttl']:
+                return True
+        # Note: comments and expiryTtl would go here too
+        return False
+
+    def _all_fields_match(self, record1, record2, record_type):
+        """Check if all fields (not just identifying) match between records"""
+        if record_type not in RECORD_SCHEMAS:
+            return False
+
+        schema = RECORD_SCHEMAS[record_type]
+        all_fields = schema['required_fields'] + schema['optional_fields']
+
+        for field in all_fields:
+            val1 = record1.get(field)
+            val2 = record2.get(field)
+
+            if not self._values_match(val1, val2, field):
+                return False
+
+        return True
+
+    def _apply_record_set_changes(self, record_type, params, changes, set_params):
+        """Execute the computed changes"""
+        results = {'deleted': 0, 'updated': 0, 'added': 0}
+
+        # Delete records
+        for api_record in changes['to_delete']:
+            self._delete_single_record_by_api_record(record_type, params, api_record)
+            results['deleted'] += 1
+
+        # Update records
+        for api_record, desired_record, update_params in changes['to_update']:
+            self._update_single_record(record_type, params, api_record, desired_record, set_params)
+            results['updated'] += 1
+
+        # Add new records
+        for desired_record in changes['to_add']:
+            self._add_single_record(record_type, params, desired_record, set_params)
+            results['added'] += 1
+
+        return results
+
+    def _add_single_record(self, record_type, params, record_data, set_params):
+        """Add a single record to the set"""
+        query = {
+            'token': self.api_token,
+            'domain': params['name'],
+            'type': record_type
+        }
+
+        if params.get('zone'):
+            query['zone'] = params['zone']
+
+        # Add set-level params
+        if 'ttl' in set_params:
+            query['ttl'] = set_params['ttl']
+        if 'comments' in set_params:
+            query['comments'] = set_params['comments']
+        if 'expiryTtl' in set_params:
+            query['expiryTtl'] = set_params['expiryTtl']
+
+        # Add record-specific data
+        for key, value in record_data.items():
+            if key.startswith('_'):
+                continue  # Skip internal fields
+            # Handle srv_port -> port mapping
+            if key == 'srv_port':
+                query['port'] = value
+            else:
+                if isinstance(value, bool):
+                    query[key] = str(value).lower()
+                else:
+                    query[key] = value
+
+        # Make API request
         data = self.request('/api/zones/records/add', params=query, method='POST')
 
         if data.get('status') != 'ok':
             error_msg = data.get('errorMessage') or "Unknown error"
-            self.fail_json(msg=f"Failed to create record: {error_msg}", api_response=data)
+            self.fail_json(msg=f"Failed to add record: {error_msg}", api_response=data)
 
-        self.exit_json(changed=True, msg="DNS record created.", api_response=data)
+        return data
 
-    def _ensure_absent(self, record_type, params):
-        """Ensure the record does not exist"""
-        # Check if record exists
-        exists, matching_record = self._check_record_exists(record_type, params)
-
-        if not exists:
-            # Record doesn't exist, nothing to do
-            if self.check_mode:
-                self.exit_json(changed=False, msg="Record does not exist (check mode).")
-            else:
-                self.exit_json(changed=False, msg="Record does not exist.")
-
-        # Need to delete the record
-        if self.check_mode:
-            self.exit_json(changed=True, msg="Record would be deleted (check mode).")
-
-        # Build query for delete request
+    def _delete_single_record_by_api_record(self, record_type, params, api_record):
+        """Delete a single record using its API representation"""
         query = {
             'token': self.api_token,
-            'domain': self.name,
+            'domain': params['name'],
             'type': record_type
         }
 
-        # Add required parameters for deletion
-        required_params = self._get_required_params(record_type)
-        for req in required_params:
-            if req == 'srv_port':
-                query['port'] = params['srv_port']
-            else:
-                query[req] = params[req]
-
         if params.get('zone'):
             query['zone'] = params['zone']
+
+        # Add identifying parameters from the API record
+        rdata = api_record.get('rData', {})
+
+        if record_type not in RECORD_SCHEMAS:
+            self.fail_json(msg=f"Cannot delete {record_type} record - no schema defined")
+
+        schema = RECORD_SCHEMAS[record_type]
+
+        # Add identifying fields
+        for field in schema['identifying_fields']:
+            if field == 'srv_port':
+                if 'port' in rdata:
+                    query['port'] = rdata['port']
+            elif field in rdata:
+                value = rdata[field]
+                if isinstance(value, bool):
+                    query[field] = str(value).lower()
+                else:
+                    query[field] = value
 
         # Make API request
         data = self.request('/api/zones/records/delete', params=query, method='POST')
 
         if data.get('status') != 'ok':
             error_msg = data.get('errorMessage') or "Unknown error"
-            self.fail_json(msg=f"Technitium API error during deletion: {error_msg}", api_response=data)
+            # Don't fail on "record not found" - it's already gone
+            if 'not found' not in error_msg.lower() and 'does not exist' not in error_msg.lower():
+                self.fail_json(msg=f"Failed to delete record: {error_msg}", api_response=data)
 
-        self.exit_json(changed=True, msg="DNS record is absent.", api_response=data)
+        return data
 
-    def _check_record_exists(self, record_type, params):
-        """Check if a record exists with the exact specified parameters"""
-        get_query = {
-            'domain': params['name'],
-            'token': self.api_token
-        }
-        if params.get('zone'):
-            get_query['zone'] = params['zone']
+    def _update_single_record(self, record_type, params, api_record, desired_record, set_params):
+        """Update a single record (for additive mode with set-level param changes)"""
+        # For now, implement as delete + add since most record types don't support
+        # partial updates. We can optimize this later for types that do.
+        self._delete_single_record_by_api_record(record_type, params, api_record)
+        self._add_single_record(record_type, params, desired_record, set_params)
 
-        try:
-            get_resp = self.request('/api/zones/records/get', params=get_query)
-        except Exception:
-            # If we can't fetch records, assume it doesn't exist
-            return False, None
+    def _ensure_absent(self, record_type, params):
+        """
+        v1.0.0: Ensure the record set or specific records are absent.
 
-        if get_resp.get('status') != 'ok':
-            # If API call fails, assume record doesn't exist
-            return False, None
+        Behavior:
+        - If no records specified: Delete entire record set (all records of this name/type)
+        - If records specified: Delete only those specific records from the set
+        """
+        # Get normalized records (may be empty for "delete all" operation)
+        desired_absent_records = params.get('_normalized_records', [])
 
-        existing_records = get_resp.get('response', {}).get('records', [])
+        # Get existing records of this type/name
+        existing_api_records = self._get_existing_records_from_api(record_type, params)
 
-        # Look for exact match
-        for rec in existing_records:
-            if rec.get('type', '').upper() != record_type:
-                continue
-            if rec.get('name', '').lower() != params['name'].lower():
-                continue
+        # If no existing records, nothing to do
+        if not existing_api_records:
+            if self.check_mode:
+                self.exit_json(changed=False, msg="Record set does not exist (check mode).")
+            else:
+                self.exit_json(changed=False, msg="Record set does not exist.")
 
-            # Check if all required parameters match
-            if self._record_matches(record_type, params, rec):
-                return True, rec
+        # Determine what to delete
+        if not desired_absent_records:
+            # No specific records provided = delete entire record set
+            records_to_delete = existing_api_records
+            operation_msg = "entire record set"
+        else:
+            # Specific records provided = delete only matching records
+            records_to_delete = []
+            for api_rec in existing_api_records:
+                normalized_existing = self._convert_single_api_record_to_normalized(api_rec, record_type)
+                for desired_rec in desired_absent_records:
+                    if self._records_match(normalized_existing, desired_rec, record_type):
+                        records_to_delete.append(api_rec)
+                        break
 
-        return False, None
+            operation_msg = f"{len(records_to_delete)} specific record(s)"
 
-    def _record_matches(self, record_type, params, rec):
-        """Check if a record matches the specified parameters"""
-        required_params = self._get_required_params(record_type)
+            # If none of the specified records exist, nothing to do
+            if not records_to_delete:
+                if self.check_mode:
+                    self.exit_json(changed=False, msg="Specified records do not exist (check mode).")
+                else:
+                    self.exit_json(changed=False, msg="Specified records do not exist.")
 
-        # Parameter mapping for special cases
-        param_mapping = {
-            'srv_port': 'port',
-        }
+        # Check mode - just report what would be deleted
+        if self.check_mode:
+            self.exit_json(
+                changed=True,
+                msg=f"Would delete {operation_msg} (check mode).",
+                records_to_delete=len(records_to_delete)
+            )
 
-        rdata = rec.get('rData', {})
+        # Execute deletions
+        deleted_count = 0
+        errors = []
 
-        for param_name in required_params:
-            expected_value = params.get(param_name)
-            record_field = param_mapping.get(param_name, param_name)
-            actual_value = rdata.get(record_field)
+        for api_record in records_to_delete:
+            try:
+                self._delete_single_record_by_api_record(record_type, params, api_record)
+                deleted_count += 1
+            except Exception as e:
+                errors.append(str(e))
 
-            if actual_value is None:
-                actual_value = rec.get(record_field)
+        # Report results
+        if errors:
+            self.fail_json(
+                msg=f"Deleted {deleted_count} records but encountered {len(errors)} error(s)",
+                deleted_count=deleted_count,
+                errors=errors
+            )
 
-            # Handle type conversions and case sensitivity
-            if expected_value is not None:
-                # String comparisons (handle case insensitivity for certain fields)
-                if isinstance(expected_value, str) and isinstance(actual_value, str):
-                    if expected_value.lower() != actual_value.lower():
-                        return False
-                # Numeric comparisons (handle type mismatches)
-                elif isinstance(expected_value, int) or isinstance(actual_value, int):
-                    try:
-                        if int(expected_value) != int(actual_value):
-                            return False
-                    except (ValueError, TypeError):
-                        return False
-                # Exact match for other types
-                elif expected_value != actual_value:
-                    return False
-
-        return True
+        self.exit_json(
+            changed=True,
+            msg=f"Successfully deleted {operation_msg}.",
+            deleted_count=deleted_count
+        )
 
     def _build_query(self, params):
         """Build query parameters for API request"""
