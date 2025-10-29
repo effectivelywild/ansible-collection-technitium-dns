@@ -1,0 +1,527 @@
+---
+# APP Record Tests for technitium_dns_record module
+# NOTE: APP records are SINGLETON records in Technitium DNS (only one per DNS name)
+# This is a Technitium-specific limitation, not a DNS protocol limitation
+
+# =============================================================================
+# Test 1: Shorthand Single Record - Create, Update, Delete
+# =============================================================================
+- name: "Test 1.1: Create single APP record using shorthand syntax"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "shorthand-app.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: APP
+    appName: "TestApp"
+    classPath: "com.example.TestApp"
+    recordData: "config=basic"
+    ttl: 3600
+    comments: "Created via shorthand"
+    state: present
+  register: test1_create
+
+- name: "Test 1.1: Assert record was created"
+  ansible.builtin.assert:
+    that:
+      - test1_create is changed
+
+- name: "Test 1.2: Verify record exists with correct values"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "shorthand-app.{{ primary_zone_name }}"
+  register: test1_verify
+
+- name: "Test 1.2: Assert record values"
+  ansible.builtin.assert:
+    that:
+      - test1_verify.records | length == 1
+      - test1_verify.records[0].type == 'APP'
+      - test1_verify.records[0].rData.appName == 'TestApp'
+      - test1_verify.records[0].rData.classPath == 'com.example.TestApp'
+      - test1_verify.records[0].rData.data == 'config=basic'
+      - test1_verify.records[0].ttl == 3600
+
+- name: "Test 1.3: Idempotency - Run same create again"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "shorthand-app.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: APP
+    appName: "TestApp"
+    classPath: "com.example.TestApp"
+    recordData: "config=basic"
+    ttl: 3600
+    comments: "Created via shorthand"
+    state: present
+  register: test1_idempotent
+
+- name: "Test 1.3: Assert no changes"
+  ansible.builtin.assert:
+    that:
+      - test1_idempotent is not changed
+
+- name: "Test 1.4: Update recordData (overwrite=true by default)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "shorthand-app.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: APP
+    appName: "TestApp"
+    classPath: "com.example.TestApp"
+    recordData: "config=updated"
+    ttl: 3600
+    comments: "Updated via shorthand"
+    state: present
+  register: test1_update
+
+- name: "Test 1.4: Assert update was applied"
+  ansible.builtin.assert:
+    that:
+      - test1_update is changed
+
+- name: "Test 1.5: Verify updated recordData"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "shorthand-app.{{ primary_zone_name }}"
+  register: test1_verify_update
+
+- name: "Test 1.5: Assert recordData was updated"
+  ansible.builtin.assert:
+    that:
+      - test1_verify_update.records | length == 1
+      - test1_verify_update.records[0].rData.data == 'config=updated'
+
+- name: "Test 1.6: Delete record using shorthand"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "shorthand-app.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: APP
+    state: absent
+  register: test1_delete
+
+- name: "Test 1.6: Assert deletion succeeded"
+  ansible.builtin.assert:
+    that:
+      - test1_delete is changed
+
+- name: "Test 1.7: Verify record was deleted"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "shorthand-app.{{ primary_zone_name }}"
+  register: test1_verify_delete
+  ignore_errors: true
+
+- name: "Test 1.7: Assert record is gone"
+  ansible.builtin.assert:
+    that:
+      - test1_verify_delete is failed
+
+# =============================================================================
+# Test 2: Records List Syntax - Single Record
+# =============================================================================
+- name: "Test 2.1: Create APP record using records list syntax"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "list-app.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: APP
+    ttl: 7200
+    records:
+      - appName: "ListApp"
+        classPath: "com.example.ListApp"
+        recordData: "config=list"
+    state: present
+  register: test2_create
+
+- name: "Test 2.1: Assert record was created"
+  ansible.builtin.assert:
+    that:
+      - test2_create is changed
+
+- name: "Test 2.2: Verify record exists"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "list-app.{{ primary_zone_name }}"
+  register: test2_verify
+
+- name: "Test 2.2: Assert record values"
+  ansible.builtin.assert:
+    that:
+      - test2_verify.records | length == 1
+      - test2_verify.records[0].rData.appName == 'ListApp'
+      - test2_verify.records[0].rData.classPath == 'com.example.ListApp'
+      - test2_verify.records[0].rData.data == 'config=list'
+      - test2_verify.records[0].ttl == 7200
+
+- name: "Test 2.3: Idempotency with records list"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "list-app.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: APP
+    ttl: 7200
+    records:
+      - appName: "ListApp"
+        classPath: "com.example.ListApp"
+        recordData: "config=list"
+    state: present
+  register: test2_idempotent
+
+- name: "Test 2.3: Assert no changes"
+  ansible.builtin.assert:
+    that:
+      - test2_idempotent is not changed
+
+- name: "Test 2.4: Delete using records list"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "list-app.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: APP
+    state: absent
+  register: test2_delete
+
+- name: "Test 2.4: Assert deletion succeeded"
+  ansible.builtin.assert:
+    that:
+      - test2_delete is changed
+
+# =============================================================================
+# Test 3: Overwrite Mode - Replace Existing Record
+# =============================================================================
+- name: "Test 3.1: Create initial APP record"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "overwrite-app.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: APP
+    appName: "OriginalApp"
+    classPath: "com.example.Original"
+    recordData: "config=original"
+    ttl: 3600
+    state: present
+  register: test3_create
+
+- name: "Test 3.1: Assert record was created"
+  ansible.builtin.assert:
+    that:
+      - test3_create is changed
+
+- name: "Test 3.2: Overwrite with different APP (overwrite=true)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "overwrite-app.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: APP
+    appName: "ReplacementApp"
+    classPath: "com.example.Replacement"
+    recordData: "config=replacement"
+    ttl: 7200
+    overwrite: true
+    state: present
+  register: test3_overwrite
+
+- name: "Test 3.2: Assert overwrite was applied"
+  ansible.builtin.assert:
+    that:
+      - test3_overwrite is changed
+
+- name: "Test 3.3: Verify only new record exists"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "overwrite-app.{{ primary_zone_name }}"
+  register: test3_verify
+
+- name: "Test 3.3: Assert only replacement record exists"
+  ansible.builtin.assert:
+    that:
+      - test3_verify.records | length == 1
+      - test3_verify.records[0].rData.appName == 'ReplacementApp'
+      - test3_verify.records[0].rData.classPath == 'com.example.Replacement'
+      - test3_verify.records[0].rData.data == 'config=replacement'
+      - test3_verify.records[0].ttl == 7200
+
+- name: "Test 3.4: Delete overwrite test record"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "overwrite-app.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: APP
+    state: absent
+  register: test3_delete
+
+# =============================================================================
+# Test 4: Optional recordData Field
+# =============================================================================
+- name: "Test 4.1: Create APP record without recordData"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "nodata-app.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: APP
+    appName: "NoDataApp"
+    classPath: "com.example.NoData"
+    ttl: 3600
+    state: present
+  register: test4_create
+
+- name: "Test 4.1: Assert record was created"
+  ansible.builtin.assert:
+    that:
+      - test4_create is changed
+
+- name: "Test 4.2: Verify record exists without data"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "nodata-app.{{ primary_zone_name }}"
+  register: test4_verify
+
+- name: "Test 4.2: Assert record has empty or no data field"
+  ansible.builtin.assert:
+    that:
+      - test4_verify.records | length == 1
+      - test4_verify.records[0].rData.appName == 'NoDataApp'
+      - test4_verify.records[0].rData.classPath == 'com.example.NoData'
+
+- name: "Test 4.3: Delete test record"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "nodata-app.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: APP
+    state: absent
+  register: test4_delete
+
+# =============================================================================
+# Test 5: Check Mode
+# =============================================================================
+- name: "Test 5.1: Check mode - Create"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "check-mode-app.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: APP
+    appName: "CheckApp"
+    classPath: "com.example.Check"
+    recordData: "config=check"
+    ttl: 3600
+    state: present
+  check_mode: true
+  register: test5_check
+
+- name: "Test 5.1: Assert check mode reports change"
+  ansible.builtin.assert:
+    that:
+      - test5_check is changed
+
+- name: "Test 5.2: Verify record was not created"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "check-mode-app.{{ primary_zone_name }}"
+  register: test5_verify
+  ignore_errors: true
+
+- name: "Test 5.2: Assert record doesn't exist"
+  ansible.builtin.assert:
+    that:
+      - test5_verify is failed
+
+# =============================================================================
+# Test 6: Negative Tests - Missing Parameters
+# =============================================================================
+- name: "Test 6.1: Missing appName with shorthand (state=present)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "missing-appname.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: APP
+    classPath: "com.example.Missing"
+    ttl: 3600
+    state: present
+  register: test6_missing_appname
+  ignore_errors: true
+
+- name: "Test 6.1: Assert missing parameter error"
+  ansible.builtin.assert:
+    that:
+      - test6_missing_appname is failed
+      - test6_missing_appname.msg is search("No records specified|appName")
+
+- name: "Test 6.2: Missing classPath with shorthand (state=present)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "missing-classpath.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: APP
+    appName: "MissingClassPath"
+    ttl: 3600
+    state: present
+  register: test6_missing_classpath
+  ignore_errors: true
+
+- name: "Test 6.2: Assert missing parameter error"
+  ansible.builtin.assert:
+    that:
+      - test6_missing_classpath is failed
+      - test6_missing_classpath.msg is search("No records specified|classPath")
+
+- name: "Test 6.3: Missing required field in records list"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "missing-field.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: APP
+    records:
+      - appName: "OnlyAppName"
+    state: present
+  register: test6_missing_field
+  ignore_errors: true
+
+- name: "Test 6.3: Assert missing field error"
+  ansible.builtin.assert:
+    that:
+      - test6_missing_field is failed
+      - test6_missing_field.msg is search("missing required field.*classPath")
+
+# =============================================================================
+# Test 7: Negative Tests - Unsupported Parameters
+# =============================================================================
+- name: "Test 7.1: Unsupported parameter for APP record (ipAddress)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "bad-param.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: APP
+    appName: "BadParam"
+    classPath: "com.example.BadParam"
+    ipAddress: "192.0.2.1"
+    state: present
+  register: test7_bad_param
+  ignore_errors: true
+
+- name: "Test 7.1: Assert unsupported parameter error"
+  ansible.builtin.assert:
+    that:
+      - test7_bad_param is failed
+      - test7_bad_param.msg is search("not supported")
+
+- name: "Test 7.2: Unsupported parameter in records list"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "bad-param2.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: APP
+    records:
+      - appName: "BadField"
+        classPath: "com.example.BadField"
+        cname: "invalid.example.com"
+    state: present
+  register: test7_bad_field
+  ignore_errors: true
+
+- name: "Test 7.2: Assert unsupported field error"
+  ansible.builtin.assert:
+    that:
+      - test7_bad_field is failed
+      - test7_bad_field.msg is search("contains unsupported field")
+
+# =============================================================================
+# Test 8: Negative Tests - Singleton Validation
+# =============================================================================
+- name: "Test 8.1: Multiple records for singleton type (should fail)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "multi-singleton.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: APP
+    records:
+      - appName: "App1"
+        classPath: "com.example.App1"
+      - appName: "App2"
+        classPath: "com.example.App2"
+    state: present
+  register: test8_multiple_singleton
+  ignore_errors: true
+
+- name: "Test 8.1: Assert singleton validation error"
+  ansible.builtin.assert:
+    that:
+      - test8_multiple_singleton is failed
+      - test8_multiple_singleton.msg is search("only support one record per DNS name")
+      - test8_multiple_singleton.msg is search("singleton")
+
+# =============================================================================
+# Test 9: Negative Tests - Delete Operations
+# =============================================================================
+- name: "Test 9.1: Delete non-existent APP record (idempotent)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "nonexistent-app.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: APP
+    state: absent
+  register: test9_delete_nonexistent
+
+- name: "Test 9.1: Assert no changes"
+  ansible.builtin.assert:
+    that:
+      - test9_delete_nonexistent is not changed
+
+- name: "Test Completion Message"
+  ansible.builtin.debug:
+    msg: "APP Record tests completed successfully!"

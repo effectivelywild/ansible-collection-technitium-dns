@@ -17,6 +17,8 @@ description:
     - The module supports all DNS record types.
     - Some parameters are only valid or required for specific record types.
     - For example, C(ipAddress) is required for A and AAAA records, while C(cname) is required for CNAME records.
+    - "B(Important): Some record types (APP, CNAME, DNAME) are singleton records and only allow one record per DNS name.
+      If you provide multiple records in the C(records) list for these types, the module will fail with a clear error message."
 seealso:
     - module: effectivelywild.technitium_dns.technitium_dns_add_record
       description: Legacy module for adding DNS records
@@ -811,6 +813,15 @@ RECORD_SCHEMAS = {
     }
 }
 
+# Singleton record types: DNS record types that only allow one record per DNS name
+# "Singleton" is DNS terminology used in BIND and other DNS software
+# See: RFC 1034 Section 3.6.2 for CNAME restrictions
+SINGLETON_RECORD_TYPES = {
+    'APP',      # Technitium-specific: Only one APP record per DNS name
+    'CNAME',    # DNS standard (RFC 1034): CNAME must be the only record at a name
+    'DNAME',    # DNS standard (RFC 6672): Similar to CNAME, delegation name
+}
+
 
 class RecordModule(TechnitiumModule):
     argument_spec = dict(
@@ -997,6 +1008,15 @@ class RecordModule(TechnitiumModule):
                         self.fail_json(
                             msg=f"Record {idx} contains unsupported field(s) for {record_type} record: {', '.join(sorted(invalid_fields))}"
                         )
+
+            # Check for singleton record type violations
+            if record_type in SINGLETON_RECORD_TYPES and len(records) > 1:
+                self.fail_json(
+                    msg=f"{record_type} records only support one record per DNS name. "
+                        f"You provided {len(records)} records in the 'records' list. "
+                        f"{record_type} is a singleton record type and cannot have multiple records with the same name."
+                )
+
             return records, set_params
 
         # Otherwise, build from record-type-specific shorthand parameters
@@ -1115,7 +1135,7 @@ class RecordModule(TechnitiumModule):
             'CAA': ['flags', 'tag', 'value'],
             'ANAME': ['aname'],
             'FWD': ['protocol', 'forwarder'],
-            'APP': ['appName', 'classPath', 'recordData'],
+            'APP': ['appName', 'classPath'],
             'UNKNOWN': ['rdata'],
             'URI': ['uriPriority', 'uriWeight', 'uri'],
         }
@@ -1262,6 +1282,10 @@ class RecordModule(TechnitiumModule):
                 if field == 'srv_port':
                     if 'port' in rdata:
                         record['srv_port'] = rdata['port']
+                # Special handling for APP recordData (API uses 'data')
+                elif field == 'recordData':
+                    if 'data' in rdata:
+                        record['recordData'] = rdata['data']
                 elif field in rdata:
                     record[field] = rdata[field]
 
@@ -1288,6 +1312,10 @@ class RecordModule(TechnitiumModule):
             if field == 'srv_port':
                 if 'port' in rdata:
                     record['srv_port'] = rdata['port']
+            # Special handling for APP recordData (API uses 'data')
+            elif field == 'recordData':
+                if 'data' in rdata:
+                    record['recordData'] = rdata['data']
             elif field in rdata:
                 record[field] = rdata[field]
 
@@ -1442,6 +1470,7 @@ class RecordModule(TechnitiumModule):
             # Handle srv_port -> port mapping
             if key == 'srv_port':
                 query['port'] = value
+            # Don't rename recordData - API expects it as-is
             else:
                 if isinstance(value, bool):
                     query[key] = str(value).lower()
@@ -1623,7 +1652,7 @@ class RecordModule(TechnitiumModule):
             'CAA': ['flags', 'tag', 'value'],
             'ANAME': ['aname'],
             'FWD': ['protocol', 'forwarder'],
-            'APP': ['appName', 'classPath', 'recordData'],
+            'APP': ['appName', 'classPath'],
             'UNKNOWN': ['rdata'],
             'URI': ['uriPriority', 'uriWeight', 'uri'],
         }
