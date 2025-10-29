@@ -1,0 +1,597 @@
+---
+# Comprehensive A Record Tests for technitium_dns_record module
+# Tests state-based management: create, update, delete, and idempotency
+
+- name: "Define A test records"
+  ansible.builtin.set_fact:
+    a_test_records:
+      - { idx: 1, name: state-basic-a,       ipAddress: 192.0.2.10, zone: "{{ primary_zone_name }}" }
+      - { idx: 2, name: state-longttl-a,     ipAddress: 192.0.3.10, zone: "{{ primary_zone_name }}", ttl: 86400 }
+      - { idx: 3, name: state-longttl-a-sec, ipAddress: 192.0.4.10, zone: "{{ primary_sec_zone_name }}", ttl: 86400 }
+      - { idx: 4, name: state-basic-a-fwd,   ipAddress: 192.0.6.10, zone: "{{ forwarder_zone_name }}" }
+      - { idx: 5, name: state-ptr-a,         ipAddress: 192.0.5.10, zone: "{{ primary_zone_name }}", ptr: true, createPtrZone: true }
+      - { idx: 6, name: state-comments-a,    ipAddress: 192.0.2.20, zone: "{{ primary_zone_name }}", comments: "Initial comment" }
+      - { idx: 7, name: state-expiry-a,      ipAddress: 192.0.2.30, zone: "{{ primary_zone_name }}", expiryTtl: 3600 }
+    # Overwrite test record
+    overwrite_a_record:
+      idx: 1
+      name: state-basic-a
+      ipAddress: 203.0.113.77
+      zone: "{{ primary_zone_name }}"
+      ttl: 43200
+      overwrite: true
+
+# =============================================================================
+# Phase 1: Check mode - Create (state=present, records don't exist)
+# =============================================================================
+- name: "Phase 1: Check mode - Create A records (state=present)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: A
+    ipAddress: "{{ rec.ipAddress }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    ptr: "{{ rec.ptr | default(omit) }}"
+    createPtrZone: "{{ rec.createPtrZone | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+    expiryTtl: "{{ rec.expiryTtl | default(omit) }}"
+    state: present
+  check_mode: true
+  loop: "{{ a_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Check: {{ rec.name }}.{{ rec.zone }}"
+  register: phase1_check_results
+
+- name: "Assert all check mode operations report changed=true"
+  ansible.builtin.assert:
+    that:
+      - (phase1_check_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# =============================================================================
+# Phase 2: Verify check mode didn't create records
+# =============================================================================
+- name: "Phase 2: Verify check mode didn't create records"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+  loop: "{{ a_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: phase2_verify_absent
+  ignore_errors: true
+
+- name: "Assert all records are absent"
+  ansible.builtin.assert:
+    that:
+      - (phase2_verify_absent.results | map(attribute='failed') | list | unique) == [ true ]
+
+# =============================================================================
+# Phase 3: Real creation (state=present)
+# =============================================================================
+- name: "Phase 3: Create A records (state=present)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: A
+    ipAddress: "{{ rec.ipAddress }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    ptr: "{{ rec.ptr | default(omit) }}"
+    createPtrZone: "{{ rec.createPtrZone | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+    expiryTtl: "{{ rec.expiryTtl | default(omit) }}"
+    state: present
+  loop: "{{ a_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Create: {{ rec.idx }}-{{ rec.name }}.{{ rec.zone }}"
+  register: phase3_create_results
+
+- name: "Assert all create operations report changed=true"
+  ansible.builtin.assert:
+    that:
+      - (phase3_create_results.results | map(attribute='changed') | list | unique) == [ true ]
+
+# =============================================================================
+# Phase 4: Verify records exist with correct parameters
+# =============================================================================
+- name: "Phase 4: Get A records to verify creation"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+  loop: "{{ a_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get: {{ rec.name }}.{{ rec.zone }}"
+  register: phase4_get_results
+
+- name: "Assert records exist"
+  ansible.builtin.assert:
+    that:
+      - (phase4_get_results.results | map(attribute='api_response.status') | list | unique) == ['ok']
+    quiet: true
+
+- name: "Assert A record parameters match request"
+  ansible.builtin.assert:
+    that:
+      - >-
+        ((item.records | default([])
+           | selectattr('type','equalto','A')
+           | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+           | list | first).rData.ipAddress) == item.rec.ipAddress
+      - >-
+        ('ttl' not in item.rec) or (
+          ((item.records | default([])
+             | selectattr('type','equalto','A')
+             | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+             | list | first).ttl | int) == (item.rec.ttl | int)
+        )
+    quiet: true
+  loop: "{{ phase4_get_results.results }}"
+  loop_control:
+    label: "Params: {{ item.rec.name }}.{{ item.rec.zone }}"
+
+# =============================================================================
+# Phase 4b: Verify PTR auto-creation for record with ptr/createPtrZone
+# =============================================================================
+- name: "Phase 4b: Create fact for PTR record"
+  ansible.builtin.set_fact:
+    ptr_a_record: >-
+      {{ (a_test_records | selectattr('ptr','defined') | selectattr('ptr') | list | first) | default(omit) }}
+
+- name: "Derive reverse zone IP"
+  ansible.builtin.set_fact:
+    ptr_ip_parts: "{{ ptr_a_record.ipAddress.split('.') }}"
+  when: ptr_a_record != omit
+
+- name: "Derive reverse zone and FQDN from IP"
+  ansible.builtin.set_fact:
+    ptr_reverse_zone: "{{ ptr_ip_parts[2] }}.{{ ptr_ip_parts[1] }}.{{ ptr_ip_parts[0] }}.in-addr.arpa"
+    ptr_reverse_fqdn: "{{ ptr_ip_parts[3] }}.{{ ptr_ip_parts[2] }}.{{ ptr_ip_parts[1] }}.{{ ptr_ip_parts[0] }}.in-addr.arpa"
+  when: ptr_a_record != omit
+
+- name: "Get PTR record"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "{{ ptr_reverse_fqdn }}"
+    zone: "{{ ptr_reverse_zone }}"
+  register: ptr_lookup
+  when: ptr_a_record != omit
+
+- name: "Assert PTR record exists and points to A FQDN"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (ptr_lookup.records | default([])
+          | selectattr('type','equalto','PTR')
+          | selectattr('name','equalto', ptr_reverse_fqdn)
+          | selectattr('rData.ptrName','search', (ptr_a_record.name ~ '.' ~ ptr_a_record.zone))
+          | list | length) == 1
+    fail_msg: "Expected PTR for {{ ptr_a_record.ipAddress }} not found or misconfigured (reverse fqdn: {{ ptr_reverse_fqdn }})"
+    success_msg: "PTR record verified for {{ ptr_a_record.ipAddress }}"
+  when: ptr_a_record != omit
+
+# =============================================================================
+# Phase 5: Check mode - re-create (should show no change - idempotency)
+# =============================================================================
+- name: "Phase 5: Check mode - Re-create A records (should be idempotent)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: A
+    ipAddress: "{{ rec.ipAddress }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    ptr: "{{ rec.ptr | default(omit) }}"
+    createPtrZone: "{{ rec.createPtrZone | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+    expiryTtl: "{{ rec.expiryTtl | default(omit) }}"
+    state: present
+  check_mode: true
+  loop: "{{ a_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "CheckIdempotent: {{ rec.name }}.{{ rec.zone }}"
+  register: phase5_check_idempotent
+
+- name: "Assert re-create check mode reports no changes"
+  ansible.builtin.assert:
+    that:
+      - (phase5_check_idempotent.results | map(attribute='changed') | list | unique) == [ false ]
+
+# =============================================================================
+# Phase 6: Real re-create (should show no change - idempotency)
+# =============================================================================
+- name: "Phase 6: Idempotency - Re-run create A records"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: A
+    ipAddress: "{{ rec.ipAddress }}"
+    ttl: "{{ rec.ttl | default(omit) }}"
+    ptr: "{{ rec.ptr | default(omit) }}"
+    createPtrZone: "{{ rec.createPtrZone | default(omit) }}"
+    comments: "{{ rec.comments | default(omit) }}"
+    expiryTtl: "{{ rec.expiryTtl | default(omit) }}"
+    state: present
+  loop: "{{ a_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Idempotent: {{ rec.name }}.{{ rec.zone }}"
+  register: phase6_idempotent
+
+- name: "Assert re-run reports no changes"
+  ansible.builtin.assert:
+    that:
+      - (phase6_idempotent.results | map(attribute='changed') | list | unique) == [ false ]
+
+# =============================================================================
+# Phase 7: UPDATE tests (changing ipAddress, TTL, etc.)
+# =============================================================================
+- name: "Phase 7: Update ipAddress for basic-a record"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "state-basic-a.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: A
+    ipAddress: 192.0.2.11  # Changed from 192.0.2.10
+    state: present
+  register: phase7_update_ip
+
+- name: "Assert update ipAddress reported changed"
+  ansible.builtin.assert:
+    that:
+      - phase7_update_ip.changed == true
+      - "'updated' in phase7_update_ip.msg.lower()"
+
+- name: "Phase 7: Update TTL for longttl-a record"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "state-longttl-a.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: A
+    ipAddress: 192.0.3.10
+    ttl: 7200  # Changed from 86400
+    state: present
+  register: phase7_update_ttl
+
+- name: "Assert update TTL reported changed"
+  ansible.builtin.assert:
+    that:
+      - phase7_update_ttl.changed == true
+      - "'updated' in phase7_update_ttl.msg.lower()"
+
+- name: "Phase 7: Update both ipAddress and TTL for comments-a record"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "state-comments-a.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: A
+    ipAddress: 192.0.2.21  # Changed from 192.0.2.20
+    ttl: 10800  # Added TTL
+    comments: "Updated comment"  # Changed comment
+    state: present
+  register: phase7_update_both
+
+- name: "Assert update both reported changed"
+  ansible.builtin.assert:
+    that:
+      - phase7_update_both.changed == true
+      - "'updated' in phase7_update_both.msg.lower()"
+
+# =============================================================================
+# Phase 8: Verify updates applied correctly
+# =============================================================================
+- name: "Phase 8: Verify ipAddress update"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "state-basic-a.{{ primary_zone_name }}"
+  register: phase8_verify_ip
+
+- name: "Assert ipAddress was updated"
+  ansible.builtin.assert:
+    that:
+      - phase8_verify_ip.records[0].rData.ipAddress == '192.0.2.11'
+
+- name: "Phase 8: Verify TTL update"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "state-longttl-a.{{ primary_zone_name }}"
+  register: phase8_verify_ttl
+
+- name: "Assert TTL was updated"
+  ansible.builtin.assert:
+    that:
+      - phase8_verify_ttl.records[0].ttl == 7200
+
+- name: "Phase 8: Verify both updates"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "state-comments-a.{{ primary_zone_name }}"
+  register: phase8_verify_both
+
+- name: "Assert both ipAddress and TTL were updated"
+  ansible.builtin.assert:
+    that:
+      - phase8_verify_both.records[0].rData.ipAddress == '192.0.2.21'
+      - phase8_verify_both.records[0].ttl == 10800
+    # Note: Cannot verify comments because GET API doesn't return them (known limitation)
+
+# =============================================================================
+# Phase 8b: Track updated IP addresses for later deletion
+# =============================================================================
+- name: "Phase 8b: Create fact with updated IP addresses for deletion"
+  ansible.builtin.set_fact:
+    a_test_records_updated: >-
+      {{
+        a_test_records | map('combine', {
+          'ipAddress': (
+            '192.0.2.11' if item.name == 'state-basic-a' else
+            '192.0.2.21' if item.name == 'state-comments-a' else
+            item.ipAddress
+          )
+        }) | list
+      }}
+  loop: "{{ a_test_records }}"
+  run_once: true
+
+# =============================================================================
+# Phase 9: Overwrite test (overwrite parameter)
+# =============================================================================
+- name: "Phase 9: Overwrite A record with new values using overwrite parameter"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "{{ overwrite_a_record.name }}.{{ overwrite_a_record.zone }}"
+    zone: "{{ overwrite_a_record.zone }}"
+    type: A
+    ipAddress: "{{ overwrite_a_record.ipAddress }}"
+    ttl: "{{ overwrite_a_record.ttl }}"
+    overwrite: "{{ overwrite_a_record.overwrite }}"
+    state: present
+  register: phase9_overwrite
+
+- name: "Assert overwrite operation reports changed"
+  ansible.builtin.assert:
+    that:
+      - phase9_overwrite.changed
+
+- name: "Phase 9: Verify overwrite applied"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "{{ overwrite_a_record.name }}.{{ overwrite_a_record.zone }}"
+    zone: "{{ overwrite_a_record.zone }}"
+  register: phase9_verify_overwrite
+
+- name: "Assert overwritten A record has new values"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (phase9_verify_overwrite.records | default([])
+         | selectattr('type','equalto','A')
+         | selectattr('name','equalto', (overwrite_a_record.name ~ '.' ~ overwrite_a_record.zone))
+         | list | first).rData.ipAddress == overwrite_a_record.ipAddress
+      - >-
+        (phase9_verify_overwrite.records | default([])
+         | selectattr('type','equalto','A')
+         | selectattr('name','equalto', (overwrite_a_record.name ~ '.' ~ overwrite_a_record.zone))
+         | list | first).ttl == overwrite_a_record.ttl
+
+# =============================================================================
+# Phase 10: Check mode - delete (state=absent)
+# =============================================================================
+- name: "Phase 10: Check mode - Delete A records (state=absent)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: A
+    ipAddress: "{{ rec.ipAddress }}"
+    state: absent
+  check_mode: true
+  loop: "{{ a_test_records_updated }}"
+  loop_control:
+    loop_var: rec
+    label: "CheckDelete: {{ rec.name }}.{{ rec.zone }}"
+  register: phase10_check_delete
+
+- name: "Assert all delete plans report changed"
+  ansible.builtin.assert:
+    that:
+      - (phase10_check_delete.results | map(attribute='changed') | list | unique) == [ true ]
+
+# =============================================================================
+# Phase 11: Real delete (state=absent)
+# =============================================================================
+- name: "Phase 11: Delete A records (state=absent)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: A
+    ipAddress: "{{ rec.ipAddress }}"
+    state: absent
+  loop: "{{ a_test_records_updated }}"
+  loop_control:
+    loop_var: rec
+    label: "Delete: {{ rec.idx }}-{{ rec.name }}.{{ rec.zone }}"
+  register: phase11_delete
+
+- name: "Assert A records deleted"
+  ansible.builtin.assert:
+    that:
+      - (phase11_delete.results | map(attribute='changed') | list | unique) == [ true ]
+
+# =============================================================================
+# Phase 12: Verify deletion
+# =============================================================================
+- name: "Phase 12: Fetch records for absence verification"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "{{ rec.zone }}"
+  loop: "{{ a_test_records }}"
+  loop_control:
+    loop_var: rec
+    label: "Get(absent): {{ rec.name }}.{{ rec.zone }}"
+  register: phase12_verify_absent
+
+- name: "Assert absence (no A records by name)"
+  ansible.builtin.assert:
+    that:
+      - >-
+        (item.records | default([])
+         | selectattr('type','equalto','A')
+         | selectattr('name','equalto', (item.rec.name ~ '.' ~ item.rec.zone))
+         | list | length) == 0
+    quiet: true
+  loop: "{{ phase12_verify_absent.results }}"
+  loop_control:
+    label: "AbsentAssert: {{ item.rec.name }}.{{ item.rec.zone }}"
+
+# =============================================================================
+# Phase 13: Idempotent delete
+# =============================================================================
+- name: "Phase 13: Check mode - Delete again (should show no change)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: A
+    ipAddress: "{{ rec.ipAddress }}"
+    state: absent
+  check_mode: true
+  loop: "{{ a_test_records_updated }}"
+  loop_control:
+    loop_var: rec
+    label: "CheckDeleteAgain: {{ rec.name }}.{{ rec.zone }}"
+  register: phase13_check_delete_again
+
+- name: "Assert all delete plans after deletion report no changes"
+  ansible.builtin.assert:
+    that:
+      - (phase13_check_delete_again.results | map(attribute='changed') | list | unique) == [ false ]
+
+- name: "Phase 13: Idempotency - Re-run delete A records"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "{{ rec.name }}.{{ rec.zone }}"
+    zone: "{{ rec.zone }}"
+    type: A
+    ipAddress: "{{ rec.ipAddress }}"
+    state: absent
+  loop: "{{ a_test_records_updated }}"
+  loop_control:
+    loop_var: rec
+    label: "IdempotentDelete: {{ rec.name }}.{{ rec.zone }}"
+  register: phase13_idempotent_delete
+
+- name: "Assert idempotent delete reports no changes"
+  ansible.builtin.assert:
+    that:
+      - (phase13_idempotent_delete.results | map(attribute='changed') | list | unique) == [ false ]
+
+# =============================================================================
+# Phase 14: Negative tests
+# =============================================================================
+- name: "Phase 14: Negative - missing required ipAddress"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "neg-missing-ip.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: A
+    state: present
+  register: phase14_neg_missing_ip
+  ignore_errors: true
+
+- name: "Assert failure of missing ipAddress"
+  ansible.builtin.assert:
+    that:
+      - phase14_neg_missing_ip.failed
+      - "'ipAddress' in (phase14_neg_missing_ip.msg | default(''))"
+
+- name: "Phase 14: Negative - unsupported param for A (cname)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "neg-bad-param.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: A
+    cname: other.example.com
+    state: present
+  register: phase14_neg_bad_param
+  ignore_errors: true
+
+- name: "Assert failure of unsupported param"
+  ansible.builtin.assert:
+    that:
+      - phase14_neg_bad_param.failed
+      - "'cname' in (phase14_neg_bad_param.msg | default(''))"
+
+- name: "Phase 14: Negative - invalid API token"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: BADTOKEN
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "neg-bad-token.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: A
+    ipAddress: 198.51.100.200
+    state: present
+  register: phase14_neg_bad_token
+  ignore_errors: true
+
+- name: "Assert failure of invalid API token"
+  ansible.builtin.assert:
+    that:
+      - phase14_neg_bad_token.failed
+      - "'Invalid token' in (phase14_neg_bad_token.msg)"
+
+- name: "SUCCESS: All A record tests passed"
+  ansible.builtin.debug:
+    msg: "All A record state-based tests (create, update, delete, idempotency) passed!"

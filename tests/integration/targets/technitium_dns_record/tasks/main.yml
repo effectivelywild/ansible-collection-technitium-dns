@@ -1,0 +1,31 @@
+---
+- name: "Load zone configuration"
+  include_vars: ../vars/zones.yml
+
+- name: "Cleanup test zones if they exist before starting"
+  include_role:
+    name: test_utils
+  vars:
+    action: "delete_zones"
+    zones_to_delete: "{{ zones_to_create }}"
+
+- name: "Setup test zones"
+  include_role:
+    name: test_utils
+  vars:
+    action: "setup_zones"
+
+- name: "Wait for zone creation to complete"
+  pause:
+    seconds: "{{ creation_verification_delay | default(3) }}"
+
+- name: "Debug zone setup results"
+  debug:
+    var: zone_creation_results
+  when: debug | default(false)
+
+- name: "Include comprehensive A record tests"
+  ansible.builtin.include_tasks: test_a_records.yml
+
+# - name: "Include state-based record tests (POC - will be deprecated)"
+#   ansible.builtin.include_tasks: test_state_based_records.yml
