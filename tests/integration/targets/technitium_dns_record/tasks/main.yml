@@ -39,5 +39,11 @@
 - name: "Include CAA record tests"
   ansible.builtin.include_tasks: test_caa_records.yml
 
+- name: "Include CNAME record tests"
+  ansible.builtin.include_tasks: test_cname_records.yml
+
+- name: "Include DNAME record tests"
+  ansible.builtin.include_tasks: test_dname_records.yml
+
 # - name: "Include state-based record tests (POC - will be deprecated)"
 #   ansible.builtin.include_tasks: test_state_based_records.yml
