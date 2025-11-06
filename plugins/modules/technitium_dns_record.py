@@ -11,14 +11,10 @@ short_description: Manage DNS records with state-based approach
 version_added: "1.0.0"
 author: Frank Muise (@effectivelywild)
 description:
-    - Manage DNS records using Ansible's standard state pattern (present/absent).
-    - This module consolidates the functionality of technitium_dns_add_record and technitium_dns_delete_record.
-    - Provides idempotent operations with proper check mode support.
-    - The module supports all DNS record types.
-    - Some parameters are only valid or required for specific record types.
-    - For example, C(ipAddress) is required for A and AAAA records, while C(cname) is required for CNAME records.
-    - "B(Important): Some record types (APP, CNAME, DNAME) are singleton records and only allow one record per DNS name.
-      If you provide multiple records in the C(records) list for these types, the module will fail with a clear error message."
+    - Manage DNS records in Technitium DNS Server.
+    - Supports all DNS record types with type-specific parameters.
+    - Singleton record types (one record per DNS name) include APP, CNAME, and DNAME.
+    - All other record types support multiple records per DNS name.
 seealso:
     - module: effectivelywild.technitium_dns.technitium_dns_add_record
       description: Legacy module for adding DNS records
@@ -569,17 +565,72 @@ EXAMPLES = r'''
     ttl: 3600
     state: present
 
-# Using check mode
-- name: Check what would change
+# Multiple A records using records parameter
+- name: Create multiple A records for round-robin DNS
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "http://localhost"
     api_token: "myapitoken"
-    name: "test.example.com"
+    name: "web.example.com"
+    zone: "example.com"
     type: "A"
-    ipAddress: "192.0.2.99"
-    ttl: 300
+    ttl: 3600
+    records:
+      - ipAddress: "192.0.2.10"
+      - ipAddress: "192.0.2.11"
+      - ipAddress: "192.0.2.12"
     state: present
-  check_mode: true
+
+# Multiple MX records using records parameter
+- name: Create multiple MX records
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    name: "example.com"
+    zone: "example.com"
+    type: "MX"
+    ttl: 3600
+    records:
+      - exchange: "mail1.example.com"
+        preference: 10
+      - exchange: "mail2.example.com"
+        preference: 20
+      - exchange: "mail3.example.com"
+        preference: 30
+    state: present
+
+# Multiple TXT records using records parameter
+- name: Create multiple TXT records for SPF and DKIM
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    name: "example.com"
+    zone: "example.com"
+    type: "TXT"
+    ttl: 3600
+    records:
+      - text: "v=spf1 include:_spf.google.com ~all"
+      - text: "v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQ..."
+    state: present
+
+# SRV records using records parameter
+- name: Create SRV records for service discovery
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    name: "_ldap._tcp.example.com"
+    zone: "example.com"
+    type: "SRV"
+    ttl: 3600
+    records:
+      - priority: 10
+        weight: 60
+        port: 389
+        target: "ldap1.example.com"
+      - priority: 10
+        weight: 40
+        port: 389
+        target: "ldap2.example.com"
+    state: present
 '''
 
 RETURN = r'''
