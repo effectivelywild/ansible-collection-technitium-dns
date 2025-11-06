@@ -1,0 +1,577 @@
+---
+# NS (Name Server) Record Integration Tests
+# Tests the technitium_dns_record module's handling of NS records
+# NS records are used for DNS delegation and zone authority
+# NS records support multiple records per DNS name
+
+# =============================================================================
+# Test 1: Basic NS record using shorthand syntax
+# =============================================================================
+- name: "Test 1.1: Create NS record using shorthand syntax"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "delegate.{{ primary_zone_name }}"
+    type: NS
+    nameServer: "ns1.example.net"
+    ttl: 3600
+    comments: "Created via shorthand"
+    state: present
+  register: ns_shorthand_result
+
+- name: "Test 1.2: Assert NS record was created"
+  ansible.builtin.assert:
+    that:
+      - ns_shorthand_result is changed
+
+- name: "Test 1.3: Verify NS record exists via get_record"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "delegate.{{ primary_zone_name }}"
+  register: ns_get_result
+
+- name: "Test 1.4: Assert NS record data is correct"
+  ansible.builtin.assert:
+    that:
+      - ns_get_result.records | selectattr('type', 'equalto', 'NS') | list | length == 1
+      - (ns_get_result.records | selectattr('type', 'equalto', 'NS') | list | first).rData.nameServer == "ns1.example.net"
+
+- name: "Test 1.5: Verify idempotency - no change on re-run"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "delegate.{{ primary_zone_name }}"
+    type: NS
+    nameServer: "ns1.example.net"
+    ttl: 3600
+    comments: "Created via shorthand"
+    state: present
+  register: ns_shorthand_idem_result
+
+- name: "Test 1.6: Assert no change on idempotency check"
+  ansible.builtin.assert:
+    that:
+      - ns_shorthand_idem_result is not changed
+
+# =============================================================================
+# Test 2: Multiple NS records (delegation scenario)
+# =============================================================================
+- name: "Test 2.1: Create multiple NS records for delegation"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "multi-delegate.{{ primary_zone_name }}"
+    type: NS
+    records:
+      - nameServer: "ns1.example.net"
+      - nameServer: "ns2.example.net"
+      - nameServer: "ns3.example.net"
+    ttl: 7200
+    state: present
+  register: ns_multi_result
+
+- name: "Test 2.2: Assert multiple NS records were created"
+  ansible.builtin.assert:
+    that:
+      - ns_multi_result is changed
+
+- name: "Test 2.3: Verify all three NS records exist"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "multi-delegate.{{ primary_zone_name }}"
+  register: ns_multi_get_result
+
+- name: "Test 2.4: Assert all NS records have correct data"
+  ansible.builtin.assert:
+    that:
+      - ns_multi_get_result.records | selectattr('type', 'equalto', 'NS') | list | length == 3
+      - ns_multi_get_result.records | selectattr('type', 'equalto', 'NS') | selectattr('rData.nameServer', 'equalto', 'ns1.example.net') | list | length == 1
+      - ns_multi_get_result.records | selectattr('type', 'equalto', 'NS') | selectattr('rData.nameServer', 'equalto', 'ns2.example.net') | list | length == 1
+      - ns_multi_get_result.records | selectattr('type', 'equalto', 'NS') | selectattr('rData.nameServer', 'equalto', 'ns3.example.net') | list | length == 1
+
+- name: "Test 2.5: Idempotency - Run same create again"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "multi-delegate.{{ primary_zone_name }}"
+    type: NS
+    records:
+      - nameServer: "ns1.example.net"
+      - nameServer: "ns2.example.net"
+      - nameServer: "ns3.example.net"
+    ttl: 7200
+    state: present
+  register: ns_multi_idem_result
+
+- name: "Test 2.6: Assert no changes on idempotency check"
+  ansible.builtin.assert:
+    that:
+      - ns_multi_idem_result is not changed
+
+# =============================================================================
+# Test 3: NS records with glue records
+# =============================================================================
+- name: "Test 3.1: Create NS record with IPv4 glue"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "glue-test.{{ primary_zone_name }}"
+    type: NS
+    nameServer: "ns1.glue-test.{{ primary_zone_name }}"
+    glue: "192.0.2.10"
+    state: present
+  register: ns_glue4_result
+
+- name: "Test 3.2: Assert NS record with glue was created"
+  ansible.builtin.assert:
+    that:
+      - ns_glue4_result is changed
+
+- name: "Test 3.3: Verify NS record has glue record"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "glue-test.{{ primary_zone_name }}"
+  register: ns_glue4_get_result
+
+- name: "Test 3.4: Assert NS record has correct glue"
+  ansible.builtin.assert:
+    that:
+      - ns_glue4_get_result.records | selectattr('type', 'equalto', 'NS') | list | length == 1
+      - (ns_glue4_get_result.records | selectattr('type', 'equalto', 'NS') | list | first).glueRecords is defined
+      - "'192.0.2.10' in (ns_glue4_get_result.records | selectattr('type', 'equalto', 'NS') | list | first).glueRecords"
+
+- name: "Test 3.5: Create NS record with IPv6 glue"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "glue-test-v6.{{ primary_zone_name }}"
+    type: NS
+    nameServer: "ns1.glue-test-v6.{{ primary_zone_name }}"
+    glue: "2001:db8::1"
+    state: present
+  register: ns_glue6_result
+
+- name: "Test 3.6: Verify NS record with IPv6 glue"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "glue-test-v6.{{ primary_zone_name }}"
+  register: ns_glue6_get_result
+
+- name: "Test 3.7: Assert NS record has correct IPv6 glue"
+  ansible.builtin.assert:
+    that:
+      - "'2001:db8::1' in (ns_glue6_get_result.records | selectattr('type', 'equalto', 'NS') | list | first).glueRecords"
+
+# =============================================================================
+# Test 4: Overwrite Mode - Replace Entire Set
+# =============================================================================
+- name: "Test 4.1: Create initial NS records"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "overwrite-ns.{{ primary_zone_name }}"
+    type: NS
+    records:
+      - nameServer: "ns1.old.example.net"
+      - nameServer: "ns2.old.example.net"
+    state: present
+  register: ns_overwrite_init_result
+
+- name: "Test 4.2: Overwrite with completely different set (overwrite=true)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "overwrite-ns.{{ primary_zone_name }}"
+    type: NS
+    overwrite: true
+    nameServer: "ns-new.example.com"
+    state: present
+  register: ns_overwrite_result
+
+- name: "Test 4.3: Assert overwrite operation succeeded"
+  ansible.builtin.assert:
+    that:
+      - ns_overwrite_result is changed
+
+- name: "Test 4.4: Verify only new NS record exists"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "overwrite-ns.{{ primary_zone_name }}"
+  register: ns_overwrite_get_result
+
+- name: "Test 4.5: Assert only replacement record exists"
+  ansible.builtin.assert:
+    that:
+      - ns_overwrite_get_result.records | selectattr('type', 'equalto', 'NS') | list | length == 1
+      - (ns_overwrite_get_result.records | selectattr('type', 'equalto', 'NS') | list | first).rData.nameServer == "ns-new.example.com"
+      - ns_overwrite_get_result.records | selectattr('type', 'equalto', 'NS') | selectattr('rData.nameServer', 'search', 'old') | list | length == 0
+
+# =============================================================================
+# Test 5: Additive Mode - Merge with Existing Records
+# =============================================================================
+- name: "Test 5.1: Create initial NS record"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "additive-ns.{{ primary_zone_name }}"
+    type: NS
+    nameServer: "ns1.example.net"
+    state: present
+  register: ns_additive_init_result
+
+- name: "Test 5.2: Add new NS record with overwrite=false (additive)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "additive-ns.{{ primary_zone_name }}"
+    type: NS
+    overwrite: false
+    nameServer: "ns2.example.net"
+    state: present
+  register: ns_additive_result
+
+- name: "Test 5.3: Assert additive operation succeeded"
+  ansible.builtin.assert:
+    that:
+      - ns_additive_result is changed
+
+- name: "Test 5.4: Verify both NS records exist"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "additive-ns.{{ primary_zone_name }}"
+  register: ns_additive_get_result
+
+- name: "Test 5.5: Assert both NS records present"
+  ansible.builtin.assert:
+    that:
+      - ns_additive_get_result.records | selectattr('type', 'equalto', 'NS') | list | length == 2
+      - ns_additive_get_result.records | selectattr('type', 'equalto', 'NS') | selectattr('rData.nameServer', 'equalto', 'ns1.example.net') | list | length == 1
+      - ns_additive_get_result.records | selectattr('type', 'equalto', 'NS') | selectattr('rData.nameServer', 'equalto', 'ns2.example.net') | list | length == 1
+
+# =============================================================================
+# Test 6: Selective Deletion - Delete Specific NS Record
+# =============================================================================
+- name: "Test 6.1: Create set of 3 NS records"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "selective-ns.{{ primary_zone_name }}"
+    type: NS
+    records:
+      - nameServer: "ns1.example.net"
+      - nameServer: "ns2.example.net"
+      - nameServer: "ns3.example.net"
+    state: present
+  register: ns_selective_init_result
+
+- name: "Test 6.2: Delete specific NS record (ns2)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "selective-ns.{{ primary_zone_name }}"
+    type: NS
+    nameServer: "ns2.example.net"
+    state: absent
+  register: ns_selective_delete_result
+
+- name: "Test 6.3: Assert specific record was deleted"
+  ansible.builtin.assert:
+    that:
+      - ns_selective_delete_result is changed
+
+- name: "Test 6.4: Verify only 2 NS records remain"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "selective-ns.{{ primary_zone_name }}"
+  register: ns_selective_get_result
+
+- name: "Test 6.5: Assert correct records remain"
+  ansible.builtin.assert:
+    that:
+      - ns_selective_get_result.records | selectattr('type', 'equalto', 'NS') | list | length == 2
+      - ns_selective_get_result.records | selectattr('type', 'equalto', 'NS') | selectattr('rData.nameServer', 'equalto', 'ns1.example.net') | list | length == 1
+      - ns_selective_get_result.records | selectattr('type', 'equalto', 'NS') | selectattr('rData.nameServer', 'equalto', 'ns3.example.net') | list | length == 1
+      - ns_selective_get_result.records | selectattr('type', 'equalto', 'NS') | selectattr('rData.nameServer', 'equalto', 'ns2.example.net') | list | length == 0
+
+# =============================================================================
+# Test 7: Delete All NS Records by Name and Type
+# =============================================================================
+- name: "Test 7.1: Delete all NS records for name"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "selective-ns.{{ primary_zone_name }}"
+    type: NS
+    state: absent
+  register: ns_delete_all_result
+
+- name: "Test 7.2: Assert all NS records deleted"
+  ansible.builtin.assert:
+    that:
+      - ns_delete_all_result is changed
+
+- name: "Test 7.3: Verify no NS records remain"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "selective-ns.{{ primary_zone_name }}"
+  register: ns_after_delete_all_result
+  ignore_errors: true
+
+- name: "Test 7.4: Assert domain has no records or doesn't exist"
+  ansible.builtin.assert:
+    that:
+      - ns_after_delete_all_result.failed or (ns_after_delete_all_result.records | selectattr('type', 'equalto', 'NS') | list | length == 0)
+
+# =============================================================================
+# Test 8: Check Mode
+# =============================================================================
+- name: "Test 8.1: Create NS record in check mode"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "check-mode-ns.{{ primary_zone_name }}"
+    type: NS
+    nameServer: "ns-check.example.net"
+    state: present
+  check_mode: true
+  register: ns_check_create_result
+
+- name: "Test 8.2: Assert check mode reports change"
+  ansible.builtin.assert:
+    that:
+      - ns_check_create_result is changed
+
+- name: "Test 8.3: Verify NS record was not actually created"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "check-mode-ns.{{ primary_zone_name }}"
+  register: ns_check_verify_result
+  ignore_errors: true
+
+- name: "Test 8.4: Assert record does not exist"
+  ansible.builtin.assert:
+    that:
+      - ns_check_verify_result.failed or (ns_check_verify_result.records | default([]) | length == 0)
+
+- name: "Test 8.5: Actually create the NS record for next test"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "check-mode-ns.{{ primary_zone_name }}"
+    type: NS
+    nameServer: "ns-check.example.net"
+    state: present
+
+- name: "Test 8.6: Delete NS record in check mode"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "check-mode-ns.{{ primary_zone_name }}"
+    type: NS
+    state: absent
+  check_mode: true
+  register: ns_check_delete_result
+
+- name: "Test 8.7: Assert check mode reports would delete"
+  ansible.builtin.assert:
+    that:
+      - ns_check_delete_result is changed
+
+- name: "Test 8.8: Verify NS record still exists"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "check-mode-ns.{{ primary_zone_name }}"
+  register: ns_check_still_exists_result
+
+- name: "Test 8.9: Assert record still exists after check mode delete"
+  ansible.builtin.assert:
+    that:
+      - ns_check_still_exists_result.records | selectattr('type', 'equalto', 'NS') | list | length == 1
+
+# =============================================================================
+# Test 9: NS records with TTL and comments
+# =============================================================================
+- name: "Test 9.1: Create NS record with custom TTL and comments"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ns-with-meta.{{ primary_zone_name }}"
+    type: NS
+    nameServer: "ns-meta.example.net"
+    ttl: 7200
+    comments: "NS with metadata"
+    state: present
+  register: ns_meta_result
+
+- name: "Test 9.2: Assert NS record with metadata was created"
+  ansible.builtin.assert:
+    that:
+      - ns_meta_result is changed
+
+- name: "Test 9.3: Verify NS record has correct TTL and comments"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ns-with-meta.{{ primary_zone_name }}"
+  register: ns_meta_get_result
+
+- name: "Test 9.4: Assert NS record metadata is correct"
+  ansible.builtin.assert:
+    that:
+      - (ns_meta_get_result.records | selectattr('type', 'equalto', 'NS') | list | first).ttl == 7200
+      - (ns_meta_get_result.records | selectattr('type', 'equalto', 'NS') | list | first).comments == "NS with metadata"
+
+# =============================================================================
+# Test 10: NS record with expiryTtl (auto-expiration)
+# =============================================================================
+- name: "Test 10.1: Create NS record with expiryTtl for auto-deletion"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "expiry-ns.{{ primary_zone_name }}"
+    type: NS
+    nameServer: "ns-temp.example.net"
+    expiryTtl: 300
+    comments: "Temporary NS - expires in 5 minutes"
+    state: present
+  register: ns_expiry_result
+
+- name: "Test 10.2: Assert NS record with expiryTtl was created"
+  ansible.builtin.assert:
+    that:
+      - ns_expiry_result is changed
+
+- name: "Test 10.3: Verify NS record has expiryTtl set"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "expiry-ns.{{ primary_zone_name }}"
+  register: ns_expiry_get_result
+
+- name: "Test 10.4: Assert NS record has correct expiryTtl"
+  ansible.builtin.assert:
+    that:
+      - ns_expiry_get_result.records | selectattr('type', 'equalto', 'NS') | list | length == 1
+      - (ns_expiry_get_result.records | selectattr('type', 'equalto', 'NS') | list | first).expiryTtl == 300
+
+# =============================================================================
+# Test 11: Negative Tests - Missing Parameters
+# =============================================================================
+- name: "Test 11.1: Attempt to create NS record without nameServer"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "invalid-ns.{{ primary_zone_name }}"
+    type: NS
+    state: present
+  register: ns_no_nameserver_result
+  ignore_errors: true
+
+- name: "Test 11.2: Assert error for missing nameServer field"
+  ansible.builtin.assert:
+    that:
+      - ns_no_nameserver_result is failed
+      - "'nameServer' in ns_no_nameserver_result.msg"
+
+- name: "Test 11.3: Attempt to create NS record with unsupported field"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "invalid-ns.{{ primary_zone_name }}"
+    type: NS
+    nameServer: "ns-bad.example.net"
+    ipAddress: "192.0.2.1"
+    state: present
+  register: ns_bad_field_result
+  ignore_errors: true
+
+- name: "Test 11.4: Assert error for unsupported field"
+  ansible.builtin.assert:
+    that:
+      - ns_bad_field_result is failed
+      - "'ipAddress' in ns_bad_field_result.msg"
+
+# =============================================================================
+# Test 12: Delete Non-Existent NS Record (Idempotency)
+# =============================================================================
+- name: "Test 12.1: Delete non-existent NS record (idempotent)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "nonexistent-ns.{{ primary_zone_name }}"
+    type: NS
+    state: absent
+  register: ns_delete_nonexistent_result
+
+- name: "Test 12.2: Assert no changes"
+  ansible.builtin.assert:
+    that:
+      - ns_delete_nonexistent_result is not changed
+
+# Cleanup
+- name: "Cleanup: Remove all test NS records"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "{{ item }}"
+    type: NS
+    state: absent
+  loop:
+    - "delegate.{{ primary_zone_name }}"
+    - "multi-delegate.{{ primary_zone_name }}"
+    - "glue-test.{{ primary_zone_name }}"
+    - "glue-test-v6.{{ primary_zone_name }}"
+    - "overwrite-ns.{{ primary_zone_name }}"
+    - "additive-ns.{{ primary_zone_name }}"
+    - "check-mode-ns.{{ primary_zone_name }}"
+    - "ns-with-meta.{{ primary_zone_name }}"
+    - "expiry-ns.{{ primary_zone_name }}"
+  ignore_errors: true
+
+- name: "Test Completion Message"
+  ansible.builtin.debug:
+    msg: "NS Record tests completed successfully!"

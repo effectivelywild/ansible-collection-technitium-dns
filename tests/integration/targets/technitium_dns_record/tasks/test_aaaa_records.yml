@@ -446,9 +446,73 @@
   register: test8_cleanup
 
 # =============================================================================
-# Test 9: Negative Tests - Missing Required Parameters
+# Test 9: PTR Records with Shorthand
 # =============================================================================
-- name: "Test 9.1: Missing ipAddress with shorthand (state=present)"
+- name: "Test 9.1: Create AAAA record with PTR using shorthand"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-aaaa-test.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: AAAA
+    ipAddress: "2001:db8:a::10"
+    ptr: true
+    createPtrZone: true
+    state: present
+  register: test9_ptr
+
+- name: "Test 9.1: Assert PTR record created"
+  ansible.builtin.assert:
+    that:
+      - test9_ptr is changed
+
+- name: "Test 9.2: Calculate PTR reverse zone and FQDN for IPv6"
+  ansible.builtin.set_fact:
+    ptr_ipv6_expanded: "2001:0db8:000a:0000:0000:0000:0000:0010"
+    ptr_forward_name: "ptr-aaaa-test.{{ primary_zone_name }}"
+
+- name: "Test 9.3: Set PTR reverse zone and FQDN"
+  ansible.builtin.set_fact:
+    ptr_reverse_zone: "a.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa"
+    ptr_reverse_fqdn: "0.1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.a.0.0.0.8.b.d.0.1.0.0.2.ip6.arpa"
+
+- name: "Test 9.4: Get PTR record to verify creation"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "{{ ptr_reverse_fqdn }}"
+  register: ptr_lookup
+  ignore_errors: true
+
+- name: "Test 9.5: Assert PTR record exists and points to AAAA FQDN"
+  ansible.builtin.assert:
+    that:
+      - ptr_lookup is not failed
+      - (ptr_lookup.records | default([])
+          | selectattr('type','equalto','PTR')
+          | selectattr('name','equalto', ptr_reverse_fqdn)
+          | selectattr('rData.ptrName','search', ptr_forward_name)
+          | list | length) > 0
+    fail_msg: "Expected PTR for 2001:db8:a::10 not found or misconfigured (reverse fqdn: {{ ptr_reverse_fqdn }}). PTR lookup result: {{ ptr_lookup }}"
+    success_msg: "PTR record verified for 2001:db8:a::10"
+
+- name: "Test 9.6: Cleanup PTR test"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-aaaa-test.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: AAAA
+    state: absent
+  register: test9_cleanup
+
+# =============================================================================
+# Test 10: Negative Tests - Missing Required Parameters
+# =============================================================================
+- name: "Test 10.1: Missing ipAddress with shorthand (state=present)"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
@@ -458,16 +522,16 @@
     type: AAAA
     ttl: 3600
     state: present
-  register: test9_missing_ip
+  register: test10_missing_ip
   ignore_errors: true
 
-- name: "Test 9.1: Assert missing parameter error"
+- name: "Test 10.1: Assert missing parameter error"
   ansible.builtin.assert:
     that:
-      - test9_missing_ip is failed
-      - test9_missing_ip.msg is search("No records specified|ipAddress")
+      - test10_missing_ip is failed
+      - test10_missing_ip.msg is search("No records specified|ipAddress")
 
-- name: "Test 9.2: Missing required field in records list"
+- name: "Test 10.2: Missing required field in records list"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
@@ -478,19 +542,19 @@
     records:
       - ttl: 3600
     state: present
-  register: test9_missing_field
+  register: test10_missing_field
   ignore_errors: true
 
-- name: "Test 9.2: Assert missing field error"
+- name: "Test 10.2: Assert missing field error"
   ansible.builtin.assert:
     that:
-      - test9_missing_field is failed
-      - test9_missing_field.msg is search("missing required field 'ipAddress'")
+      - test10_missing_field is failed
+      - test10_missing_field.msg is search("missing required field 'ipAddress'")
 
 # =============================================================================
-# Test 10: Negative Tests - Invalid Record Data
+# Test 11: Negative Tests - Invalid Record Data
 # =============================================================================
-- name: "Test 10.1: Invalid IPv6 address format"
+- name: "Test 11.1: Invalid IPv6 address format"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
@@ -500,15 +564,15 @@
     type: AAAA
     ipAddress: "gggg::1"
     state: present
-  register: test10_invalid_ipv6
+  register: test11_invalid_ipv6
   ignore_errors: true
 
-- name: "Test 10.1: Assert invalid IPv6 error"
+- name: "Test 11.1: Assert invalid IPv6 error"
   ansible.builtin.assert:
     that:
-      - test10_invalid_ipv6 is failed
+      - test11_invalid_ipv6 is failed
 
-- name: "Test 10.2: IPv4 address in AAAA record"
+- name: "Test 11.2: IPv4 address in AAAA record"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
@@ -518,15 +582,15 @@
     type: AAAA
     ipAddress: "192.0.2.1"
     state: present
-  register: test10_ipv4_in_aaaa
+  register: test11_ipv4_in_aaaa
   ignore_errors: true
 
-- name: "Test 10.2: Assert IPv4 in AAAA record error"
+- name: "Test 11.2: Assert IPv4 in AAAA record error"
   ansible.builtin.assert:
     that:
-      - test10_ipv4_in_aaaa is failed
+      - test11_ipv4_in_aaaa is failed
 
-- name: "Test 10.3: Unsupported parameter for AAAA record (cname)"
+- name: "Test 11.3: Unsupported parameter for AAAA record (cname)"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
@@ -537,19 +601,19 @@
     ipAddress: "2001:db8::100"
     cname: "other.example.com"
     state: present
-  register: test10_bad_param
+  register: test11_bad_param
   ignore_errors: true
 
-- name: "Test 10.3: Assert unsupported parameter error"
+- name: "Test 11.3: Assert unsupported parameter error"
   ansible.builtin.assert:
     that:
-      - test10_bad_param is failed
-      - test10_bad_param.msg is search("not supported for record type")
+      - test11_bad_param is failed
+      - test11_bad_param.msg is search("not supported for record type")
 
 # =============================================================================
-# Test 11: Negative Tests - Delete Operations
+# Test 12: Negative Tests - Delete Operations
 # =============================================================================
-- name: "Test 11.1: Delete with missing identifying fields"
+- name: "Test 12.1: Delete with missing identifying fields"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
@@ -560,16 +624,16 @@
     records:
       - ttl: 3600
     state: absent
-  register: test11_missing_id
+  register: test12_missing_id
   ignore_errors: true
 
-- name: "Test 11.1: Assert missing identifying field error"
+- name: "Test 12.1: Assert missing identifying field error"
   ansible.builtin.assert:
     that:
-      - test11_missing_id is failed
-      - test11_missing_id.msg is search("missing required field|missing identifying fields")
+      - test12_missing_id is failed
+      - test12_missing_id.msg is search("missing required field|missing identifying fields")
 
-- name: "Test 11.2: Delete non-existent AAAA record (idempotent)"
+- name: "Test 12.2: Delete non-existent AAAA record (idempotent)"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
@@ -580,12 +644,12 @@
     records:
       - ipAddress: "2001:db8:9999::1"
     state: absent
-  register: test11_delete_nonexistent
+  register: test12_delete_nonexistent
 
-- name: "Test 11.2: Assert no changes"
+- name: "Test 12.2: Assert no changes"
   ansible.builtin.assert:
     that:
-      - test11_delete_nonexistent is not changed
+      - test12_delete_nonexistent is not changed
 
 - name: "Test Completion Message"
   ansible.builtin.debug:

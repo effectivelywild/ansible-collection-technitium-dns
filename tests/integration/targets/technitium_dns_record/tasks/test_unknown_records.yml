@@ -1,0 +1,459 @@
+---
+# UNKNOWN record integration tests for state-based module
+# UNKNOWN records store arbitrary DNS record data in hex format for unsupported record types
+
+# Test 1: Basic UNKNOWN record creation using shorthand
+- name: "Test 1.1: Create basic UNKNOWN record using shorthand"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-basic.{{ primary_zone_name }}"
+    type: UNKNOWN
+    rdata: "0102030405060708090a0b0c0d0e0f10"
+    state: present
+  register: unknown_basic_result
+
+- name: "Test 1.2: Assert UNKNOWN record was created"
+  ansible.builtin.assert:
+    that:
+      - unknown_basic_result.changed
+
+- name: "Test 1.3: Verify UNKNOWN record exists"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-basic.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: unknown_basic_get
+
+- name: "Test 1.4: Assert UNKNOWN values match"
+  ansible.builtin.assert:
+    that:
+      - unknown_basic_get.records | selectattr('type', 'equalto', 'Unknown') | list | length == 1
+      - (unknown_basic_get.records | selectattr('type', 'equalto', 'Unknown') | first).rData.value is defined
+
+- name: "Test 1.5: Re-create UNKNOWN record (idempotency)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-basic.{{ primary_zone_name }}"
+    type: UNKNOWN
+    rdata: "0102030405060708090a0b0c0d0e0f10"
+    state: present
+  register: unknown_basic_idempotent
+
+- name: "Test 1.6: Assert idempotency (no change)"
+  ansible.builtin.assert:
+    that:
+      - not unknown_basic_idempotent.changed
+
+# Test 2: Multiple UNKNOWN records with different data
+- name: "Test 2.1: Create multiple UNKNOWN records using records list"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-multi.{{ primary_zone_name }}"
+    type: UNKNOWN
+    records:
+      - rdata: "1111111111111111"
+      - rdata: "2222222222222222"
+      - rdata: "3333333333333333"
+    state: present
+  register: unknown_multi_result
+
+- name: "Test 2.2: Assert UNKNOWN records created"
+  ansible.builtin.assert:
+    that:
+      - unknown_multi_result.changed
+
+- name: "Test 2.3: Verify all three UNKNOWN records exist"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-multi.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: unknown_multi_get
+
+- name: "Test 2.4: Assert all UNKNOWN records exist"
+  ansible.builtin.assert:
+    that:
+      - unknown_multi_get.records | selectattr('type', 'equalto', 'Unknown') | list | length == 3
+
+- name: "Test 2.5: Re-create all UNKNOWN records (idempotency)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-multi.{{ primary_zone_name }}"
+    type: UNKNOWN
+    records:
+      - rdata: "1111111111111111"
+      - rdata: "2222222222222222"
+      - rdata: "3333333333333333"
+    state: present
+  register: unknown_multi_idempotent
+
+- name: "Test 2.6: Assert idempotency (no change)"
+  ansible.builtin.assert:
+    that:
+      - not unknown_multi_idempotent.changed
+
+# Test 3: Overwrite mode
+- name: "Test 3.1: Overwrite UNKNOWN records with new set"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-multi.{{ primary_zone_name }}"
+    type: UNKNOWN
+    records:
+      - rdata: "4444444444444444"
+    overwrite: true
+    state: present
+  register: unknown_overwrite_result
+
+- name: "Test 3.2: Assert overwrite changed"
+  ansible.builtin.assert:
+    that:
+      - unknown_overwrite_result.changed
+
+- name: "Test 3.3: Verify only new UNKNOWN record exists"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-multi.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: unknown_overwrite_get
+
+- name: "Test 3.4: Assert old UNKNOWN records removed, new one exists"
+  ansible.builtin.assert:
+    that:
+      - unknown_overwrite_get.records | selectattr('type', 'equalto', 'Unknown') | list | length == 1
+
+# Test 4: Additive mode (overwrite: false)
+- name: "Test 4.1: Add UNKNOWN record to existing set (additive)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-multi.{{ primary_zone_name }}"
+    type: UNKNOWN
+    rdata: "5555555555555555"
+    overwrite: false
+    state: present
+  register: unknown_additive_result
+
+- name: "Test 4.2: Assert additive mode changed"
+  ansible.builtin.assert:
+    that:
+      - unknown_additive_result.changed
+
+- name: "Test 4.3: Verify all UNKNOWN records exist (old + new)"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-multi.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: unknown_additive_get
+
+- name: "Test 4.4: Assert all UNKNOWN records present"
+  ansible.builtin.assert:
+    that:
+      - unknown_additive_get.records | selectattr('type', 'equalto', 'Unknown') | list | length == 2
+
+# Test 5: Selective deletion by rdata value
+- name: "Test 5.1: Delete specific UNKNOWN record by rdata value"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-multi.{{ primary_zone_name }}"
+    type: UNKNOWN
+    rdata: "5555555555555555"
+    state: absent
+  register: unknown_delete_specific_result
+
+- name: "Test 5.2: Assert specific UNKNOWN deleted"
+  ansible.builtin.assert:
+    that:
+      - unknown_delete_specific_result.changed
+
+- name: "Test 5.3: Verify specific UNKNOWN record removed"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-multi.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: unknown_delete_specific_get
+
+- name: "Test 5.4: Assert only one UNKNOWN record remains"
+  ansible.builtin.assert:
+    that:
+      - unknown_delete_specific_get.records | selectattr('type', 'equalto', 'Unknown') | list | length == 1
+
+# Test 6: Delete all UNKNOWN records by name/type
+- name: "Test 6.1: Delete all UNKNOWN records for name"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-multi.{{ primary_zone_name }}"
+    type: UNKNOWN
+    state: absent
+  register: unknown_delete_all_result
+
+- name: "Test 6.2: Assert all UNKNOWN records deleted"
+  ansible.builtin.assert:
+    that:
+      - unknown_delete_all_result.changed
+
+- name: "Test 6.3: Verify no UNKNOWN records remain"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-multi.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: unknown_delete_all_get
+  ignore_errors: true
+
+- name: "Test 6.4: Assert no UNKNOWN records found"
+  ansible.builtin.assert:
+    that:
+      - unknown_delete_all_get.failed or (unknown_delete_all_get.records | selectattr('type', 'equalto', 'Unknown') | list | length == 0)
+
+# Test 7: Check mode
+- name: "Test 7.1: Create UNKNOWN record in check mode"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-check.{{ primary_zone_name }}"
+    type: UNKNOWN
+    rdata: "abcdef1234567890"
+    state: present
+  check_mode: true
+  register: unknown_check_create
+
+- name: "Test 7.2: Assert check mode reports change"
+  ansible.builtin.assert:
+    that:
+      - unknown_check_create.changed
+
+- name: "Test 7.3: Verify UNKNOWN record was not actually created"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-check.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: unknown_check_verify
+  ignore_errors: true
+
+- name: "Test 7.4: Assert UNKNOWN record does not exist"
+  ansible.builtin.assert:
+    that:
+      - unknown_check_verify.failed or (unknown_check_verify.records | selectattr('type', 'equalto', 'Unknown') | list | length == 0)
+
+- name: "Test 7.5: Create UNKNOWN record for real (for delete check mode test)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-check.{{ primary_zone_name }}"
+    type: UNKNOWN
+    rdata: "abcdef1234567890"
+    state: present
+
+- name: "Test 7.6: Delete UNKNOWN record in check mode"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-check.{{ primary_zone_name }}"
+    type: UNKNOWN
+    state: absent
+  check_mode: true
+  register: unknown_check_delete
+
+- name: "Test 7.7: Assert check mode delete reports change"
+  ansible.builtin.assert:
+    that:
+      - unknown_check_delete.changed
+
+- name: "Test 7.8: Verify UNKNOWN record still exists"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-check.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: unknown_check_still_exists
+
+- name: "Test 7.9: Assert UNKNOWN record still exists"
+  ansible.builtin.assert:
+    that:
+      - unknown_check_still_exists.records | selectattr('type', 'equalto', 'Unknown') | list | length == 1
+
+# Test 8: Custom TTL and comments
+- name: "Test 8.1: Create UNKNOWN record with custom TTL and comments"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-metadata.{{ primary_zone_name }}"
+    type: UNKNOWN
+    rdata: "fedcba9876543210"
+    ttl: 7200
+    comments: "Test UNKNOWN record with custom metadata"
+    state: present
+  register: unknown_metadata_result
+
+- name: "Test 8.2: Assert UNKNOWN with metadata created"
+  ansible.builtin.assert:
+    that:
+      - unknown_metadata_result.changed
+
+- name: "Test 8.3: Verify UNKNOWN metadata"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-metadata.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: unknown_metadata_get
+
+- name: "Test 8.4: Assert UNKNOWN metadata values"
+  ansible.builtin.assert:
+    that:
+      - unknown_metadata_get.records | selectattr('type', 'equalto', 'Unknown') | list | length == 1
+      - (unknown_metadata_get.records | selectattr('type', 'equalto', 'Unknown') | first).ttl == 7200
+      - (unknown_metadata_get.records | selectattr('type', 'equalto', 'Unknown') | first).comments == "Test UNKNOWN record with custom metadata"
+
+# Test 9: ExpiryTtl
+- name: "Test 9.1: Create UNKNOWN record with expiryTtl for auto-deletion"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-temp.{{ primary_zone_name }}"
+    type: UNKNOWN
+    rdata: "0011223344556677"
+    expiryTtl: 86400
+    state: present
+  register: unknown_expiry_result
+
+- name: "Test 9.2: Assert UNKNOWN with expiryTtl created"
+  ansible.builtin.assert:
+    that:
+      - unknown_expiry_result.changed
+
+- name: "Test 9.3: Verify UNKNOWN expiryTtl"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-temp.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: unknown_expiry_get
+
+- name: "Test 9.4: Assert UNKNOWN expiryTtl value"
+  ansible.builtin.assert:
+    that:
+      - unknown_expiry_get.records | selectattr('type', 'equalto', 'Unknown') | list | length == 1
+      - (unknown_expiry_get.records | selectattr('type', 'equalto', 'Unknown') | first).expiryTtl == 86400
+
+# Test 10: Negative tests
+- name: "Test 10.1: UNKNOWN without required rdata should fail"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-fail.{{ primary_zone_name }}"
+    type: UNKNOWN
+    state: present
+  register: unknown_missing_rdata
+  ignore_errors: true
+
+- name: "Test 10.2: Assert failure for missing rdata"
+  ansible.builtin.assert:
+    that:
+      - unknown_missing_rdata.failed
+      - "'rdata' in unknown_missing_rdata.msg or 'records' in unknown_missing_rdata.msg"
+
+- name: "Test 10.3: UNKNOWN with unsupported parameter should fail"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-fail.{{ primary_zone_name }}"
+    type: UNKNOWN
+    rdata: "abcd1234"
+    ipAddress: "1.2.3.4"
+    state: present
+  register: unknown_unsupported_param
+  ignore_errors: true
+
+- name: "Test 10.4: Assert failure for unsupported parameter"
+  ansible.builtin.assert:
+    that:
+      - unknown_unsupported_param.failed
+      - "'ipAddress' in unknown_unsupported_param.msg"
+
+- name: "Test 10.5: UNKNOWN with invalid API token should fail"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-fail.{{ primary_zone_name }}"
+    type: UNKNOWN
+    rdata: "abcd1234"
+    state: present
+  register: unknown_invalid_token
+  ignore_errors: true
+
+- name: "Test 10.6: Assert failure for invalid token"
+  ansible.builtin.assert:
+    that:
+      - unknown_invalid_token.failed
+      - "'Invalid token' in unknown_invalid_token.msg or 'invalid-token' in unknown_invalid_token.msg"
+
+# Test 11: Idempotent deletion of non-existent record
+- name: "Test 11.1: Delete non-existent UNKNOWN record"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "unknown-nonexistent.{{ primary_zone_name }}"
+    type: UNKNOWN
+    state: absent
+  register: unknown_delete_nonexistent
+
+- name: "Test 11.2: Assert no change for deleting non-existent record"
+  ansible.builtin.assert:
+    that:
+      - not unknown_delete_nonexistent.changed
+
+# Cleanup
+- name: "Cleanup: Delete test UNKNOWN records"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "{{ item }}"
+    type: UNKNOWN
+    state: absent
+  loop:
+    - "unknown-basic.{{ primary_zone_name }}"
+    - "unknown-check.{{ primary_zone_name }}"
+    - "unknown-metadata.{{ primary_zone_name }}"
+    - "unknown-temp.{{ primary_zone_name }}"
+  ignore_errors: true

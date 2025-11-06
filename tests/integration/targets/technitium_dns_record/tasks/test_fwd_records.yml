@@ -1,25 +1,22 @@
 ---
-# DS (Delegation Signer) Record Tests for technitium_dns_record module
-# NOTE: DS records support multiple records per DNS name (RFC 4035)
-# Multiple DS records are used for key rollover and multi-signer DNSSEC
+# FWD (Forwarder) Record Tests for technitium_dns_record module
+# NOTE: FWD records support multiple records per DNS name
+# FWD records are conditional forwarders used in Forwarder zones
 
 # =============================================================================
 # Test 1: Shorthand Single Record - Create, Update, Delete
 # =============================================================================
-- name: "Test 1.1: Create single DS record using shorthand syntax"
+- name: "Test 1.1: Create single FWD record using shorthand syntax"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "secure.{{ primary_zone_name }}"
-    zone: "{{ primary_zone_name }}"
-    type: DS
-    keyTag: 12345
-    algorithm: "RSASHA256"
-    digestType: "SHA256"
-    digest: "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2"
-    ttl: 3600
-    comments: "Created via shorthand"
+    name: "shorthand-fwd.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
+    protocol: "Udp"
+    forwarder: "192.0.2.10"
+    forwarderPriority: 10
     state: present
   register: test1_create
 
@@ -33,32 +30,29 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "secure.{{ primary_zone_name }}"
+    name: "shorthand-fwd.{{ forwarder_zone_name }}"
   register: test1_verify
 
 - name: "Test 1.2: Assert record values"
   ansible.builtin.assert:
     that:
       - test1_verify.records | length == 1
-      - test1_verify.records[0].type == 'DS'
-      - test1_verify.records[0].rData.keyTag == 12345
-      - test1_verify.records[0].rData.algorithm == 'RSASHA256'
-      - test1_verify.records[0].ttl == 3600
+      - test1_verify.records[0].type == 'FWD'
+      - test1_verify.records[0].rData.protocol == 'Udp'
+      - test1_verify.records[0].rData.forwarder == '192.0.2.10'
+      - test1_verify.records[0].rData.priority == 10
 
 - name: "Test 1.3: Idempotency - Run same create again"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "secure.{{ primary_zone_name }}"
-    zone: "{{ primary_zone_name }}"
-    type: DS
-    keyTag: 12345
-    algorithm: "RSASHA256"
-    digestType: "SHA256"
-    digest: "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2"
-    ttl: 3600
-    comments: "Created via shorthand"
+    name: "shorthand-fwd.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
+    protocol: "Udp"
+    forwarder: "192.0.2.10"
+    forwarderPriority: 10
     state: present
   register: test1_idempotent
 
@@ -72,9 +66,9 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "secure.{{ primary_zone_name }}"
-    zone: "{{ primary_zone_name }}"
-    type: DS
+    name: "shorthand-fwd.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
     state: absent
   register: test1_delete
 
@@ -88,7 +82,7 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "secure.{{ primary_zone_name }}"
+    name: "shorthand-fwd.{{ forwarder_zone_name }}"
   register: test1_verify_delete
   ignore_errors: true
 
@@ -98,30 +92,27 @@
       - test1_verify_delete is failed
 
 # =============================================================================
-# Test 2: Multiple Records in a Set - Key Rollover Scenario
+# Test 2: Multiple Records in a Set - Different Forwarders
 # =============================================================================
-- name: "Test 2.1: Create multiple DS records (key rollover)"
+- name: "Test 2.1: Create multiple FWD records"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "multi-ds.{{ primary_zone_name }}"
-    zone: "{{ primary_zone_name }}"
-    type: DS
+    name: "multi-fwd.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
     ttl: 7200
     records:
-      - keyTag: 12345
-        algorithm: "RSASHA256"
-        digestType: "SHA256"
-        digest: "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2"
-      - keyTag: 12345
-        algorithm: "RSASHA256"
-        digestType: "SHA384"
-        digest: "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6"
-      - keyTag: 54321
-        algorithm: "ECDSAP256SHA256"
-        digestType: "SHA256"
-        digest: "B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3"
+      - protocol: "Udp"
+        forwarder: "192.0.2.20"
+        forwarderPriority: 10
+      - protocol: "Tcp"
+        forwarder: "192.0.2.20"
+        forwarderPriority: 20
+      - protocol: "Udp"
+        forwarder: "2001:db8::30"
+        forwarderPriority: 5
     state: present
   register: test2_create
 
@@ -135,38 +126,35 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "multi-ds.{{ primary_zone_name }}"
+    name: "multi-fwd.{{ forwarder_zone_name }}"
   register: test2_verify
 
-- name: "Test 2.2: Assert 3 DS records exist"
+- name: "Test 2.2: Assert 3 FWD records exist"
   ansible.builtin.assert:
     that:
       - test2_verify.records | length == 3
-      - test2_verify.records | selectattr('rData.keyTag', 'equalto', 12345) | list | length == 2
-      - test2_verify.records | selectattr('rData.keyTag', 'equalto', 54321) | list | length == 1
+      - test2_verify.records | selectattr('rData.protocol', 'equalto', 'Udp') | list | length == 2
+      - test2_verify.records | selectattr('rData.protocol', 'equalto', 'Tcp') | list | length == 1
 
 - name: "Test 2.3: Idempotency - Run same create again"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "multi-ds.{{ primary_zone_name }}"
-    zone: "{{ primary_zone_name }}"
-    type: DS
+    name: "multi-fwd.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
     ttl: 7200
     records:
-      - keyTag: 12345
-        algorithm: "RSASHA256"
-        digestType: "SHA256"
-        digest: "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2"
-      - keyTag: 12345
-        algorithm: "RSASHA256"
-        digestType: "SHA384"
-        digest: "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6"
-      - keyTag: 54321
-        algorithm: "ECDSAP256SHA256"
-        digestType: "SHA256"
-        digest: "B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3"
+      - protocol: "Udp"
+        forwarder: "192.0.2.20"
+        forwarderPriority: 10
+      - protocol: "Tcp"
+        forwarder: "192.0.2.20"
+        forwarderPriority: 20
+      - protocol: "Udp"
+        forwarder: "2001:db8::30"
+        forwarderPriority: 5
     state: present
   register: test2_idempotent
 
@@ -180,9 +168,9 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "multi-ds.{{ primary_zone_name }}"
-    zone: "{{ primary_zone_name }}"
-    type: DS
+    name: "multi-fwd.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
     state: absent
   register: test2_delete
 
@@ -194,24 +182,22 @@
 # =============================================================================
 # Test 3: Overwrite Mode - Replace Entire Set
 # =============================================================================
-- name: "Test 3.1: Create initial set of DS records"
+- name: "Test 3.1: Create initial set of FWD records"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "overwrite-ds.{{ primary_zone_name }}"
-    zone: "{{ primary_zone_name }}"
-    type: DS
+    name: "overwrite-fwd.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
     ttl: 3600
     records:
-      - keyTag: 11111
-        algorithm: "RSASHA256"
-        digestType: "SHA256"
-        digest: "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2"
-      - keyTag: 22222
-        algorithm: "RSASHA256"
-        digestType: "SHA256"
-        digest: "B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3"
+      - protocol: "Udp"
+        forwarder: "192.0.2.100"
+        forwarderPriority: 10
+      - protocol: "Tcp"
+        forwarder: "192.0.2.100"
+        forwarderPriority: 20
     state: present
   register: test3_create
 
@@ -225,16 +211,15 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "overwrite-ds.{{ primary_zone_name }}"
-    zone: "{{ primary_zone_name }}"
-    type: DS
+    name: "overwrite-fwd.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
     ttl: 7200
     overwrite: true
     records:
-      - keyTag: 65432
-        algorithm: "ECDSAP256SHA256"
-        digestType: "SHA256"
-        digest: "C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4"
+      - protocol: "Udp"
+        forwarder: "203.0.113.50"
+        forwarderPriority: 5
     state: present
   register: test3_overwrite
 
@@ -248,44 +233,43 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "overwrite-ds.{{ primary_zone_name }}"
+    name: "overwrite-fwd.{{ forwarder_zone_name }}"
   register: test3_verify
 
 - name: "Test 3.3: Assert only replacement records exist"
   ansible.builtin.assert:
     that:
       - test3_verify.records | length == 1
-      - test3_verify.records[0].rData.keyTag == 65432
-      - test3_verify.records | selectattr('rData.keyTag', 'equalto', 11111) | list | length == 0
+      - test3_verify.records[0].rData.forwarder == '203.0.113.50'
+      - test3_verify.records | selectattr('rData.forwarder', 'equalto', '192.0.2.100') | list | length == 0
 
 - name: "Test 3.4: Delete overwrite test records"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "overwrite-ds.{{ primary_zone_name }}"
-    zone: "{{ primary_zone_name }}"
-    type: DS
+    name: "overwrite-fwd.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
     state: absent
   register: test3_delete
 
 # =============================================================================
 # Test 4: Additive Mode - Merge with Existing Records
 # =============================================================================
-- name: "Test 4.1: Create initial set of DS records"
+- name: "Test 4.1: Create initial set of FWD records"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "additive-ds.{{ primary_zone_name }}"
-    zone: "{{ primary_zone_name }}"
-    type: DS
+    name: "additive-fwd.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
     ttl: 3600
     records:
-      - keyTag: 11111
-        algorithm: "RSASHA256"
-        digestType: "SHA256"
-        digest: "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2"
+      - protocol: "Udp"
+        forwarder: "192.0.2.110"
+        forwarderPriority: 10
     state: present
   register: test4_create
 
@@ -299,16 +283,15 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "additive-ds.{{ primary_zone_name }}"
-    zone: "{{ primary_zone_name }}"
-    type: DS
+    name: "additive-fwd.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
     ttl: 3600
     overwrite: false
     records:
-      - keyTag: 22222
-        algorithm: "RSASHA256"
-        digestType: "SHA256"
-        digest: "B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3"
+      - protocol: "Tcp"
+        forwarder: "192.0.2.110"
+        forwarderPriority: 20
     state: present
   register: test4_add
 
@@ -322,68 +305,64 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "additive-ds.{{ primary_zone_name }}"
+    name: "additive-fwd.{{ forwarder_zone_name }}"
   register: test4_verify
 
 - name: "Test 4.3: Assert 2 total records (1 old + 1 new)"
   ansible.builtin.assert:
     that:
       - test4_verify.records | length == 2
-      - test4_verify.records | selectattr('rData.keyTag', 'equalto', 11111) | list | length == 1
-      - test4_verify.records | selectattr('rData.keyTag', 'equalto', 22222) | list | length == 1
+      - test4_verify.records | selectattr('rData.protocol', 'equalto', 'Udp') | list | length == 1
+      - test4_verify.records | selectattr('rData.protocol', 'equalto', 'Tcp') | list | length == 1
 
 - name: "Test 4.4: Delete additive test records"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "additive-ds.{{ primary_zone_name }}"
-    zone: "{{ primary_zone_name }}"
-    type: DS
+    name: "additive-fwd.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
     state: absent
   register: test4_delete
 
 # =============================================================================
 # Test 5: Selective Deletion - Delete Specific Records from Set
 # =============================================================================
-- name: "Test 5.1: Create set of 3 DS records"
+- name: "Test 5.1: Create set of 3 FWD records"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "selective-ds.{{ primary_zone_name }}"
-    zone: "{{ primary_zone_name }}"
-    type: DS
+    name: "selective-fwd.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
     ttl: 3600
     records:
-      - keyTag: 11111
-        algorithm: "RSASHA256"
-        digestType: "SHA256"
-        digest: "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2"
-      - keyTag: 22222
-        algorithm: "RSASHA256"
-        digestType: "SHA256"
-        digest: "B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3"
-      - keyTag: 33333
-        algorithm: "RSASHA256"
-        digestType: "SHA256"
-        digest: "C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4"
+      - protocol: "Udp"
+        forwarder: "192.0.2.120"
+        forwarderPriority: 10
+      - protocol: "Tcp"
+        forwarder: "192.0.2.120"
+        forwarderPriority: 20
+      - protocol: "Udp"
+        forwarder: "2001:db8::120"
+        forwarderPriority: 30
     state: present
   register: test5_create
 
-- name: "Test 5.2: Delete specific record (keyTag 22222)"
+- name: "Test 5.2: Delete specific record (Tcp protocol)"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "selective-ds.{{ primary_zone_name }}"
-    zone: "{{ primary_zone_name }}"
-    type: DS
+    name: "selective-fwd.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
     records:
-      - keyTag: 22222
-        algorithm: "RSASHA256"
-        digestType: "SHA256"
-        digest: "B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3"
+      - protocol: "Tcp"
+        forwarder: "192.0.2.120"
+        forwarderPriority: 20
     state: absent
   register: test5_delete_specific
 
@@ -397,24 +376,24 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "selective-ds.{{ primary_zone_name }}"
+    name: "selective-fwd.{{ forwarder_zone_name }}"
   register: test5_verify
 
 - name: "Test 5.3: Assert only 2 records remain"
   ansible.builtin.assert:
     that:
       - test5_verify.records | length == 2
-      - test5_verify.records | selectattr('rData.keyTag', 'equalto', 11111) | list | length == 1
-      - test5_verify.records | selectattr('rData.keyTag', 'equalto', 33333) | list | length == 1
+      - test5_verify.records | selectattr('rData.protocol', 'equalto', 'Udp') | list | length == 2
+      - test5_verify.records | selectattr('rData.protocol', 'equalto', 'Tcp') | list | length == 0
 
 - name: "Test 5.4: Delete remaining records"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "selective-ds.{{ primary_zone_name }}"
-    zone: "{{ primary_zone_name }}"
-    type: DS
+    name: "selective-fwd.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
     state: absent
   register: test5_delete_all
 
@@ -426,13 +405,12 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "check-mode-ds.{{ primary_zone_name }}"
-    zone: "{{ primary_zone_name }}"
-    type: DS
-    keyTag: 12345
-    algorithm: "RSASHA256"
-    digestType: "SHA256"
-    digest: "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2"
+    name: "check-mode-fwd.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
+    protocol: "Udp"
+    forwarder: "192.0.2.130"
+    forwarderPriority: 10
     ttl: 3600
     state: present
   check_mode: true
@@ -448,7 +426,7 @@
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "check-mode-ds.{{ primary_zone_name }}"
+    name: "check-mode-fwd.{{ forwarder_zone_name }}"
   register: test6_verify
   ignore_errors: true
 
@@ -458,121 +436,206 @@
       - test6_verify is failed
 
 # =============================================================================
-# Test 7: Negative Tests - Missing Parameters
+# Test 7: FWD with Optional Fields - DNSSEC and Proxy
 # =============================================================================
-- name: "Test 7.1: Missing keyTag with shorthand (state=present)"
+- name: "Test 7.1: Create FWD with DNSSEC validation"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "missing-keytag.{{ primary_zone_name }}"
-    zone: "{{ primary_zone_name }}"
-    type: DS
-    algorithm: "RSASHA256"
-    digestType: "SHA256"
-    digest: "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2"
+    name: "dnssec-fwd.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
+    protocol: "Udp"
+    forwarder: "192.0.2.140"
+    forwarderPriority: 10
+    dnssecValidation: true
+    ttl: 3600
+    comments: "DNSSEC validating forwarder"
+    state: present
+  register: test7_dnssec
+
+- name: "Test 7.1: Assert DNSSEC FWD was created"
+  ansible.builtin.assert:
+    that:
+      - test7_dnssec is changed
+
+- name: "Test 7.2: Verify DNSSEC validation is enabled"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "dnssec-fwd.{{ forwarder_zone_name }}"
+  register: test7_verify
+
+- name: "Test 7.2: Assert DNSSEC validation is true"
+  ansible.builtin.assert:
+    that:
+      - test7_verify.records[0].rData.dnssecValidation == true
+
+- name: "Test 7.3: Create FWD with proxy configuration"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "proxy-fwd.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
+    protocol: "Udp"
+    forwarder: "2001:db8::150"
+    forwarderPriority: 20
+    proxyType: "Http"
+    proxyAddress: "proxy.example.com"
+    proxyPort: 8080
+    proxyUsername: "testuser"
+    proxyPassword: "testpass"
+    ttl: 3600
+    comments: "Proxy-enabled forwarder"
+    state: present
+  register: test7_proxy
+
+- name: "Test 7.3: Assert proxy FWD was created"
+  ansible.builtin.assert:
+    that:
+      - test7_proxy is changed
+
+- name: "Test 7.4: Verify proxy configuration"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "proxy-fwd.{{ forwarder_zone_name }}"
+  register: test7_proxy_verify
+
+- name: "Test 7.4: Assert proxy settings are correct"
+  ansible.builtin.assert:
+    that:
+      - test7_proxy_verify.records[0].rData.proxyType == 'Http'
+      - test7_proxy_verify.records[0].rData.proxyAddress == 'proxy.example.com'
+      - test7_proxy_verify.records[0].rData.proxyPort == 8080
+
+- name: "Test 7.5: Cleanup optional fields test records"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "{{ item }}.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
+    state: absent
+  loop:
+    - dnssec-fwd
+    - proxy-fwd
+
+# =============================================================================
+# Test 8: Negative Tests - Missing Parameters
+# =============================================================================
+- name: "Test 8.1: Missing forwarder with shorthand (state=present)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "missing-forwarder.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
+    protocol: "Udp"
     ttl: 3600
     state: present
-  register: test7_missing_keytag
+  register: test8_missing_forwarder
   ignore_errors: true
 
-- name: "Test 7.1: Assert missing parameter error"
+- name: "Test 8.1: Assert missing parameter error"
   ansible.builtin.assert:
     that:
-      - test7_missing_keytag is failed
-      - test7_missing_keytag.msg is search("No records specified|keyTag")
+      - test8_missing_forwarder is failed
+      - test8_missing_forwarder.msg is search("No records specified|forwarder")
 
-- name: "Test 7.2: Missing required field in records list"
+- name: "Test 8.2: Missing required field in records list"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "missing-field.{{ primary_zone_name }}"
-    zone: "{{ primary_zone_name }}"
-    type: DS
+    name: "missing-field.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
     records:
-      - keyTag: 12345
-        algorithm: "RSASHA256"
-        digestType: "SHA256"
+      - protocol: "Udp"
+        forwarderPriority: 10
     state: present
-  register: test7_missing_field
+  register: test8_missing_field
   ignore_errors: true
 
-- name: "Test 7.2: Assert missing field error"
+- name: "Test 8.2: Assert missing field error"
   ansible.builtin.assert:
     that:
-      - test7_missing_field is failed
-      - test7_missing_field.msg is search("missing required field.*digest")
+      - test8_missing_field is failed
+      - test8_missing_field.msg is search("missing required field.*forwarder")
 
 # =============================================================================
-# Test 8: Negative Tests - Unsupported Parameters
+# Test 9: Negative Tests - Unsupported Parameters
 # =============================================================================
-- name: "Test 8.1: Unsupported parameter for DS record (ipAddress)"
+- name: "Test 9.1: Unsupported parameter for FWD record (cname)"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "bad-param.{{ primary_zone_name }}"
-    zone: "{{ primary_zone_name }}"
-    type: DS
-    keyTag: 12345
-    algorithm: "RSASHA256"
-    digestType: "SHA256"
-    digest: "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2"
-    ipAddress: "192.0.2.1"
+    name: "bad-param.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
+    protocol: "Udp"
+    forwarder: "192.0.2.160"
+    cname: "invalid.example.com"
     state: present
-  register: test8_bad_param
+  register: test9_bad_param
   ignore_errors: true
 
-- name: "Test 8.1: Assert unsupported parameter error"
+- name: "Test 9.1: Assert unsupported parameter error"
   ansible.builtin.assert:
     that:
-      - test8_bad_param is failed
-      - test8_bad_param.msg is search("not supported")
+      - test9_bad_param is failed
+      - test9_bad_param.msg is search("not supported")
 
-- name: "Test 8.2: Unsupported parameter in records list"
+- name: "Test 9.2: Unsupported parameter in records list"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "bad-param2.{{ primary_zone_name }}"
-    zone: "{{ primary_zone_name }}"
-    type: DS
+    name: "bad-param2.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
     records:
-      - keyTag: 12345
-        algorithm: "RSASHA256"
-        digestType: "SHA256"
-        digest: "A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2C3D4E5F6A1B2"
-        cname: "invalid.example.com"
+      - protocol: "Udp"
+        forwarder: "192.0.2.170"
+        ipAddress: "192.0.2.999"
     state: present
-  register: test8_bad_field
+  register: test9_bad_field
   ignore_errors: true
 
-- name: "Test 8.2: Assert unsupported field error"
+- name: "Test 9.2: Assert unsupported field error"
   ansible.builtin.assert:
     that:
-      - test8_bad_field is failed
-      - test8_bad_field.msg is search("contains unsupported field")
+      - test9_bad_field is failed
+      - test9_bad_field.msg is search("contains unsupported field")
 
 # =============================================================================
-# Test 9: Negative Tests - Delete Operations
+# Test 10: Negative Tests - Delete Operations
 # =============================================================================
-- name: "Test 9.1: Delete non-existent DS record (idempotent)"
+- name: "Test 10.1: Delete non-existent FWD record (idempotent)"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | default(5380) }}"
-    name: "nonexistent-ds.{{ primary_zone_name }}"
-    zone: "{{ primary_zone_name }}"
-    type: DS
+    name: "nonexistent-fwd.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: FWD
     state: absent
-  register: test9_delete_nonexistent
+  register: test10_delete_nonexistent
 
-- name: "Test 9.1: Assert no changes"
+- name: "Test 10.1: Assert no changes"
   ansible.builtin.assert:
     that:
-      - test9_delete_nonexistent is not changed
+      - test10_delete_nonexistent is not changed
 
 - name: "Test Completion Message"
   ansible.builtin.debug:
-    msg: "DS Record tests completed successfully!"
+    msg: "FWD Record tests completed successfully!"

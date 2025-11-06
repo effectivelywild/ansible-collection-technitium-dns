@@ -1,0 +1,655 @@
+---
+# NAPTR (Naming Authority Pointer) Record Integration Tests
+# Tests the technitium_dns_record module's handling of NAPTR records
+# NAPTR records are used for ENUM (E.164 Number Mapping) and other URI/service resolution
+# NAPTR records support multiple records per DNS name
+
+# =============================================================================
+# Test 1: Basic NAPTR record using shorthand syntax
+# =============================================================================
+- name: "Test 1.1: Create NAPTR record using shorthand syntax"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "enum.{{ primary_zone_name }}"
+    type: NAPTR
+    naptrOrder: 100
+    naptrPreference: 10
+    naptrFlags: "u"
+    naptrServices: "E2U+sip"
+    naptrRegexp: "!^.*$!sip:info@example.com!"
+    naptrReplacement: "."
+    ttl: 3600
+    comments: "Created via shorthand"
+    state: present
+  register: naptr_shorthand_result
+
+- name: "Test 1.2: Assert NAPTR record was created"
+  ansible.builtin.assert:
+    that:
+      - naptr_shorthand_result is changed
+
+- name: "Test 1.3: Verify NAPTR record exists via get_record"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "enum.{{ primary_zone_name }}"
+  register: naptr_get_result
+
+- name: "Test 1.4: Assert NAPTR record data is correct"
+  ansible.builtin.assert:
+    that:
+      - naptr_get_result.records | selectattr('type', 'equalto', 'NAPTR') | list | length == 1
+      - (naptr_get_result.records | selectattr('type', 'equalto', 'NAPTR') | list | first).rData.order == 100
+      - (naptr_get_result.records | selectattr('type', 'equalto', 'NAPTR') | list | first).rData.preference == 10
+      - (naptr_get_result.records | selectattr('type', 'equalto', 'NAPTR') | list | first).rData.flags == "u"
+      - (naptr_get_result.records | selectattr('type', 'equalto', 'NAPTR') | list | first).rData.services == "E2U+sip"
+      - (naptr_get_result.records | selectattr('type', 'equalto', 'NAPTR') | list | first).rData.regexp == "!^.*$!sip:info@example.com!"
+      - (naptr_get_result.records | selectattr('type', 'equalto', 'NAPTR') | list | first).rData.replacement == "."
+
+- name: "Test 1.5: Verify idempotency - no change on re-run"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "enum.{{ primary_zone_name }}"
+    type: NAPTR
+    naptrOrder: 100
+    naptrPreference: 10
+    naptrFlags: "u"
+    naptrServices: "E2U+sip"
+    naptrRegexp: "!^.*$!sip:info@example.com!"
+    naptrReplacement: "."
+    ttl: 3600
+    comments: "Created via shorthand"
+    state: present
+  register: naptr_shorthand_idem_result
+
+- name: "Test 1.6: Assert no change on idempotency check"
+  ansible.builtin.assert:
+    that:
+      - naptr_shorthand_idem_result is not changed
+
+# =============================================================================
+# Test 2: Multiple NAPTR records (ENUM service order scenario)
+# =============================================================================
+- name: "Test 2.1: Create multiple NAPTR records for ENUM"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "multi-enum.{{ primary_zone_name }}"
+    type: NAPTR
+    records:
+      - naptrOrder: 100
+        naptrPreference: 10
+        naptrFlags: "u"
+        naptrServices: "E2U+sip"
+        naptrRegexp: "!^.*$!sip:info@example.com!"
+        naptrReplacement: "."
+      - naptrOrder: 100
+        naptrPreference: 20
+        naptrFlags: "u"
+        naptrServices: "E2U+email"
+        naptrRegexp: "!^.*$!mailto:info@example.com!"
+        naptrReplacement: "."
+      - naptrOrder: 200
+        naptrPreference: 10
+        naptrFlags: "s"
+        naptrServices: "E2U+web:http"
+        naptrRegexp: ""
+        naptrReplacement: "_http._tcp.example.com"
+    ttl: 7200
+    state: present
+  register: naptr_multi_result
+
+- name: "Test 2.2: Assert multiple NAPTR records were created"
+  ansible.builtin.assert:
+    that:
+      - naptr_multi_result is changed
+
+- name: "Test 2.3: Verify all three NAPTR records exist"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "multi-enum.{{ primary_zone_name }}"
+  register: naptr_multi_get_result
+
+- name: "Test 2.4: Assert all NAPTR records have correct data"
+  ansible.builtin.assert:
+    that:
+      - naptr_multi_get_result.records | selectattr('type', 'equalto', 'NAPTR') | list | length == 3
+      - naptr_multi_get_result.records | selectattr('type', 'equalto', 'NAPTR') | selectattr('rData.order', 'equalto', 100) | list | length == 2
+      - naptr_multi_get_result.records | selectattr('type', 'equalto', 'NAPTR') | selectattr('rData.order', 'equalto', 200) | list | length == 1
+
+- name: "Test 2.5: Idempotency - Run same create again"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "multi-enum.{{ primary_zone_name }}"
+    type: NAPTR
+    records:
+      - naptrOrder: 100
+        naptrPreference: 10
+        naptrFlags: "u"
+        naptrServices: "E2U+sip"
+        naptrRegexp: "!^.*$!sip:info@example.com!"
+        naptrReplacement: "."
+      - naptrOrder: 100
+        naptrPreference: 20
+        naptrFlags: "u"
+        naptrServices: "E2U+email"
+        naptrRegexp: "!^.*$!mailto:info@example.com!"
+        naptrReplacement: "."
+      - naptrOrder: 200
+        naptrPreference: 10
+        naptrFlags: "s"
+        naptrServices: "E2U+web:http"
+        naptrRegexp: ""
+        naptrReplacement: "_http._tcp.example.com"
+    ttl: 7200
+    state: present
+  register: naptr_multi_idem_result
+
+- name: "Test 2.6: Assert no changes on idempotency check"
+  ansible.builtin.assert:
+    that:
+      - naptr_multi_idem_result is not changed
+
+# =============================================================================
+# Test 3: Overwrite Mode - Replace Entire Set
+# =============================================================================
+- name: "Test 3.1: Create initial NAPTR records"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "overwrite-naptr.{{ primary_zone_name }}"
+    type: NAPTR
+    records:
+      - naptrOrder: 100
+        naptrPreference: 10
+        naptrFlags: "u"
+        naptrServices: "E2U+sip"
+        naptrRegexp: "!^.*$!sip:old@example.com!"
+        naptrReplacement: "."
+      - naptrOrder: 200
+        naptrPreference: 20
+        naptrFlags: "u"
+        naptrServices: "E2U+email"
+        naptrRegexp: "!^.*$!mailto:old@example.com!"
+        naptrReplacement: "."
+    state: present
+  register: naptr_overwrite_init_result
+
+- name: "Test 3.2: Overwrite with completely different set (overwrite=true)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "overwrite-naptr.{{ primary_zone_name }}"
+    type: NAPTR
+    overwrite: true
+    naptrOrder: 999
+    naptrPreference: 99
+    naptrFlags: "s"
+    naptrServices: "E2U+web:https"
+    naptrRegexp: ""
+    naptrReplacement: "_https._tcp.example.com."
+    state: present
+  register: naptr_overwrite_result
+
+- name: "Test 3.3: Assert overwrite operation succeeded"
+  ansible.builtin.assert:
+    that:
+      - naptr_overwrite_result is changed
+
+- name: "Test 3.4: Verify only new NAPTR record exists"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "overwrite-naptr.{{ primary_zone_name }}"
+  register: naptr_overwrite_get_result
+
+- name: "Test 3.5: Assert only replacement record exists"
+  ansible.builtin.assert:
+    that:
+      - naptr_overwrite_get_result.records | selectattr('type', 'equalto', 'NAPTR') | list | length == 1
+      - (naptr_overwrite_get_result.records | selectattr('type', 'equalto', 'NAPTR') | list | first).rData.order == 999
+      - naptr_overwrite_get_result.records | selectattr('type', 'equalto', 'NAPTR') | selectattr('rData.services', 'equalto', 'E2U+sip') | list | length == 0
+
+# =============================================================================
+# Test 4: Additive Mode - Merge with Existing Records
+# =============================================================================
+- name: "Test 4.1: Create initial NAPTR record"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "additive-naptr.{{ primary_zone_name }}"
+    type: NAPTR
+    naptrOrder: 100
+    naptrPreference: 10
+    naptrFlags: "u"
+    naptrServices: "E2U+sip"
+    naptrRegexp: "!^.*$!sip:first@example.com!"
+    naptrReplacement: "."
+    state: present
+  register: naptr_additive_init_result
+
+- name: "Test 4.2: Add new NAPTR record with overwrite=false (additive)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "additive-naptr.{{ primary_zone_name }}"
+    type: NAPTR
+    overwrite: false
+    naptrOrder: 200
+    naptrPreference: 20
+    naptrFlags: "u"
+    naptrServices: "E2U+email"
+    naptrRegexp: "!^.*$!mailto:second@example.com!"
+    naptrReplacement: "."
+    state: present
+  register: naptr_additive_result
+
+- name: "Test 4.3: Assert additive operation succeeded"
+  ansible.builtin.assert:
+    that:
+      - naptr_additive_result is changed
+
+- name: "Test 4.4: Verify both NAPTR records exist"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "additive-naptr.{{ primary_zone_name }}"
+  register: naptr_additive_get_result
+
+- name: "Test 4.5: Assert both NAPTR records present"
+  ansible.builtin.assert:
+    that:
+      - naptr_additive_get_result.records | selectattr('type', 'equalto', 'NAPTR') | list | length == 2
+      - naptr_additive_get_result.records | selectattr('type', 'equalto', 'NAPTR') | selectattr('rData.services', 'equalto', 'E2U+sip') | list | length == 1
+      - naptr_additive_get_result.records | selectattr('type', 'equalto', 'NAPTR') | selectattr('rData.services', 'equalto', 'E2U+email') | list | length == 1
+
+# =============================================================================
+# Test 5: Selective Deletion - Delete Specific NAPTR Record
+# =============================================================================
+- name: "Test 5.1: Create set of 3 NAPTR records"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "selective-naptr.{{ primary_zone_name }}"
+    type: NAPTR
+    records:
+      - naptrOrder: 100
+        naptrPreference: 10
+        naptrFlags: "u"
+        naptrServices: "E2U+sip"
+        naptrRegexp: "!^.*$!sip:first@example.com!"
+        naptrReplacement: "."
+      - naptrOrder: 200
+        naptrPreference: 20
+        naptrFlags: "u"
+        naptrServices: "E2U+email"
+        naptrRegexp: "!^.*$!mailto:second@example.com!"
+        naptrReplacement: "."
+      - naptrOrder: 300
+        naptrPreference: 30
+        naptrFlags: "s"
+        naptrServices: "E2U+web:http"
+        naptrRegexp: ""
+        naptrReplacement: "_http._tcp.example.com"
+    state: present
+  register: naptr_selective_init_result
+
+- name: "Test 5.2: Delete specific NAPTR record (order=200)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "selective-naptr.{{ primary_zone_name }}"
+    type: NAPTR
+    naptrOrder: 200
+    naptrPreference: 20
+    naptrFlags: "u"
+    naptrServices: "E2U+email"
+    naptrRegexp: "!^.*$!mailto:second@example.com!"
+    naptrReplacement: "."
+    state: absent
+  register: naptr_selective_delete_result
+
+- name: "Test 5.3: Assert specific record was deleted"
+  ansible.builtin.assert:
+    that:
+      - naptr_selective_delete_result is changed
+
+- name: "Test 5.4: Verify only 2 NAPTR records remain"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "selective-naptr.{{ primary_zone_name }}"
+  register: naptr_selective_get_result
+
+- name: "Test 5.5: Assert correct records remain"
+  ansible.builtin.assert:
+    that:
+      - naptr_selective_get_result.records | selectattr('type', 'equalto', 'NAPTR') | list | length == 2
+      - naptr_selective_get_result.records | selectattr('type', 'equalto', 'NAPTR') | selectattr('rData.order', 'equalto', 100) | list | length == 1
+      - naptr_selective_get_result.records | selectattr('type', 'equalto', 'NAPTR') | selectattr('rData.order', 'equalto', 300) | list | length == 1
+
+# =============================================================================
+# Test 6: Delete All NAPTR Records by Name and Type
+# =============================================================================
+- name: "Test 6.1: Delete all NAPTR records for name"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "selective-naptr.{{ primary_zone_name }}"
+    type: NAPTR
+    state: absent
+  register: naptr_delete_all_result
+
+- name: "Test 6.2: Assert all NAPTR records deleted"
+  ansible.builtin.assert:
+    that:
+      - naptr_delete_all_result is changed
+
+- name: "Test 6.3: Verify no NAPTR records remain"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "selective-naptr.{{ primary_zone_name }}"
+  register: naptr_after_delete_all_result
+  ignore_errors: true
+
+- name: "Test 6.4: Assert domain has no records or doesn't exist"
+  ansible.builtin.assert:
+    that:
+      - naptr_after_delete_all_result.failed or (naptr_after_delete_all_result.records | selectattr('type', 'equalto', 'NAPTR') | list | length == 0)
+
+# =============================================================================
+# Test 7: Check Mode
+# =============================================================================
+- name: "Test 7.1: Create NAPTR record in check mode"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "check-mode-naptr.{{ primary_zone_name }}"
+    type: NAPTR
+    naptrOrder: 100
+    naptrPreference: 10
+    naptrFlags: "u"
+    naptrServices: "E2U+sip"
+    naptrRegexp: "!^.*$!sip:check@example.com!"
+    naptrReplacement: "."
+    state: present
+  check_mode: true
+  register: naptr_check_create_result
+
+- name: "Test 7.2: Assert check mode reports change"
+  ansible.builtin.assert:
+    that:
+      - naptr_check_create_result is changed
+
+- name: "Test 7.3: Verify NAPTR record was not actually created"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "check-mode-naptr.{{ primary_zone_name }}"
+  register: naptr_check_verify_result
+  ignore_errors: true
+
+- name: "Test 7.4: Assert record does not exist"
+  ansible.builtin.assert:
+    that:
+      - naptr_check_verify_result.failed or (naptr_check_verify_result.records | default([]) | length == 0)
+
+- name: "Test 7.5: Actually create the NAPTR record for next test"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "check-mode-naptr.{{ primary_zone_name }}"
+    type: NAPTR
+    naptrOrder: 100
+    naptrPreference: 10
+    naptrFlags: "u"
+    naptrServices: "E2U+sip"
+    naptrRegexp: "!^.*$!sip:check@example.com!"
+    naptrReplacement: "."
+    state: present
+
+- name: "Test 7.6: Delete NAPTR record in check mode"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "check-mode-naptr.{{ primary_zone_name }}"
+    type: NAPTR
+    state: absent
+  check_mode: true
+  register: naptr_check_delete_result
+
+- name: "Test 7.7: Assert check mode reports would delete"
+  ansible.builtin.assert:
+    that:
+      - naptr_check_delete_result is changed
+
+- name: "Test 7.8: Verify NAPTR record still exists"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "check-mode-naptr.{{ primary_zone_name }}"
+  register: naptr_check_still_exists_result
+
+- name: "Test 7.9: Assert record still exists after check mode delete"
+  ansible.builtin.assert:
+    that:
+      - naptr_check_still_exists_result.records | selectattr('type', 'equalto', 'NAPTR') | list | length == 1
+
+# =============================================================================
+# Test 8: NAPTR records with TTL and comments
+# =============================================================================
+- name: "Test 8.1: Create NAPTR record with custom TTL and comments"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "naptr-with-meta.{{ primary_zone_name }}"
+    type: NAPTR
+    naptrOrder: 100
+    naptrPreference: 10
+    naptrFlags: "u"
+    naptrServices: "E2U+sip"
+    naptrRegexp: "!^.*$!sip:meta@example.com!"
+    naptrReplacement: "."
+    ttl: 7200
+    comments: "NAPTR with metadata"
+    state: present
+  register: naptr_meta_result
+
+- name: "Test 8.2: Assert NAPTR record with metadata was created"
+  ansible.builtin.assert:
+    that:
+      - naptr_meta_result is changed
+
+- name: "Test 8.3: Verify NAPTR record has correct TTL and comments"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "naptr-with-meta.{{ primary_zone_name }}"
+  register: naptr_meta_get_result
+
+- name: "Test 8.4: Assert NAPTR record metadata is correct"
+  ansible.builtin.assert:
+    that:
+      - (naptr_meta_get_result.records | selectattr('type', 'equalto', 'NAPTR') | list | first).ttl == 7200
+      - (naptr_meta_get_result.records | selectattr('type', 'equalto', 'NAPTR') | list | first).comments == "NAPTR with metadata"
+
+# =============================================================================
+# Test 9: NAPTR record with expiryTtl (auto-expiration)
+# =============================================================================
+- name: "Test 9.1: Create NAPTR record with expiryTtl for auto-deletion"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "expiry-naptr.{{ primary_zone_name }}"
+    type: NAPTR
+    naptrOrder: 100
+    naptrPreference: 10
+    naptrFlags: "u"
+    naptrServices: "E2U+temp"
+    naptrRegexp: "!^.*$!temp:service!"
+    naptrReplacement: "."
+    expiryTtl: 300
+    comments: "Temporary NAPTR - expires in 5 minutes"
+    state: present
+  register: naptr_expiry_result
+
+- name: "Test 9.2: Assert NAPTR record with expiryTtl was created"
+  ansible.builtin.assert:
+    that:
+      - naptr_expiry_result is changed
+
+- name: "Test 9.3: Verify NAPTR record has expiryTtl set"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "expiry-naptr.{{ primary_zone_name }}"
+  register: naptr_expiry_get_result
+
+- name: "Test 9.4: Assert NAPTR record has correct expiryTtl"
+  ansible.builtin.assert:
+    that:
+      - naptr_expiry_get_result.records | selectattr('type', 'equalto', 'NAPTR') | list | length == 1
+      - (naptr_expiry_get_result.records | selectattr('type', 'equalto', 'NAPTR') | list | first).expiryTtl == 300
+
+# =============================================================================
+# Test 10: Negative Tests - Missing Parameters
+# =============================================================================
+- name: "Test 10.1: Attempt to create NAPTR record without naptrOrder"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "invalid-naptr.{{ primary_zone_name }}"
+    type: NAPTR
+    naptrPreference: 10
+    naptrFlags: "u"
+    naptrServices: "E2U+sip"
+    naptrRegexp: "!^.*$!sip:bad@example.com!"
+    naptrReplacement: "."
+    state: present
+  register: naptr_no_order_result
+  ignore_errors: true
+
+- name: "Test 10.2: Assert error for missing naptrOrder field"
+  ansible.builtin.assert:
+    that:
+      - naptr_no_order_result is failed
+      - "'naptrOrder' in naptr_no_order_result.msg"
+
+- name: "Test 10.3: Attempt to create NAPTR record without naptrPreference"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "invalid-naptr.{{ primary_zone_name }}"
+    type: NAPTR
+    naptrOrder: 100
+    naptrFlags: "u"
+    naptrServices: "E2U+sip"
+    naptrRegexp: "!^.*$!sip:bad@example.com!"
+    naptrReplacement: "."
+    state: present
+  register: naptr_no_pref_result
+  ignore_errors: true
+
+- name: "Test 10.4: Assert error for missing naptrPreference field"
+  ansible.builtin.assert:
+    that:
+      - naptr_no_pref_result is failed
+      - "'naptrPreference' in naptr_no_pref_result.msg"
+
+- name: "Test 10.5: Attempt to create NAPTR record with unsupported field"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "invalid-naptr.{{ primary_zone_name }}"
+    type: NAPTR
+    naptrOrder: 100
+    naptrPreference: 10
+    naptrFlags: "u"
+    naptrServices: "E2U+sip"
+    naptrRegexp: "!^.*$!sip:bad@example.com!"
+    naptrReplacement: "."
+    ipAddress: "192.0.2.1"
+    state: present
+  register: naptr_bad_field_result
+  ignore_errors: true
+
+- name: "Test 10.6: Assert error for unsupported field"
+  ansible.builtin.assert:
+    that:
+      - naptr_bad_field_result is failed
+      - "'ipAddress' in naptr_bad_field_result.msg"
+
+# =============================================================================
+# Test 11: Delete Non-Existent NAPTR Record (Idempotency)
+# =============================================================================
+- name: "Test 11.1: Delete non-existent NAPTR record (idempotent)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "nonexistent-naptr.{{ primary_zone_name }}"
+    type: NAPTR
+    state: absent
+  register: naptr_delete_nonexistent_result
+
+- name: "Test 11.2: Assert no changes"
+  ansible.builtin.assert:
+    that:
+      - naptr_delete_nonexistent_result is not changed
+
+# Cleanup
+- name: "Cleanup: Remove all test NAPTR records"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "{{ item }}"
+    type: NAPTR
+    state: absent
+  loop:
+    - "enum.{{ primary_zone_name }}"
+    - "multi-enum.{{ primary_zone_name }}"
+    - "overwrite-naptr.{{ primary_zone_name }}"
+    - "additive-naptr.{{ primary_zone_name }}"
+    - "check-mode-naptr.{{ primary_zone_name }}"
+    - "naptr-with-meta.{{ primary_zone_name }}"
+    - "expiry-naptr.{{ primary_zone_name }}"
+  ignore_errors: true
+
+- name: "Test Completion Message"
+  ansible.builtin.debug:
+    msg: "NAPTR Record tests completed successfully!"

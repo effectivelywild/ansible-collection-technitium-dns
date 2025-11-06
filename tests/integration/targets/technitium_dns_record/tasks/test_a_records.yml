@@ -461,7 +461,37 @@
     that:
       - test9_ptr is changed
 
-- name: "Test 9.2: Cleanup PTR test"
+- name: "Test 9.2: Calculate PTR reverse zone and FQDN"
+  ansible.builtin.set_fact:
+    ptr_ip_parts: "{{ '192.0.5.10'.split('.') }}"
+    ptr_forward_name: "ptr-test.{{ primary_zone_name }}"
+
+- name: "Test 9.3: Set PTR reverse zone and FQDN"
+  ansible.builtin.set_fact:
+    ptr_reverse_zone: "{{ ptr_ip_parts[2] }}.{{ ptr_ip_parts[1] }}.{{ ptr_ip_parts[0] }}.in-addr.arpa"
+    ptr_reverse_fqdn: "{{ ptr_ip_parts[3] }}.{{ ptr_ip_parts[2] }}.{{ ptr_ip_parts[1] }}.{{ ptr_ip_parts[0] }}.in-addr.arpa"
+
+- name: "Test 9.4: Get PTR record to verify creation"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "{{ ptr_reverse_fqdn }}"
+    zone: "{{ ptr_reverse_zone }}"
+  register: ptr_lookup
+
+- name: "Test 9.5: Assert PTR record exists and points to A FQDN"
+  ansible.builtin.assert:
+    that:
+      - (ptr_lookup.records | default([])
+          | selectattr('type','equalto','PTR')
+          | selectattr('name','equalto', ptr_reverse_fqdn)
+          | selectattr('rData.ptrName','search', ptr_forward_name)
+          | list | length) > 0
+    fail_msg: "Expected PTR for 192.0.5.10 not found or misconfigured (reverse fqdn: {{ ptr_reverse_fqdn }})"
+    success_msg: "PTR record verified for 192.0.5.10"
+
+- name: "Test 9.6: Cleanup PTR test"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
     api_token: "{{ technitium_api_token_2 }}"

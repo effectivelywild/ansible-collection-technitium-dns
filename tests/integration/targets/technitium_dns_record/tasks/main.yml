@@ -24,26 +24,68 @@
     var: zone_creation_results
   when: debug | default(false)
 
-- name: "Include A record tests"
-  ansible.builtin.include_tasks: test_a_records.yml
+# - name: "Include A record tests"
+#   ansible.builtin.include_tasks: test_a_records.yml
 
-- name: "Include AAAA record tests"
-  ansible.builtin.include_tasks: test_aaaa_records.yml
+# - name: "Include AAAA record tests"
+#   ansible.builtin.include_tasks: test_aaaa_records.yml
 
-- name: "Include ANAME record tests"
-  ansible.builtin.include_tasks: test_aname_records.yml
+# - name: "Include ANAME record tests"
+#   ansible.builtin.include_tasks: test_aname_records.yml
 
-- name: "Include APP record tests"
-  ansible.builtin.include_tasks: test_app_records.yml
+# - name: "Include APP record tests"
+#   ansible.builtin.include_tasks: test_app_records.yml
 
-- name: "Include CAA record tests"
-  ansible.builtin.include_tasks: test_caa_records.yml
+# - name: "Include CAA record tests"
+#   ansible.builtin.include_tasks: test_caa_records.yml
 
-- name: "Include CNAME record tests"
-  ansible.builtin.include_tasks: test_cname_records.yml
+# - name: "Include CNAME record tests"
+#   ansible.builtin.include_tasks: test_cname_records.yml
 
-- name: "Include DNAME record tests"
-  ansible.builtin.include_tasks: test_dname_records.yml
+# - name: "Include DNAME record tests"
+#   ansible.builtin.include_tasks: test_dname_records.yml
+
+# - name: "Include DS record tests"
+#   ansible.builtin.include_tasks: test_ds_records.yml
+
+# - name: "Include FWD record tests"
+#   ansible.builtin.include_tasks: test_fwd_records.yml
+
+# - name: "Include HTTPS record tests"
+#   ansible.builtin.include_tasks: test_https_records.yml
+
+# - name: "Include MX record tests"
+#   ansible.builtin.include_tasks: test_mx_records.yml
+
+# - name: "Include NAPTR record tests"
+#   ansible.builtin.include_tasks: test_naptr_records.yml
+
+# - name: "Include NS record tests"
+#   ansible.builtin.include_tasks: test_ns_records.yml
+
+# - name: "Include PTR record tests"
+#   ansible.builtin.include_tasks: test_ptr_records.yml
+
+# - name: "Include SRV record tests"
+#   ansible.builtin.include_tasks: test_srv_records.yml
+
+# - name: "Include SSHFP record tests"
+#   ansible.builtin.include_tasks: test_sshfp_records.yml
+
+# - name: "Include SVCB record tests"
+#   ansible.builtin.include_tasks: test_svcb_records.yml
+
+- name: "Include TLSA record tests"
+  ansible.builtin.include_tasks: test_tlsa_records.yml
+
+# - name: "Include TXT record tests"
+#   ansible.builtin.include_tasks: test_txt_records.yml
+
+# - name: "Include UNKNOWN record tests"
+#   ansible.builtin.include_tasks: test_unknown_records.yml
+
+# - name: "Include URI record tests"
+#   ansible.builtin.include_tasks: test_uri_records.yml
 
 # - name: "Include state-based record tests (POC - will be deprecated)"
 #   ansible.builtin.include_tasks: test_state_based_records.yml

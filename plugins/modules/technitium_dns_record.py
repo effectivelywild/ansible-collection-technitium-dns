@@ -179,7 +179,7 @@ options:
         type: int
     mailbox:
         description:
-            - Responsible mailbox (MX only)
+            - Responsible mailbox (RP only)
         required: false
         type: str
     name:
@@ -764,16 +764,16 @@ RECORD_SCHEMAS = {
         'shorthand_required': ['tlsaCertificateUsage', 'tlsaSelector', 'tlsaMatchingType', 'tlsaCertificateAssociationData']
     },
     'SVCB': {
-        'required_fields': ['svcPriority', 'svcTargetName'],
-        'optional_fields': ['svcParams', 'autoIpv4Hint', 'autoIpv6Hint'],
+        'required_fields': ['svcPriority', 'svcTargetName', 'svcParams'],
+        'optional_fields': ['autoIpv4Hint', 'autoIpv6Hint'],
         'identifying_fields': ['svcPriority', 'svcTargetName'],
-        'shorthand_required': ['svcPriority', 'svcTargetName']
+        'shorthand_required': ['svcPriority', 'svcTargetName', 'svcParams']
     },
     'HTTPS': {
-        'required_fields': ['svcPriority', 'svcTargetName'],
-        'optional_fields': ['svcParams', 'autoIpv4Hint', 'autoIpv6Hint'],
+        'required_fields': ['svcPriority', 'svcTargetName', 'svcParams'],
+        'optional_fields': ['autoIpv4Hint', 'autoIpv6Hint'],
         'identifying_fields': ['svcPriority', 'svcTargetName'],
-        'shorthand_required': ['svcPriority', 'svcTargetName']
+        'shorthand_required': ['svcPriority', 'svcTargetName', 'svcParams']
     },
     'URI': {
         'required_fields': ['uriPriority', 'uriWeight', 'uri'],
@@ -995,7 +995,10 @@ class RecordModule(TechnitiumModule):
 
                 for idx, record in enumerate(records):
                     # Check for required fields
-                    for req_field in schema['required_fields']:
+                    # For state=absent, only identifying fields are required (we look up the record to delete)
+                    # For state=present, all required fields must be provided
+                    fields_to_check = schema['identifying_fields'] if params.get('state') == 'absent' else schema['required_fields']
+                    for req_field in fields_to_check:
                         if req_field not in record or record[req_field] is None:
                             self.fail_json(
                                 msg=f"Record {idx} missing required field '{req_field}' for {record_type} record"
@@ -1075,7 +1078,7 @@ class RecordModule(TechnitiumModule):
         for field in identifying_fields:
             # Special handling for srv_port vs port
             field1_name = 'port' if field == 'srv_port' else field
-            field2_name = field
+            field2_name = 'port' if field == 'srv_port' else field
 
             val1 = record1.get(field1_name)
             val2 = record2.get(field2_name)
@@ -1286,6 +1289,59 @@ class RecordModule(TechnitiumModule):
                 elif field == 'recordData':
                     if 'data' in rdata:
                         record['recordData'] = rdata['data']
+                # Special handling for FWD forwarderPriority (API uses 'priority')
+                elif field == 'forwarderPriority':
+                    if 'priority' in rdata:
+                        record['forwarderPriority'] = rdata['priority']
+                # Special handling for svcParams (API returns dict, we use pipe-delimited string)
+                elif field == 'svcParams':
+                    if 'svcParams' in rdata:
+                        value = rdata['svcParams']
+                        if isinstance(value, dict):
+                            # Convert dict to pipe-delimited format: key1|value1|key2|value2
+                            params_list = []
+                            for k, v in value.items():
+                                params_list.extend([k, str(v)])
+                            record['svcParams'] = '|'.join(params_list)
+                        else:
+                            record['svcParams'] = value
+                # NAPTR field name mappings: module param -> API field
+                elif field == 'naptrOrder' and 'order' in rdata:
+                    record['naptrOrder'] = rdata['order']
+                elif field == 'naptrPreference' and 'preference' in rdata:
+                    record['naptrPreference'] = rdata['preference']
+                elif field == 'naptrFlags' and 'flags' in rdata:
+                    record['naptrFlags'] = rdata['flags']
+                elif field == 'naptrServices' and 'services' in rdata:
+                    record['naptrServices'] = rdata['services']
+                elif field == 'naptrRegexp' and 'regexp' in rdata:
+                    record['naptrRegexp'] = rdata['regexp']
+                elif field == 'naptrReplacement' and 'replacement' in rdata:
+                    record['naptrReplacement'] = rdata['replacement']
+                # SSHFP field name mappings: module param -> API field
+                elif field == 'sshfpAlgorithm' and 'algorithm' in rdata:
+                    record['sshfpAlgorithm'] = rdata['algorithm']
+                elif field == 'sshfpFingerprintType' and 'fingerprintType' in rdata:
+                    record['sshfpFingerprintType'] = rdata['fingerprintType']
+                elif field == 'sshfpFingerprint' and 'fingerprint' in rdata:
+                    record['sshfpFingerprint'] = rdata['fingerprint']
+                # TLSA field name mappings: module param -> API field
+                elif field == 'tlsaCertificateUsage' and 'certificateUsage' in rdata:
+                    record['tlsaCertificateUsage'] = rdata['certificateUsage']
+                elif field == 'tlsaSelector' and 'selector' in rdata:
+                    record['tlsaSelector'] = rdata['selector']
+                elif field == 'tlsaMatchingType' and 'matchingType' in rdata:
+                    record['tlsaMatchingType'] = rdata['matchingType']
+                elif field == 'tlsaCertificateAssociationData' and 'certificateAssociationData' in rdata:
+                    record['tlsaCertificateAssociationData'] = rdata['certificateAssociationData']
+                # UNKNOWN field name mapping: module param -> API field
+                elif field == 'rdata' and 'value' in rdata:
+                    record['rdata'] = rdata['value']
+                # URI field name mappings: module param -> API field
+                elif field == 'uriPriority' and 'priority' in rdata:
+                    record['uriPriority'] = rdata['priority']
+                elif field == 'uriWeight' and 'weight' in rdata:
+                    record['uriWeight'] = rdata['weight']
                 elif field in rdata:
                     record[field] = rdata[field]
 
@@ -1316,6 +1372,43 @@ class RecordModule(TechnitiumModule):
             elif field == 'recordData':
                 if 'data' in rdata:
                     record['recordData'] = rdata['data']
+            # NAPTR field name mappings: module param -> API field
+            elif field == 'naptrOrder' and 'order' in rdata:
+                record['naptrOrder'] = rdata['order']
+            elif field == 'naptrPreference' and 'preference' in rdata:
+                record['naptrPreference'] = rdata['preference']
+            elif field == 'naptrFlags' and 'flags' in rdata:
+                record['naptrFlags'] = rdata['flags']
+            elif field == 'naptrServices' and 'services' in rdata:
+                record['naptrServices'] = rdata['services']
+            elif field == 'naptrRegexp' and 'regexp' in rdata:
+                record['naptrRegexp'] = rdata['regexp']
+            elif field == 'naptrReplacement' and 'replacement' in rdata:
+                record['naptrReplacement'] = rdata['replacement']
+            # SSHFP field name mappings: module param -> API field
+            elif field == 'sshfpAlgorithm' and 'algorithm' in rdata:
+                record['sshfpAlgorithm'] = rdata['algorithm']
+            elif field == 'sshfpFingerprintType' and 'fingerprintType' in rdata:
+                record['sshfpFingerprintType'] = rdata['fingerprintType']
+            elif field == 'sshfpFingerprint' and 'fingerprint' in rdata:
+                record['sshfpFingerprint'] = rdata['fingerprint']
+            # TLSA field name mappings: module param -> API field
+            elif field == 'tlsaCertificateUsage' and 'certificateUsage' in rdata:
+                record['tlsaCertificateUsage'] = rdata['certificateUsage']
+            elif field == 'tlsaSelector' and 'selector' in rdata:
+                record['tlsaSelector'] = rdata['selector']
+            elif field == 'tlsaMatchingType' and 'matchingType' in rdata:
+                record['tlsaMatchingType'] = rdata['matchingType']
+            elif field == 'tlsaCertificateAssociationData' and 'certificateAssociationData' in rdata:
+                record['tlsaCertificateAssociationData'] = rdata['certificateAssociationData']
+            # UNKNOWN field name mapping: module param -> API field
+            elif field == 'rdata' and 'value' in rdata:
+                record['rdata'] = rdata['value']
+            # URI field name mappings: module param -> API field
+            elif field == 'uriPriority' and 'priority' in rdata:
+                record['uriPriority'] = rdata['priority']
+            elif field == 'uriWeight' and 'weight' in rdata:
+                record['uriWeight'] = rdata['weight']
             elif field in rdata:
                 record[field] = rdata[field]
 
@@ -1360,7 +1453,7 @@ class RecordModule(TechnitiumModule):
                     if self._records_match(desired_rec, existing_rec, record_type):
                         found_match = True
                         # Check if update needed (set-level params)
-                        if self._record_needs_set_level_update(existing_rec, set_params):
+                        if self._record_needs_set_level_update(existing_rec, set_params, record_type):
                             changes['needs_change'] = True
                             api_rec = existing_rec.get('_api_record')
                             changes['to_update'].append((api_rec, desired_rec, set_params))
@@ -1380,7 +1473,7 @@ class RecordModule(TechnitiumModule):
 
         # Check set-level parameters
         for existing_rec in existing_records:
-            if self._record_needs_set_level_update(existing_rec, set_params):
+            if self._record_needs_set_level_update(existing_rec, set_params, record_type):
                 return False
 
         # Check each desired record exists in existing
@@ -1397,11 +1490,19 @@ class RecordModule(TechnitiumModule):
 
         return True
 
-    def _record_needs_set_level_update(self, record, set_params):
+    def _record_needs_set_level_update(self, record, set_params, record_type=None):
         """Check if record needs update for set-level params (ttl, etc.)"""
         if 'ttl' in set_params:
             current_ttl = record.get('_ttl')
-            if current_ttl != set_params['ttl']:
+            desired_ttl = set_params['ttl']
+
+            # Special handling for FWD records
+            # Technitium DNS API always returns TTL=0 for FWD records, regardless of what was set
+            # So if current is 0, consider it a match with any desired TTL for FWD records
+            if record_type == 'FWD' and current_ttl == 0:
+                # TTL is ignored/forced to 0 by the API, don't treat as mismatch
+                pass
+            elif current_ttl != desired_ttl:
                 return True
         # Note: comments and expiryTtl would go here too
         return False
@@ -1418,8 +1519,12 @@ class RecordModule(TechnitiumModule):
             val1 = record1.get(field)
             val2 = record2.get(field)
 
-            if not self._values_match(val1, val2, field):
-                return False
+            # Skip comparison if record1 doesn't have this field or has None
+            # This prevents false negatives when API returns default values for optional fields
+            # that the user didn't specify
+            if val1 is not None:
+                if not self._values_match(val1, val2, field):
+                    return False
 
         return True
 
@@ -1510,12 +1615,61 @@ class RecordModule(TechnitiumModule):
             if field == 'srv_port':
                 if 'port' in rdata:
                     query['port'] = rdata['port']
+            # NAPTR field name mappings: module param -> API field
+            elif field == 'naptrOrder' and 'order' in rdata:
+                query['naptrOrder'] = rdata['order']
+            elif field == 'naptrPreference' and 'preference' in rdata:
+                query['naptrPreference'] = rdata['preference']
+            elif field == 'naptrFlags' and 'flags' in rdata:
+                query['naptrFlags'] = rdata['flags']
+            elif field == 'naptrServices' and 'services' in rdata:
+                query['naptrServices'] = rdata['services']
+            elif field == 'naptrRegexp' and 'regexp' in rdata:
+                query['naptrRegexp'] = rdata['regexp']
+            elif field == 'naptrReplacement' and 'replacement' in rdata:
+                query['naptrReplacement'] = rdata['replacement']
+            # SSHFP field name mappings: module param -> API field
+            elif field == 'sshfpAlgorithm' and 'algorithm' in rdata:
+                query['sshfpAlgorithm'] = rdata['algorithm']
+            elif field == 'sshfpFingerprintType' and 'fingerprintType' in rdata:
+                query['sshfpFingerprintType'] = rdata['fingerprintType']
+            elif field == 'sshfpFingerprint' and 'fingerprint' in rdata:
+                query['sshfpFingerprint'] = rdata['fingerprint']
+            # TLSA field name mappings: module param -> API field
+            elif field == 'tlsaCertificateUsage' and 'certificateUsage' in rdata:
+                query['tlsaCertificateUsage'] = rdata['certificateUsage']
+            elif field == 'tlsaSelector' and 'selector' in rdata:
+                query['tlsaSelector'] = rdata['selector']
+            elif field == 'tlsaMatchingType' and 'matchingType' in rdata:
+                query['tlsaMatchingType'] = rdata['matchingType']
+            elif field == 'tlsaCertificateAssociationData' and 'certificateAssociationData' in rdata:
+                query['tlsaCertificateAssociationData'] = rdata['certificateAssociationData']
+            # UNKNOWN field name mapping: module param -> API field
+            elif field == 'rdata' and 'value' in rdata:
+                query['rdata'] = rdata['value']
+            # URI field name mappings: module param -> API field
+            elif field == 'uriPriority' and 'priority' in rdata:
+                query['uriPriority'] = rdata['priority']
+            elif field == 'uriWeight' and 'weight' in rdata:
+                query['uriWeight'] = rdata['weight']
             elif field in rdata:
                 value = rdata[field]
                 if isinstance(value, bool):
                     query[field] = str(value).lower()
                 else:
                     query[field] = value
+
+        # Special handling for HTTPS/SVCB: API requires svcParams for deletion even though it's not an identifying field
+        if record_type in ['HTTPS', 'SVCB'] and 'svcParams' in rdata:
+            value = rdata['svcParams']
+            if isinstance(value, dict):
+                # Convert dict to pipe-delimited format: key1|value1|key2|value2
+                params_list = []
+                for k, v in value.items():
+                    params_list.extend([k, str(v)])
+                query['svcParams'] = '|'.join(params_list)
+            else:
+                query['svcParams'] = value
 
         # Make API request
         data = self.request('/api/zones/records/delete', params=query, method='POST')
@@ -1696,8 +1850,13 @@ class RecordModule(TechnitiumModule):
         # String comparison
         if isinstance(current_value, str) and isinstance(desired_value, str):
             # Case-insensitive for certain parameters
-            case_insensitive_params = ['sshfpFingerprint', 'tlsaCertificateAssociationData', 'digest']
+            case_insensitive_params = ['sshfpFingerprint', 'tlsaCertificateAssociationData', 'digest', 'rdata']
             if param_name in case_insensitive_params:
+                # For rdata, also normalize colons (API returns with colons, users may provide without)
+                if param_name == 'rdata':
+                    current_normalized = current_value.replace(':', '').lower()
+                    desired_normalized = desired_value.replace(':', '').lower()
+                    return current_normalized == desired_normalized
                 return current_value.lower() == desired_value.lower()
             return current_value == desired_value
 

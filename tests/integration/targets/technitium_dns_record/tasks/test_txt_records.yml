@@ -1,0 +1,467 @@
+---
+# TXT record integration tests for state-based module
+# TXT records store arbitrary text data for various purposes (SPF, DKIM, verification, etc.)
+
+# Test 1: Basic TXT record creation using shorthand
+- name: "Test 1.1: Create basic TXT record using shorthand"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-basic.{{ primary_zone_name }}"
+    type: TXT
+    text: "v=spf1 include:_spf.example.com ~all"
+    state: present
+  register: txt_basic_result
+
+- name: "Test 1.2: Assert TXT record was created"
+  ansible.builtin.assert:
+    that:
+      - txt_basic_result.changed
+
+- name: "Test 1.3: Verify TXT record exists"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-basic.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: txt_basic_get
+
+- name: "Test 1.4: Assert TXT values match"
+  ansible.builtin.assert:
+    that:
+      - txt_basic_get.records | selectattr('type', 'equalto', 'TXT') | list | length == 1
+      - (txt_basic_get.records | selectattr('type', 'equalto', 'TXT') | first).rData.text == "v=spf1 include:_spf.example.com ~all"
+
+- name: "Test 1.5: Re-create TXT record (idempotency)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-basic.{{ primary_zone_name }}"
+    type: TXT
+    text: "v=spf1 include:_spf.example.com ~all"
+    state: present
+  register: txt_basic_idempotent
+
+- name: "Test 1.6: Assert idempotency (no change)"
+  ansible.builtin.assert:
+    that:
+      - not txt_basic_idempotent.changed
+
+# Test 2: Multiple TXT records for same name
+- name: "Test 2.1: Create multiple TXT records using records list"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-multi.{{ primary_zone_name }}"
+    type: TXT
+    records:
+      - text: "v=spf1 mx a:mail.example.com ~all"
+      - text: "google-site-verification=abcd1234efgh5678"
+      - text: "MS=ms1234567890"
+    state: present
+  register: txt_multi_result
+
+- name: "Test 2.2: Assert TXT records created"
+  ansible.builtin.assert:
+    that:
+      - txt_multi_result.changed
+
+- name: "Test 2.3: Verify all three TXT records exist"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-multi.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: txt_multi_get
+
+- name: "Test 2.4: Assert all TXT records exist with correct values"
+  ansible.builtin.assert:
+    that:
+      - txt_multi_get.records | selectattr('type', 'equalto', 'TXT') | list | length == 3
+      - txt_multi_get.records | selectattr('type', 'equalto', 'TXT') | selectattr('rData.text', 'search', 'v=spf1') | list | length == 1
+      - txt_multi_get.records | selectattr('type', 'equalto', 'TXT') | selectattr('rData.text', 'search', 'google-site-verification') | list | length == 1
+      - txt_multi_get.records | selectattr('type', 'equalto', 'TXT') | selectattr('rData.text', 'search', 'MS=') | list | length == 1
+
+- name: "Test 2.5: Re-create all TXT records (idempotency)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-multi.{{ primary_zone_name }}"
+    type: TXT
+    records:
+      - text: "v=spf1 mx a:mail.example.com ~all"
+      - text: "google-site-verification=abcd1234efgh5678"
+      - text: "MS=ms1234567890"
+    state: present
+  register: txt_multi_idempotent
+
+- name: "Test 2.6: Assert idempotency (no change)"
+  ansible.builtin.assert:
+    that:
+      - not txt_multi_idempotent.changed
+
+# Test 3: Overwrite mode
+- name: "Test 3.1: Overwrite TXT records with new set"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-multi.{{ primary_zone_name }}"
+    type: TXT
+    records:
+      - text: "v=DKIM1; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQ"
+    overwrite: true
+    state: present
+  register: txt_overwrite_result
+
+- name: "Test 3.2: Assert overwrite changed"
+  ansible.builtin.assert:
+    that:
+      - txt_overwrite_result.changed
+
+- name: "Test 3.3: Verify only new TXT record exists"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-multi.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: txt_overwrite_get
+
+- name: "Test 3.4: Assert old TXT records removed, new one exists"
+  ansible.builtin.assert:
+    that:
+      - txt_overwrite_get.records | selectattr('type', 'equalto', 'TXT') | list | length == 1
+      - txt_overwrite_get.records | selectattr('type', 'equalto', 'TXT') | selectattr('rData.text', 'search', 'DKIM1') | list | length == 1
+
+# Test 4: Additive mode (overwrite: false)
+- name: "Test 4.1: Add TXT record to existing set (additive)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-multi.{{ primary_zone_name }}"
+    type: TXT
+    text: "_github-challenge-example=abc123def456"
+    overwrite: false
+    state: present
+  register: txt_additive_result
+
+- name: "Test 4.2: Assert additive mode changed"
+  ansible.builtin.assert:
+    that:
+      - txt_additive_result.changed
+
+- name: "Test 4.3: Verify all TXT records exist (old + new)"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-multi.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: txt_additive_get
+
+- name: "Test 4.4: Assert all TXT records present"
+  ansible.builtin.assert:
+    that:
+      - txt_additive_get.records | selectattr('type', 'equalto', 'TXT') | list | length == 2
+      - txt_additive_get.records | selectattr('type', 'equalto', 'TXT') | selectattr('rData.text', 'search', 'DKIM1') | list | length == 1
+      - txt_additive_get.records | selectattr('type', 'equalto', 'TXT') | selectattr('rData.text', 'search', '_github-challenge') | list | length == 1
+
+# Test 5: Selective deletion by text value
+- name: "Test 5.1: Delete specific TXT record by text value"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-multi.{{ primary_zone_name }}"
+    type: TXT
+    text: "_github-challenge-example=abc123def456"
+    state: absent
+  register: txt_delete_specific_result
+
+- name: "Test 5.2: Assert specific TXT deleted"
+  ansible.builtin.assert:
+    that:
+      - txt_delete_specific_result.changed
+
+- name: "Test 5.3: Verify specific TXT record removed"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-multi.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: txt_delete_specific_get
+
+- name: "Test 5.4: Assert only github TXT removed, DKIM remains"
+  ansible.builtin.assert:
+    that:
+      - txt_delete_specific_get.records | selectattr('type', 'equalto', 'TXT') | list | length == 1
+      - txt_delete_specific_get.records | selectattr('type', 'equalto', 'TXT') | selectattr('rData.text', 'search', 'DKIM1') | list | length == 1
+      - txt_delete_specific_get.records | selectattr('type', 'equalto', 'TXT') | selectattr('rData.text', 'search', '_github-challenge') | list | length == 0
+
+# Test 6: Delete all TXT records by name/type
+- name: "Test 6.1: Delete all TXT records for name"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-multi.{{ primary_zone_name }}"
+    type: TXT
+    state: absent
+  register: txt_delete_all_result
+
+- name: "Test 6.2: Assert all TXT records deleted"
+  ansible.builtin.assert:
+    that:
+      - txt_delete_all_result.changed
+
+- name: "Test 6.3: Verify no TXT records remain"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-multi.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: txt_delete_all_get
+  ignore_errors: true
+
+- name: "Test 6.4: Assert no TXT records found"
+  ansible.builtin.assert:
+    that:
+      - txt_delete_all_get.failed or (txt_delete_all_get.records | selectattr('type', 'equalto', 'TXT') | list | length == 0)
+
+# Test 7: Check mode
+- name: "Test 7.1: Create TXT record in check mode"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-check.{{ primary_zone_name }}"
+    type: TXT
+    text: "check-mode-test"
+    state: present
+  check_mode: true
+  register: txt_check_create
+
+- name: "Test 7.2: Assert check mode reports change"
+  ansible.builtin.assert:
+    that:
+      - txt_check_create.changed
+
+- name: "Test 7.3: Verify TXT record was not actually created"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-check.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: txt_check_verify
+  ignore_errors: true
+
+- name: "Test 7.4: Assert TXT record does not exist"
+  ansible.builtin.assert:
+    that:
+      - txt_check_verify.failed or (txt_check_verify.records | selectattr('type', 'equalto', 'TXT') | list | length == 0)
+
+- name: "Test 7.5: Create TXT record for real (for delete check mode test)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-check.{{ primary_zone_name }}"
+    type: TXT
+    text: "check-mode-test"
+    state: present
+
+- name: "Test 7.6: Delete TXT record in check mode"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-check.{{ primary_zone_name }}"
+    type: TXT
+    state: absent
+  check_mode: true
+  register: txt_check_delete
+
+- name: "Test 7.7: Assert check mode delete reports change"
+  ansible.builtin.assert:
+    that:
+      - txt_check_delete.changed
+
+- name: "Test 7.8: Verify TXT record still exists"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-check.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: txt_check_still_exists
+
+- name: "Test 7.9: Assert TXT record still exists"
+  ansible.builtin.assert:
+    that:
+      - txt_check_still_exists.records | selectattr('type', 'equalto', 'TXT') | list | length == 1
+
+# Test 8: Custom TTL and comments
+- name: "Test 8.1: Create TXT record with custom TTL and comments"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-metadata.{{ primary_zone_name }}"
+    type: TXT
+    text: "metadata-test-record"
+    ttl: 7200
+    comments: "Test TXT record with custom metadata"
+    state: present
+  register: txt_metadata_result
+
+- name: "Test 8.2: Assert TXT with metadata created"
+  ansible.builtin.assert:
+    that:
+      - txt_metadata_result.changed
+
+- name: "Test 8.3: Verify TXT metadata"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-metadata.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: txt_metadata_get
+
+- name: "Test 8.4: Assert TXT metadata values"
+  ansible.builtin.assert:
+    that:
+      - txt_metadata_get.records | selectattr('type', 'equalto', 'TXT') | list | length == 1
+      - (txt_metadata_get.records | selectattr('type', 'equalto', 'TXT') | first).ttl == 7200
+      - (txt_metadata_get.records | selectattr('type', 'equalto', 'TXT') | first).comments == "Test TXT record with custom metadata"
+
+# Test 9: ExpiryTtl
+- name: "Test 9.1: Create TXT record with expiryTtl for auto-deletion"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-temp.{{ primary_zone_name }}"
+    type: TXT
+    text: "temporary-record"
+    expiryTtl: 86400
+    state: present
+  register: txt_expiry_result
+
+- name: "Test 9.2: Assert TXT with expiryTtl created"
+  ansible.builtin.assert:
+    that:
+      - txt_expiry_result.changed
+
+- name: "Test 9.3: Verify TXT expiryTtl"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-temp.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: txt_expiry_get
+
+- name: "Test 9.4: Assert TXT expiryTtl value"
+  ansible.builtin.assert:
+    that:
+      - txt_expiry_get.records | selectattr('type', 'equalto', 'TXT') | list | length == 1
+      - (txt_expiry_get.records | selectattr('type', 'equalto', 'TXT') | first).expiryTtl == 86400
+
+# Test 10: Negative tests
+- name: "Test 10.1: TXT without required text should fail"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-fail.{{ primary_zone_name }}"
+    type: TXT
+    state: present
+  register: txt_missing_text
+  ignore_errors: true
+
+- name: "Test 10.2: Assert failure for missing text"
+  ansible.builtin.assert:
+    that:
+      - txt_missing_text.failed
+      - "'text' in txt_missing_text.msg or 'records' in txt_missing_text.msg"
+
+- name: "Test 10.3: TXT with unsupported parameter should fail"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-fail.{{ primary_zone_name }}"
+    type: TXT
+    text: "test"
+    ipAddress: "1.2.3.4"
+    state: present
+  register: txt_unsupported_param
+  ignore_errors: true
+
+- name: "Test 10.4: Assert failure for unsupported parameter"
+  ansible.builtin.assert:
+    that:
+      - txt_unsupported_param.failed
+      - "'ipAddress' in txt_unsupported_param.msg"
+
+- name: "Test 10.5: TXT with invalid API token should fail"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-fail.{{ primary_zone_name }}"
+    type: TXT
+    text: "test"
+    state: present
+  register: txt_invalid_token
+  ignore_errors: true
+
+- name: "Test 10.6: Assert failure for invalid token"
+  ansible.builtin.assert:
+    that:
+      - txt_invalid_token.failed
+      - "'Invalid token' in txt_invalid_token.msg or 'invalid-token' in txt_invalid_token.msg"
+
+# Test 11: Idempotent deletion of non-existent record
+- name: "Test 11.1: Delete non-existent TXT record"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "txt-nonexistent.{{ primary_zone_name }}"
+    type: TXT
+    state: absent
+  register: txt_delete_nonexistent
+
+- name: "Test 11.2: Assert no change for deleting non-existent record"
+  ansible.builtin.assert:
+    that:
+      - not txt_delete_nonexistent.changed
+
+# Cleanup
+- name: "Cleanup: Delete test TXT records"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "{{ item }}"
+    type: TXT
+    state: absent
+  loop:
+    - "txt-basic.{{ primary_zone_name }}"
+    - "txt-check.{{ primary_zone_name }}"
+    - "txt-metadata.{{ primary_zone_name }}"
+    - "txt-temp.{{ primary_zone_name }}"
+  ignore_errors: true
