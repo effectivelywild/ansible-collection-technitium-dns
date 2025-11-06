@@ -62,6 +62,12 @@
       - not tlsa_basic_idempotent.changed
 
 # Test 2: Multiple TLSA records - all 24 enum combinations (4 usages × 2 selectors × 3 matching types)
+- name: "Test 2.0: Set TLSA certificate association data samples"
+  ansible.builtin.set_fact:
+    tlsa_data_sha256: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+    tlsa_data_sha512: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+    tlsa_data_full: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
+
 - name: "Test 2.1: Create all 24 TLSA enum combinations using records list"
   effectivelywild.technitium_dns.technitium_dns_record:
     api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
@@ -70,11 +76,106 @@
     name: "_443._tcp.tlsa-multi.{{ primary_zone_name }}"
     type: TLSA
     records:
-    tlsaCertificateUsage: PKIX-TA
-    tlsaSelector: Cert
-    tlsaMatchingType: SHA2-256
-    tlsaCertificateAssociationData: abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890
-    state: present
+      # PKIX-TA combinations (6)
+      - tlsaCertificateUsage: PKIX-TA
+        tlsaSelector: Cert
+        tlsaMatchingType: Full
+        tlsaCertificateAssociationData: "{{ tlsa_data_full }}"
+      - tlsaCertificateUsage: PKIX-TA
+        tlsaSelector: Cert
+        tlsaMatchingType: SHA2-256
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha256 }}"
+      - tlsaCertificateUsage: PKIX-TA
+        tlsaSelector: Cert
+        tlsaMatchingType: SHA2-512
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha512 }}"
+      - tlsaCertificateUsage: PKIX-TA
+        tlsaSelector: SPKI
+        tlsaMatchingType: Full
+        tlsaCertificateAssociationData: "{{ tlsa_data_full }}"
+      - tlsaCertificateUsage: PKIX-TA
+        tlsaSelector: SPKI
+        tlsaMatchingType: SHA2-256
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha256 }}"
+      - tlsaCertificateUsage: PKIX-TA
+        tlsaSelector: SPKI
+        tlsaMatchingType: SHA2-512
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha512 }}"
+      # PKIX-EE combinations (6)
+      - tlsaCertificateUsage: PKIX-EE
+        tlsaSelector: Cert
+        tlsaMatchingType: Full
+        tlsaCertificateAssociationData: "{{ tlsa_data_full }}"
+      - tlsaCertificateUsage: PKIX-EE
+        tlsaSelector: Cert
+        tlsaMatchingType: SHA2-256
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha256 }}"
+      - tlsaCertificateUsage: PKIX-EE
+        tlsaSelector: Cert
+        tlsaMatchingType: SHA2-512
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha512 }}"
+      - tlsaCertificateUsage: PKIX-EE
+        tlsaSelector: SPKI
+        tlsaMatchingType: Full
+        tlsaCertificateAssociationData: "{{ tlsa_data_full }}"
+      - tlsaCertificateUsage: PKIX-EE
+        tlsaSelector: SPKI
+        tlsaMatchingType: SHA2-256
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha256 }}"
+      - tlsaCertificateUsage: PKIX-EE
+        tlsaSelector: SPKI
+        tlsaMatchingType: SHA2-512
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha512 }}"
+      # DANE-TA combinations (6)
+      - tlsaCertificateUsage: DANE-TA
+        tlsaSelector: Cert
+        tlsaMatchingType: Full
+        tlsaCertificateAssociationData: "{{ tlsa_data_full }}"
+      - tlsaCertificateUsage: DANE-TA
+        tlsaSelector: Cert
+        tlsaMatchingType: SHA2-256
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha256 }}"
+      - tlsaCertificateUsage: DANE-TA
+        tlsaSelector: Cert
+        tlsaMatchingType: SHA2-512
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha512 }}"
+      - tlsaCertificateUsage: DANE-TA
+        tlsaSelector: SPKI
+        tlsaMatchingType: Full
+        tlsaCertificateAssociationData: "{{ tlsa_data_full }}"
+      - tlsaCertificateUsage: DANE-TA
+        tlsaSelector: SPKI
+        tlsaMatchingType: SHA2-256
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha256 }}"
+      - tlsaCertificateUsage: DANE-TA
+        tlsaSelector: SPKI
+        tlsaMatchingType: SHA2-512
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha512 }}"
+      # DANE-EE combinations (6)
+      - tlsaCertificateUsage: DANE-EE
+        tlsaSelector: Cert
+        tlsaMatchingType: Full
+        tlsaCertificateAssociationData: "{{ tlsa_data_full }}"
+      - tlsaCertificateUsage: DANE-EE
+        tlsaSelector: Cert
+        tlsaMatchingType: SHA2-256
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha256 }}"
+      - tlsaCertificateUsage: DANE-EE
+        tlsaSelector: Cert
+        tlsaMatchingType: SHA2-512
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha512 }}"
+      - tlsaCertificateUsage: DANE-EE
+        tlsaSelector: SPKI
+        tlsaMatchingType: Full
+        tlsaCertificateAssociationData: "{{ tlsa_data_full }}"
+      - tlsaCertificateUsage: DANE-EE
+        tlsaSelector: SPKI
+        tlsaMatchingType: SHA2-256
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha256 }}"
+      - tlsaCertificateUsage: DANE-EE
+        tlsaSelector: SPKI
+        tlsaMatchingType: SHA2-512
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha512 }}"
     state: present
   register: tlsa_multi_result
 
@@ -115,106 +216,106 @@
       - tlsaCertificateUsage: PKIX-TA
         tlsaSelector: Cert
         tlsaMatchingType: Full
-        tlsaCertificateAssociationData: abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890
+        tlsaCertificateAssociationData: "{{ tlsa_data_full }}"
       - tlsaCertificateUsage: PKIX-TA
         tlsaSelector: Cert
         tlsaMatchingType: SHA2-256
-        tlsaCertificateAssociationData: 0202020202020202020202020202020202020202020202020202020202020202
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha256 }}"
       - tlsaCertificateUsage: PKIX-TA
         tlsaSelector: Cert
         tlsaMatchingType: SHA2-512
-        tlsaCertificateAssociationData: 03030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha512 }}"
       # PKIX-TA + SPKI combinations (3)
       - tlsaCertificateUsage: PKIX-TA
         tlsaSelector: SPKI
         tlsaMatchingType: Full
-        tlsaCertificateAssociationData: abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890
+        tlsaCertificateAssociationData: "{{ tlsa_data_full }}"
       - tlsaCertificateUsage: PKIX-TA
         tlsaSelector: SPKI
         tlsaMatchingType: SHA2-256
-        tlsaCertificateAssociationData: 0505050505050505050505050505050505050505050505050505050505050505
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha256 }}"
       - tlsaCertificateUsage: PKIX-TA
         tlsaSelector: SPKI
         tlsaMatchingType: SHA2-512
-        tlsaCertificateAssociationData: 0606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606060606
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha512 }}"
       # PKIX-EE + Cert combinations (3)
       - tlsaCertificateUsage: PKIX-EE
         tlsaSelector: Cert
         tlsaMatchingType: Full
-        tlsaCertificateAssociationData: abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890
+        tlsaCertificateAssociationData: "{{ tlsa_data_full }}"
       - tlsaCertificateUsage: PKIX-EE
         tlsaSelector: Cert
         tlsaMatchingType: SHA2-256
-        tlsaCertificateAssociationData: 0808080808080808080808080808080808080808080808080808080808080808
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha256 }}"
       - tlsaCertificateUsage: PKIX-EE
         tlsaSelector: Cert
         tlsaMatchingType: SHA2-512
-        tlsaCertificateAssociationData: 09090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909090909
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha512 }}"
       # PKIX-EE + SPKI combinations (3)
       - tlsaCertificateUsage: PKIX-EE
         tlsaSelector: SPKI
         tlsaMatchingType: Full
-        tlsaCertificateAssociationData: 0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a
+        tlsaCertificateAssociationData: "{{ tlsa_data_full }}"
       - tlsaCertificateUsage: PKIX-EE
         tlsaSelector: SPKI
         tlsaMatchingType: SHA2-256
-        tlsaCertificateAssociationData: 0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha256 }}"
       - tlsaCertificateUsage: PKIX-EE
         tlsaSelector: SPKI
         tlsaMatchingType: SHA2-512
-        tlsaCertificateAssociationData: 0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha512 }}"
       # DANE-TA + Cert combinations (3)
       - tlsaCertificateUsage: DANE-TA
         tlsaSelector: Cert
         tlsaMatchingType: Full
-        tlsaCertificateAssociationData: 0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d
+        tlsaCertificateAssociationData: "{{ tlsa_data_full }}"
       - tlsaCertificateUsage: DANE-TA
         tlsaSelector: Cert
         tlsaMatchingType: SHA2-256
-        tlsaCertificateAssociationData: 0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha256 }}"
       - tlsaCertificateUsage: DANE-TA
         tlsaSelector: Cert
         tlsaMatchingType: SHA2-512
-        tlsaCertificateAssociationData: 0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha512 }}"
       # DANE-TA + SPKI combinations (3)
       - tlsaCertificateUsage: DANE-TA
         tlsaSelector: SPKI
         tlsaMatchingType: Full
-        tlsaCertificateAssociationData: abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890
+        tlsaCertificateAssociationData: "{{ tlsa_data_full }}"
       - tlsaCertificateUsage: DANE-TA
         tlsaSelector: SPKI
         tlsaMatchingType: SHA2-256
-        tlsaCertificateAssociationData: abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha256 }}"
       - tlsaCertificateUsage: DANE-TA
         tlsaSelector: SPKI
         tlsaMatchingType: SHA2-512
-        tlsaCertificateAssociationData: 12121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212121212
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha512 }}"
       # DANE-EE + Cert combinations (3)
       - tlsaCertificateUsage: DANE-EE
         tlsaSelector: Cert
         tlsaMatchingType: Full
-        tlsaCertificateAssociationData: abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890
+        tlsaCertificateAssociationData: "{{ tlsa_data_full }}"
       - tlsaCertificateUsage: DANE-EE
         tlsaSelector: Cert
         tlsaMatchingType: SHA2-256
-        tlsaCertificateAssociationData: 1414141414141414141414141414141414141414141414141414141414141414
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha256 }}"
       - tlsaCertificateUsage: DANE-EE
         tlsaSelector: Cert
         tlsaMatchingType: SHA2-512
-        tlsaCertificateAssociationData: 15151515151515151515151515151515151515151515151515151515151515151515151515151515151515151515151515151515151515151515151515151515
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha512 }}"
       # DANE-EE + SPKI combinations (3)
       - tlsaCertificateUsage: DANE-EE
         tlsaSelector: SPKI
         tlsaMatchingType: Full
-        tlsaCertificateAssociationData: abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890
+        tlsaCertificateAssociationData: "{{ tlsa_data_full }}"
       - tlsaCertificateUsage: DANE-EE
         tlsaSelector: SPKI
         tlsaMatchingType: SHA2-256
-        tlsaCertificateAssociationData: 1717171717171717171717171717171717171717171717171717171717171717
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha256 }}"
       - tlsaCertificateUsage: DANE-EE
         tlsaSelector: SPKI
         tlsaMatchingType: SHA2-512
-        tlsaCertificateAssociationData: 33333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333
+        tlsaCertificateAssociationData: "{{ tlsa_data_sha512 }}"
     state: present
   register: tlsa_multi_idempotent
 
