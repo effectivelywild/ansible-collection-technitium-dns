@@ -7,19 +7,15 @@ __metaclass__ = type
 DOCUMENTATION = r'''
 ---
 module: technitium_dns_record
-short_description: Manage DNS records with state-based approach
+short_description: Manage DNS records
 version_added: "1.0.0"
 author: Frank Muise (@effectivelywild)
 description:
-    - Manage DNS records in Technitium DNS Server.
+    - Manage DNS records, add, update, and delete.
     - Supports all DNS record types with type-specific parameters.
-    - Singleton record types (one record per DNS name) include APP, CNAME, and DNAME.
-    - All other record types support multiple records per DNS name.
+    - Singleton record types (one record per name) include APP, CNAME, and DNAME.
+    - All other record types support multiple records per name.
 seealso:
-    - module: effectivelywild.technitium_dns.technitium_dns_add_record
-      description: Legacy module for adding DNS records
-    - module: effectivelywild.technitium_dns.technitium_dns_delete_record
-      description: Legacy module for deleting DNS records
     - module: effectivelywild.technitium_dns.technitium_dns_get_record
       description: Used to get DNS record details
 options:
@@ -298,6 +294,17 @@ options:
             - Record data (APP only)
         required: false
         type: str
+    records:
+        description:
+            - List of records to create for the DNS name
+            - Each record is a dictionary containing the type-specific parameters
+            - Use this to create multiple records of the same type for a single DNS name
+            - Mutually exclusive with using shorthand parameters (ipAddress, cname, etc.)
+            - When C(overwrite=true) (default), replaces all existing records with the specified list
+            - When C(overwrite=false), adds records to existing set
+        required: false
+        type: list
+        elements: dict
     splitText:
         description:
             - Split TXT into multiple strings (TXT only)

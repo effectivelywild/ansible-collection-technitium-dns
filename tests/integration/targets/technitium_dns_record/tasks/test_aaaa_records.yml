@@ -509,6 +509,93 @@
     state: absent
   register: test9_cleanup
 
+- name: "Test 9.7: Create AAAA record in DNSSEC-enabled zone"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "dnssec-test.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: AAAA
+    ipAddress: "2001:db8:0:8::10"
+    ttl: 3600
+    state: present
+  register: test9_dnssec_create
+
+- name: "Test 9.7: Assert DNSSEC zone record created"
+  ansible.builtin.assert:
+    that:
+      - test9_dnssec_create is changed
+
+- name: "Test 9.7: Verify AAAA record in DNSSEC zone"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "dnssec-test.{{ primary_sec_zone_name }}"
+  register: test9_dnssec_get
+
+- name: "Test 9.7: Assert DNSSEC zone record exists"
+  ansible.builtin.assert:
+    that:
+      - test9_dnssec_get is not failed
+      - (test9_dnssec_get.records | default([]) | selectattr('type','equalto','AAAA') | list | length) > 0
+      - (test9_dnssec_get.records | default([]) | selectattr('type','equalto','AAAA') | selectattr('rData.ipAddress','equalto','2001:db8:0:8::10') | list | length) > 0
+
+- name: "Test 9.7: Cleanup DNSSEC zone test"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "dnssec-test.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: AAAA
+    state: absent
+  register: test9_dnssec_cleanup
+
+- name: "Test 9.8: Create AAAA record in forwarder zone"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "fwd-test.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: AAAA
+    ipAddress: "2001:db8:0:6::10"
+    state: present
+  register: test9_fwd_create
+
+- name: "Test 9.8: Assert forwarder zone record created"
+  ansible.builtin.assert:
+    that:
+      - test9_fwd_create is changed
+
+- name: "Test 9.8: Verify AAAA record in forwarder zone"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "fwd-test.{{ forwarder_zone_name }}"
+  register: test9_fwd_get
+
+- name: "Test 9.8: Assert forwarder zone record exists"
+  ansible.builtin.assert:
+    that:
+      - test9_fwd_get is not failed
+      - (test9_fwd_get.records | default([]) | selectattr('type','equalto','AAAA') | list | length) > 0
+      - (test9_fwd_get.records | default([]) | selectattr('type','equalto','AAAA') | selectattr('rData.ipAddress','equalto','2001:db8:0:6::10') | list | length) > 0
+
+- name: "Test 9.8: Cleanup forwarder zone test"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "fwd-test.{{ forwarder_zone_name }}"
+    zone: "{{ forwarder_zone_name }}"
+    type: AAAA
+    state: absent
+  register: test9_fwd_cleanup
+
 # =============================================================================
 # Test 10: Negative Tests - Missing Required Parameters
 # =============================================================================

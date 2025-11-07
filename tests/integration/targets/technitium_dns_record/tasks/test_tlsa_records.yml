@@ -619,6 +619,36 @@
       - tlsa_expiry_get.records | selectattr('type', 'equalto', 'TLSA') | list | length == 1
       - (tlsa_expiry_get.records | selectattr('type', 'equalto', 'TLSA') | first).expiryTtl == 86400
 
+- name: "Test 9.5: Create TLSA record in DNSSEC-enabled zone"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "_443._tcp.dnssec-test.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: TLSA
+    tlsaCertificateUsage: PKIX-TA
+    tlsaSelector: Cert
+    tlsaMatchingType: Full
+    tlsaCertificateAssociationData: "{{ tlsa_data_full }}"
+    state: present
+  register: test9_dnssec_create
+
+- name: "Test 9.5: Assert DNSSEC zone record created"
+  ansible.builtin.assert:
+    that:
+      - test9_dnssec_create is changed
+
+- name: "Test 9.5: Cleanup DNSSEC zone test"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "_443._tcp.dnssec-test.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: TLSA
+    state: absent
+
 # Test 10: Negative tests - error conditions
 - name: "Test 10.1: TLSA without required tlsaCertificateUsage should fail"
   effectivelywild.technitium_dns.technitium_dns_record:

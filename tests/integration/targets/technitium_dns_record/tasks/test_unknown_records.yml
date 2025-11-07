@@ -371,6 +371,33 @@
       - unknown_expiry_get.records | selectattr('type', 'equalto', 'Unknown') | list | length == 1
       - (unknown_expiry_get.records | selectattr('type', 'equalto', 'Unknown') | first).expiryTtl == 86400
 
+- name: "Test 9.5: Create UNKNOWN record in DNSSEC-enabled zone"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "dnssec-test.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: UNKNOWN
+    rdata: "01020304deadbeef"
+    state: present
+  register: test9_dnssec_create
+
+- name: "Test 9.5: Assert DNSSEC zone record created"
+  ansible.builtin.assert:
+    that:
+      - test9_dnssec_create is changed
+
+- name: "Test 9.5: Cleanup DNSSEC zone test"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "dnssec-test.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: UNKNOWN
+    state: absent
+
 # Test 10: Negative tests
 - name: "Test 10.1: UNKNOWN without required rdata should fail"
   effectivelywild.technitium_dns.technitium_dns_record:

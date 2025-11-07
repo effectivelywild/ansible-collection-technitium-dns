@@ -386,6 +386,33 @@
       - ptr_expiry_get.records | selectattr('type', 'equalto', 'PTR') | list | length == 1
       - (ptr_expiry_get.records | selectattr('type', 'equalto', 'PTR') | first).expiryTtl == 300
 
+- name: "Test 9.5: Create PTR record in DNSSEC-enabled zone"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "dnssec-test.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: PTR
+    ptrName: "host.example.com"
+    state: present
+  register: test9_dnssec_create
+
+- name: "Test 9.5: Assert DNSSEC zone record created"
+  ansible.builtin.assert:
+    that:
+      - test9_dnssec_create is changed
+
+- name: "Test 9.5: Cleanup DNSSEC zone test"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "dnssec-test.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: PTR
+    state: absent
+
 # Test 10: Negative tests
 - name: "Test 10.1: PTR without required ptrName should fail"
   effectivelywild.technitium_dns.technitium_dns_record:

@@ -7,6 +7,11 @@ zones_to_create:
     type: "Primary"
     description: "Primary zone for state-based record testing"
 
+  - zone: "sec-primary.{{ testing_suffix }}"
+    type: "Primary"
+    description: "Primary DNSSEC enabled zone for DNSSEC related record testing, needs to be signed before use."
+    dnssec: true
+
   - zone: "forwarder.{{ testing_suffix }}"
     type: "Forwarder"
     forwarder: "6.7.8.9"

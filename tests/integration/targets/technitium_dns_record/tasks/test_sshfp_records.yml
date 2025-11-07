@@ -421,6 +421,35 @@
       - sshfp_expiry_get.records | selectattr('type', 'equalto', 'SSHFP') | list | length == 1
       - (sshfp_expiry_get.records | selectattr('type', 'equalto', 'SSHFP') | first).expiryTtl == 86400
 
+- name: "Test 9.5: Create SSHFP record in DNSSEC-enabled zone"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "dnssec-test.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: SSHFP
+    sshfpAlgorithm: RSA
+    sshfpFingerprintType: SHA256
+    sshfpFingerprint: "a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0fedcba9876543210"
+    state: present
+  register: test9_dnssec_create
+
+- name: "Test 9.5: Assert DNSSEC zone record created"
+  ansible.builtin.assert:
+    that:
+      - test9_dnssec_create is changed
+
+- name: "Test 9.5: Cleanup DNSSEC zone test"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "dnssec-test.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: SSHFP
+    state: absent
+
 # Test 10: Negative tests - error conditions
 - name: "Test 10.1: SSHFP without required sshfpAlgorithm should fail"
   effectivelywild.technitium_dns.technitium_dns_record:

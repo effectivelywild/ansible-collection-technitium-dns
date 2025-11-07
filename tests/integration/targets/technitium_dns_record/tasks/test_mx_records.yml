@@ -364,6 +364,34 @@
       - mx_expiry_get_result.records | selectattr('type', 'equalto', 'MX') | list | length == 1
       - (mx_expiry_get_result.records | selectattr('type', 'equalto', 'MX') | list | first).expiryTtl == 300
 
+- name: "Test 9.5: Create MX record in DNSSEC-enabled zone"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "dnssec-test.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: MX
+    exchange: "mail.{{ primary_zone_name }}"
+    preference: 10
+    state: present
+  register: test9_dnssec_create
+
+- name: "Test 9.5: Assert DNSSEC zone record created"
+  ansible.builtin.assert:
+    that:
+      - test9_dnssec_create is changed
+
+- name: "Test 9.5: Cleanup DNSSEC zone test"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "dnssec-test.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: MX
+    state: absent
+
 # Test 10: Negative tests - validation errors
 - name: "Test 10.1: Attempt to create MX record without exchange"
   effectivelywild.technitium_dns.technitium_dns_record:

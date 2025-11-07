@@ -494,6 +494,33 @@
       - ns_expiry_get_result.records | selectattr('type', 'equalto', 'NS') | list | length == 1
       - (ns_expiry_get_result.records | selectattr('type', 'equalto', 'NS') | list | first).expiryTtl == 300
 
+- name: "Test 10.5: Create NS record in DNSSEC-enabled zone"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "dnssec-test.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: NS
+    nameServer: "ns1.example.com"
+    state: present
+  register: test10_dnssec_create
+
+- name: "Test 10.5: Assert DNSSEC zone record created"
+  ansible.builtin.assert:
+    that:
+      - test10_dnssec_create is changed
+
+- name: "Test 10.5: Cleanup DNSSEC zone test"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "dnssec-test.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: NS
+    state: absent
+
 # =============================================================================
 # Test 11: Negative Tests - Missing Parameters
 # =============================================================================
