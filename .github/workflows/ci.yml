@@ -169,7 +169,8 @@ jobs:
 
           # Get container IP for notify_name_server using dynamic container name
           CONTAINER_NAME="technitium01${CONTAINER_SUFFIX}"
-          CONTAINER_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$CONTAINER_NAME")
+          
+          
           echo "technitium01_ip=$CONTAINER_IP" >> $GITHUB_OUTPUT
 
       - name: Create integration config

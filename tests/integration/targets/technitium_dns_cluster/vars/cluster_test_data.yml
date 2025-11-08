@@ -1,0 +1,26 @@
+---
+# Test data for cluster integration tests
+
+# Primary cluster configuration
+primary_cluster:
+  domain: "primary-cluster.{{ testing_suffix }}"
+  ip_address: "172.17.0.5"  # technitium_cluster_primary container IP
+  api_url: "{{ technitium_api_url_4 }}"
+  api_token: "{{ technitium_api_token_4 }}"
+  api_port: "{{ technitium_api_port_4 }}"
+
+# Secondary cluster nodes
+secondary_nodes:
+  - name: "secondary01"
+    domain: "secondary01.primary-cluster.{{ testing_suffix }}"
+    ip_address: "172.17.0.6"  # technitium_cluster_secondary01 container IP
+    api_url: "{{ technitium_api_url_5 }}"
+    api_token: "{{ technitium_api_token_5 }}"
+    api_port: "{{ technitium_api_port_5 }}"
+
+  - name: "secondary02"
+    domain: "secondary02.primary-cluster.{{ testing_suffix }}"
+    ip_address: "172.17.0.7"  # technitium_cluster_secondary02 container IP
+    api_url: "{{ technitium_api_url_6 }}"
+    api_token: "{{ technitium_api_token_6 }}"
+    api_port: "{{ technitium_api_port_6 }}"
