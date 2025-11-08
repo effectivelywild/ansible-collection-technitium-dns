@@ -1,0 +1,75 @@
+---
+# Comprehensive test data for technitium_dns_zone integration tests
+# This file contains zone configurations for all supported zone types
+
+zones_to_create:
+  # Primary zones
+  - zone: "state-primary-basic.{{ testing_suffix }}"
+    type: "Primary"
+    test_scenario: "basic_primary"
+    dnssecStatus: "Unsigned"
+
+  - zone: "state-primary-soa.{{ testing_suffix }}"
+    type: "Primary"
+    useSoaSerialDateScheme: true
+    test_scenario: "primary_with_soa_scheme"
+    dnssecStatus: "Unsigned"
+
+  # Forwarder zones
+  - zone: "state-forwarder-basic.{{ testing_suffix }}"
+    type: "Forwarder"
+    forwarder: "8.8.8.8"
+    protocol: "Udp"
+    initializeForwarder: true
+    test_scenario: "basic_forwarder"
+
+  - zone: "state-forwarder-dnssec.{{ testing_suffix }}"
+    type: "Forwarder"
+    forwarder: "8.8.8.8"
+    protocol: "Tcp"
+    dnssecValidation: true
+    test_scenario: "forwarder_with_dnssec"
+
+  # Catalog zones
+  - zone: "state-catalog-basic.{{ testing_suffix }}"
+    type: "Catalog"
+    useSoaSerialDateScheme: true
+    test_scenario: "basic_catalog"
+    dnssecStatus: "Unsigned"
+
+  # DNSSEC-enabled zones - Note: The legacy tests use technitium_dns_sign_zone separately
+  # but our new module has built-in DNSSEC support via dnssec parameter
+  # However, the dnssec parameter uses default signing settings (NSEC with RSA/SHA256)
+  # For NSEC3 testing, we would need to sign separately or add more parameters
+  - zone: "state-dnssec-nsec.{{ testing_suffix }}"
+    type: "Primary"
+    dnssec: true
+    test_scenario: "dnssec_nsec"
+    dnssecStatus: "SignedWithNSEC"
+    description: "DNSSEC-enabled primary zone with NSEC (default settings)"
+
+  # Secondary zones - Note: Primary zones "secondary.example.com" and "stub.example.com"
+  # are pre-created on Server 1 by setup_testing_env and support zone transfers
+  - zone: "secondary.{{ testing_suffix }}"
+    type: "Secondary"
+    primaryNameServerAddresses: ["{{ notify_name_server }}"]
+    zoneTransferProtocol: "Tcp"
+    test_scenario: "basic_secondary"
+    dnssecStatus: "Unsigned"
+
+  - zone: "stub.{{ testing_suffix }}"
+    type: "Stub"
+    primaryNameServerAddresses: ["{{ notify_name_server }}"]
+    test_scenario: "basic_stub"
+
+  - zone: "state-secfwd-basic.{{ testing_suffix }}"
+    type: "SecondaryForwarder"
+    primaryNameServerAddresses: ["8.8.8.8"]
+    zoneTransferProtocol: "Tcp"
+    test_scenario: "basic_secondary_forwarder"
+
+  - zone: "state-seccat-basic.{{ testing_suffix }}"
+    type: "SecondaryCatalog"
+    primaryNameServerAddresses: ["8.8.8.8"]
+    zoneTransferProtocol: "Tcp"
+    test_scenario: "basic_secondary_catalog"

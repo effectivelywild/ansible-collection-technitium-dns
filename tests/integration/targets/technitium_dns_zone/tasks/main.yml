@@ -1,0 +1,561 @@
+---
+# Comprehensive integration test suite for technitium_dns_zone
+# This test suite validates state-based zone management across all supported zone types
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../vars/config.yml
+
+- name: "Load zone test data"
+  include_vars: ../vars/zone_test_data.yml
+
+# Note: Secondary/Stub zones rely on primary zones "secondary.{{ testing_suffix }}" and "stub.{{ testing_suffix }}"
+# which are pre-created on Server 1 by setup_testing_env
+
+# Phase 2: Cleanup - Ensure clean state on Server 2
+- name: "Cleanup - Ensure test zones are absent on Server 2"
+  effectivelywild.technitium_dns.technitium_dns_zone:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    state: absent
+  register: cleanup_result
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+# Phase 3: Test state=present with check_mode
+- name: "Test 1.1: Check mode - Create zones (state=present)"
+  effectivelywild.technitium_dns.technitium_dns_zone:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    type: "{{ zone_item.type }}"
+    state: present
+    # Optional parameters with defaults
+    catalog: "{{ zone_item.catalog | default(omit) }}"
+    useSoaSerialDateScheme: "{{ zone_item.useSoaSerialDateScheme | default(omit) }}"
+    dnssec: "{{ zone_item.dnssec | default(omit) }}"
+    # Secondary/Stub zone parameters
+    primaryNameServerAddresses: "{{ zone_item.primaryNameServerAddresses | default(omit) }}"
+    zoneTransferProtocol: "{{ zone_item.zoneTransferProtocol | default(omit) }}"
+    tsigKeyName: "{{ zone_item.tsigKeyName | default(omit) }}"
+    validateZone: "{{ zone_item.validateZone | default(omit) }}"
+    # Forwarder zone parameters
+    initializeForwarder: "{{ zone_item.initializeForwarder | default(omit) }}"
+    protocol: "{{ zone_item.protocol | default(omit) }}"
+    forwarder: "{{ zone_item.forwarder | default(omit) }}"
+    dnssecValidation: "{{ zone_item.dnssecValidation | default(omit) }}"
+    # Proxy parameters
+    proxyType: "{{ zone_item.proxyType | default(omit) }}"
+    proxyAddress: "{{ zone_item.proxyAddress | default(omit) }}"
+    proxyPort: "{{ zone_item.proxyPort | default(omit) }}"
+    proxyUsername: "{{ zone_item.proxyUsername | default(omit) }}"
+    proxyPassword: "{{ zone_item.proxyPassword | default(omit) }}"
+  check_mode: true
+  register: test1_checkmode_results
+  loop: "{{ zones_to_create | default([]) }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"
+
+- name: "Test 1.1: Assert zones would be created"
+  ansible.builtin.assert:
+    that:
+      - item.changed
+      - not item.failed
+    quiet: true
+  loop: "{{ test1_checkmode_results.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+# Phase 4: Create zones with state=present
+- name: "Test 2.1: Create zones (state=present)"
+  effectivelywild.technitium_dns.technitium_dns_zone:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    type: "{{ zone_item.type }}"
+    state: present
+    # Optional parameters with defaults
+    catalog: "{{ zone_item.catalog | default(omit) }}"
+    useSoaSerialDateScheme: "{{ zone_item.useSoaSerialDateScheme | default(omit) }}"
+    dnssec: "{{ zone_item.dnssec | default(omit) }}"
+    # Secondary/Stub zone parameters
+    primaryNameServerAddresses: "{{ zone_item.primaryNameServerAddresses | default(omit) }}"
+    zoneTransferProtocol: "{{ zone_item.zoneTransferProtocol | default(omit) }}"
+    tsigKeyName: "{{ zone_item.tsigKeyName | default(omit) }}"
+    validateZone: "{{ zone_item.validateZone | default(omit) }}"
+    # Forwarder zone parameters
+    initializeForwarder: "{{ zone_item.initializeForwarder | default(omit) }}"
+    protocol: "{{ zone_item.protocol | default(omit) }}"
+    forwarder: "{{ zone_item.forwarder | default(omit) }}"
+    dnssecValidation: "{{ zone_item.dnssecValidation | default(omit) }}"
+    # Proxy parameters
+    proxyType: "{{ zone_item.proxyType | default(omit) }}"
+    proxyAddress: "{{ zone_item.proxyAddress | default(omit) }}"
+    proxyPort: "{{ zone_item.proxyPort | default(omit) }}"
+    proxyUsername: "{{ zone_item.proxyUsername | default(omit) }}"
+    proxyPassword: "{{ zone_item.proxyPassword | default(omit) }}"
+  register: test2_creation_results
+  loop: "{{ zones_to_create | default([]) }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"
+
+- name: "Test 2.1: Assert zones created successfully"
+  ansible.builtin.assert:
+    that:
+      - item.changed
+      - not item.failed
+    quiet: true
+  loop: "{{ test2_creation_results.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+# Phase 5: Verify zones exist with correct properties
+- name: "Test 3.1: Get zone information"
+  technitium_dns_get_zone_info:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_info_results
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+- name: "Test 3.1: Get zone options"
+  technitium_dns_get_zone_options:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: zone_options_results
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+- name: "Test 3.1: Assert zones have correct name and type"
+  assert:
+    that:
+      - zone_info_item.zones is defined
+      - zone_info_item.zones | length == 1
+      - zone_info_item.zones[0].name == zone_info_item.zone_item.zone
+      - zone_info_item.zones[0].type == zone_info_item.zone_item.type
+    quiet: true
+  loop: "{{ zone_info_results.results }}"
+  loop_control:
+    loop_var: zone_info_item
+    label: "{{ zone_info_item.zone_item.zone }} ({{ zone_info_item.zone_item.type }})"
+
+- name: "Test 3.2: Assert zones have correct options"
+  assert:
+    that:
+      - zone_options_item.options is defined
+      - zone_options_item.options.primaryNameServerAddresses | default([]) == zone_options_item.zone_item.primaryNameServerAddresses | default([])
+      - zone_options_item.options.primaryZoneTransferProtocol | default([]) == zone_options_item.zone_item.zoneTransferProtocol | default([])
+    quiet: true
+  loop: "{{ zone_options_results.results }}"
+  loop_control:
+    loop_var: zone_options_item
+    label: "{{ zone_options_item.zone_item.zone }}"
+
+- name: "Test 3.2b: Assert DNSSEC status for zones that have it"
+  assert:
+    that:
+      - zone_options_item.options.dnssecStatus == zone_options_item.zone_item.dnssecStatus
+    quiet: true
+  loop: "{{ zone_options_results.results }}"
+  loop_control:
+    loop_var: zone_options_item
+    label: "{{ zone_options_item.zone_item.zone }}"
+  when: zone_options_item.zone_item.dnssecStatus is defined and zone_options_item.options.dnssecStatus is defined
+
+- name: "Test 3.3: Get FWD records for Forwarder zones"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    name: "{{ zone_item.zone }}"
+  register: fwd_record_results
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+  when: zone_item.type == 'Forwarder' and zone_item.initializeForwarder is defined and zone_item.initializeForwarder
+
+- name: "Test 3.3: Assert FWD zones have correct forwarder options"
+  assert:
+    that:
+      - fwd_record_item.records is defined
+      - (fwd_record_item.records | selectattr('type', 'equalto', 'FWD') | map(attribute='rData') | map(attribute='forwarder') | list | first) == fwd_record_item.zone_item.forwarder
+      - (fwd_record_item.records | selectattr('type', 'equalto', 'FWD') | map(attribute='rData') | map(attribute='protocol') | list | first) == fwd_record_item.zone_item.protocol
+    quiet: true
+  loop: "{{ fwd_record_results.results }}"
+  loop_control:
+    loop_var: fwd_record_item
+    label: "{{ fwd_record_item.zone_item.zone }}"
+  when: not fwd_record_item.skipped | default(false)
+
+# Phase 6: Test idempotency - state=present on existing zones
+- name: "Test 4.1: Idempotency - Check mode - Create existing zones"
+  effectivelywild.technitium_dns.technitium_dns_zone:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    type: "{{ zone_item.type }}"
+    state: present
+    # Optional parameters with defaults
+    catalog: "{{ zone_item.catalog | default(omit) }}"
+    useSoaSerialDateScheme: "{{ zone_item.useSoaSerialDateScheme | default(omit) }}"
+    dnssec: "{{ zone_item.dnssec | default(omit) }}"
+    # Secondary/Stub zone parameters
+    primaryNameServerAddresses: "{{ zone_item.primaryNameServerAddresses | default(omit) }}"
+    zoneTransferProtocol: "{{ zone_item.zoneTransferProtocol | default(omit) }}"
+    tsigKeyName: "{{ zone_item.tsigKeyName | default(omit) }}"
+    validateZone: "{{ zone_item.validateZone | default(omit) }}"
+    # Forwarder zone parameters
+    initializeForwarder: "{{ zone_item.initializeForwarder | default(omit) }}"
+    protocol: "{{ zone_item.protocol | default(omit) }}"
+    forwarder: "{{ zone_item.forwarder | default(omit) }}"
+    dnssecValidation: "{{ zone_item.dnssecValidation | default(omit) }}"
+    # Proxy parameters
+    proxyType: "{{ zone_item.proxyType | default(omit) }}"
+    proxyAddress: "{{ zone_item.proxyAddress | default(omit) }}"
+    proxyPort: "{{ zone_item.proxyPort | default(omit) }}"
+    proxyUsername: "{{ zone_item.proxyUsername | default(omit) }}"
+    proxyPassword: "{{ zone_item.proxyPassword | default(omit) }}"
+  check_mode: true
+  register: test4_checkmode_results
+  loop: "{{ zones_to_create | default([]) }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"
+
+- name: "Test 4.1: Assert no change in check mode"
+  ansible.builtin.assert:
+    that:
+      - not item.changed
+    quiet: true
+  loop: "{{ test4_checkmode_results.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+- name: "Test 4.2: Idempotency - Create existing zones"
+  effectivelywild.technitium_dns.technitium_dns_zone:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    type: "{{ zone_item.type }}"
+    state: present
+    # Optional parameters with defaults
+    catalog: "{{ zone_item.catalog | default(omit) }}"
+    useSoaSerialDateScheme: "{{ zone_item.useSoaSerialDateScheme | default(omit) }}"
+    dnssec: "{{ zone_item.dnssec | default(omit) }}"
+    # Secondary/Stub zone parameters
+    primaryNameServerAddresses: "{{ zone_item.primaryNameServerAddresses | default(omit) }}"
+    zoneTransferProtocol: "{{ zone_item.zoneTransferProtocol | default(omit) }}"
+    tsigKeyName: "{{ zone_item.tsigKeyName | default(omit) }}"
+    validateZone: "{{ zone_item.validateZone | default(omit) }}"
+    # Forwarder zone parameters
+    initializeForwarder: "{{ zone_item.initializeForwarder | default(omit) }}"
+    protocol: "{{ zone_item.protocol | default(omit) }}"
+    forwarder: "{{ zone_item.forwarder | default(omit) }}"
+    dnssecValidation: "{{ zone_item.dnssecValidation | default(omit) }}"
+    # Proxy parameters
+    proxyType: "{{ zone_item.proxyType | default(omit) }}"
+    proxyAddress: "{{ zone_item.proxyAddress | default(omit) }}"
+    proxyPort: "{{ zone_item.proxyPort | default(omit) }}"
+    proxyUsername: "{{ zone_item.proxyUsername | default(omit) }}"
+    proxyPassword: "{{ zone_item.proxyPassword | default(omit) }}"
+  register: test4_idempotency_results
+  loop: "{{ zones_to_create | default([]) }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }} ({{ zone_item.type }})"
+
+- name: "Test 4.2: Assert no change"
+  ansible.builtin.assert:
+    that:
+      - not item.changed
+    quiet: true
+  loop: "{{ test4_idempotency_results.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+# Phase 7: Test state=absent with check_mode
+- name: "Test 5.1: Check mode - Delete zones (state=absent)"
+  effectivelywild.technitium_dns.technitium_dns_zone:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    state: absent
+  check_mode: true
+  register: test5_checkmode_results
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+- name: "Test 5.1: Assert zones would be deleted"
+  ansible.builtin.assert:
+    that:
+      - item.changed
+      - not item.failed
+    quiet: true
+  loop: "{{ test5_checkmode_results.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+- name: "Test 5.2: Verify check mode didn't actually delete zones"
+  technitium_dns_get_zone_info:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: test5_checkmode_verify
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+  ignore_errors: true
+
+- name: "Test 5.2: Assert zones still exist after check mode"
+  assert:
+    that:
+      - not info_item.failed
+      - info_item.zones is defined
+    quiet: true
+  loop: "{{ test5_checkmode_verify.results }}"
+  loop_control:
+    loop_var: info_item
+    label: "{{ info_item.zone_item.zone }}"
+
+# Phase 8: Delete zones with state=absent
+- name: "Test 6.1: Delete zones (state=absent)"
+  effectivelywild.technitium_dns.technitium_dns_zone:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    state: absent
+  register: test6_deletion_results
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+- name: "Test 6.1: Assert zones deleted successfully"
+  ansible.builtin.assert:
+    that:
+      - item.changed
+      - not item.failed
+    quiet: true
+  loop: "{{ test6_deletion_results.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+- name: "Test 6.2: Verify zones are actually deleted"
+  technitium_dns_get_zone_info:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+  register: test6_deletion_verify
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+  ignore_errors: true
+
+- name: "Test 6.2: Assert zones no longer exist after deletion"
+  assert:
+    that:
+      - info_item.failed
+    quiet: true
+  loop: "{{ test6_deletion_verify.results }}"
+  loop_control:
+    loop_var: info_item
+    label: "{{ info_item.zone_item.zone }}"
+
+# Phase 9: Test idempotency - state=absent on non-existent zones
+- name: "Test 7.1: Idempotency - Check mode - Delete non-existent zones"
+  effectivelywild.technitium_dns.technitium_dns_zone:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    state: absent
+  check_mode: true
+  register: test7_checkmode_results
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+- name: "Test 7.1: Assert no change in check mode"
+  ansible.builtin.assert:
+    that:
+      - not item.changed
+    quiet: true
+  loop: "{{ test7_checkmode_results.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+- name: "Test 7.2: Idempotency - Delete non-existent zones"
+  effectivelywild.technitium_dns.technitium_dns_zone:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "{{ zone_item.zone }}"
+    state: absent
+  register: test7_idempotency_results
+  loop: "{{ zones_to_create }}"
+  loop_control:
+    loop_var: zone_item
+    label: "{{ zone_item.zone }}"
+
+- name: "Test 7.2: Assert no change"
+  ansible.builtin.assert:
+    that:
+      - not item.changed
+    quiet: true
+  loop: "{{ test7_idempotency_results.results }}"
+  loop_control:
+    label: "{{ item.zone_item.zone }}"
+
+# Phase 10: Test failure cases
+- name: "Test 8.1: Missing type parameter when state=present"
+  effectivelywild.technitium_dns.technitium_dns_zone:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "test-missing-type.{{ testing_suffix }}"
+    state: present
+  register: test8_1_result
+  ignore_errors: true
+
+- name: "Test 8.1: Assert missing type fails"
+  assert:
+    that:
+      - test8_1_result.failed
+      - "'type' in test8_1_result.msg and 'required' in test8_1_result.msg"
+    fail_msg: "Missing type parameter should have failed"
+
+- name: "Test 8.2: Invalid zone type"
+  effectivelywild.technitium_dns.technitium_dns_zone:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "test-invalid-type.{{ testing_suffix }}"
+    type: "InvalidType"
+    state: present
+  register: test8_2_result
+  ignore_errors: true
+
+- name: "Test 8.2: Assert invalid type fails"
+  assert:
+    that:
+      - test8_2_result.failed
+    fail_msg: "Invalid zone type should have failed"
+
+- name: "Test 8.3: Unsupported parameter for zone type"
+  effectivelywild.technitium_dns.technitium_dns_zone:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "test-unsupported-param.{{ testing_suffix }}"
+    type: "Primary"
+    primaryNameServerAddresses: ["8.8.8.8"]
+    state: present
+  register: test8_3_result
+  ignore_errors: true
+
+- name: "Test 8.3: Assert unsupported parameter fails"
+  assert:
+    that:
+      - test8_3_result.failed
+      - "'Unsupported parameters' in test8_3_result.msg"
+    fail_msg: "Unsupported parameter for zone type should have failed"
+
+- name: "Test 8.4: Empty zone name"
+  effectivelywild.technitium_dns.technitium_dns_zone:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: ""
+    type: "Primary"
+    state: present
+  register: test8_4_result
+  ignore_errors: true
+
+- name: "Test 8.4: Assert empty zone name fails"
+  assert:
+    that:
+      - test8_4_result.failed
+    fail_msg: "Empty zone name should have failed"
+
+- name: "Test 8.5: Missing required forwarder parameter"
+  effectivelywild.technitium_dns.technitium_dns_zone:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "test-missing-forwarder.{{ testing_suffix }}"
+    type: "Forwarder"
+    state: present
+  register: test8_5_result
+  ignore_errors: true
+
+- name: "Test 8.5: Assert missing forwarder fails"
+  assert:
+    that:
+      - test8_5_result.failed
+      - "'forwarder' in test8_5_result.msg"
+    fail_msg: "Missing forwarder parameter should have failed"
+
+- name: "Test 8.6: Invalid API credentials"
+  effectivelywild.technitium_dns.technitium_dns_zone:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "invalid-token-12345"
+    api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
+    validate_certs: "{{ validate_certs | default(true) }}"
+    zone: "test-invalid-auth.{{ testing_suffix }}"
+    type: "Primary"
+    state: present
+  register: test8_6_result
+  ignore_errors: true
+
+- name: "Test 8.6: Assert invalid auth fails"
+  assert:
+    that:
+      - test8_6_result.failed
+    fail_msg: "Invalid API credentials should have failed"
