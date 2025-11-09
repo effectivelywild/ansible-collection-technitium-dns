@@ -1,0 +1,105 @@
+---
+# Test 1: Basic login test
+- name: "Test 1: Login with admin credentials"
+  effectivelywild.technitium_dns.technitium_dns_login:
+    api_url: "{{ technitium_api_url_1 }}"
+    api_port: "{{ technitium_api_port_1 }}"
+    username: "{{ admin_username }}"
+    password: "{{ admin_password }}"
+  register: login_result
+
+- name: "Test 1.1: Assert login successful"
+  assert:
+    that:
+      - login_result is not failed
+      - login_result.changed == false
+      - login_result.token is defined
+      - login_result.token | length > 0
+      - login_result.username == "admin"
+      - login_result.display_name is defined
+      - login_result.totp_enabled is defined
+
+# Test 2: Login with include_info
+- name: "Test 2: Login with include_info"
+  effectivelywild.technitium_dns.technitium_dns_login:
+    api_url: "{{ technitium_api_url_1 }}"
+    api_port: "{{ technitium_api_port_1 }}"
+    username: "{{ admin_username }}"
+    password: "{{ admin_password }}"
+    include_info: true
+  register: login_info_result
+
+- name: "Test 2.1: Assert info is included"
+  assert:
+    that:
+      - login_info_result is not failed
+      - login_info_result.info is defined
+      - login_info_result.info.version is defined
+      - login_info_result.info.dnsServerDomain is defined
+      - login_info_result.info.permissions is defined
+
+# Test 3: Use session token in subsequent API call
+- name: "Test 3: Use session token to list users"
+  effectivelywild.technitium_dns.technitium_dns_list_users:
+    api_url: "{{ technitium_api_url_1 }}"
+    api_port: "{{ technitium_api_port_1 }}"
+    api_token: "{{ login_result.token }}"
+  register: list_users_result
+
+- name: "Test 3.1: Assert users were retrieved successfully"
+  assert:
+    that:
+      - list_users_result is not failed
+      - list_users_result.users is defined
+      - list_users_result.users | length > 0
+
+# Test 4: Check mode test
+- name: "Test 4: Login in check mode"
+  effectivelywild.technitium_dns.technitium_dns_login:
+    api_url: "{{ technitium_api_url_1 }}"
+    api_port: "{{ technitium_api_port_1 }}"
+    username: "{{ admin_username }}"
+    password: "{{ admin_password }}"
+  check_mode: true
+  register: login_check_result
+
+- name: "Test 4.1: Assert check mode doesn't actually login"
+  assert:
+    that:
+      - login_check_result is not failed
+      - login_check_result.changed == false
+      - login_check_result.msg == "Would attempt to login (check mode)"
+      - login_check_result.token is not defined
+
+# Test 5: Negative test - invalid credentials
+- name: "Test 5: Login with invalid password"
+  effectivelywild.technitium_dns.technitium_dns_login:
+    api_url: "{{ technitium_api_url_1 }}"
+    api_port: "{{ technitium_api_port_1 }}"
+    username: "admin"
+    password: "wrongpassword"
+  register: login_fail_result
+  ignore_errors: true
+
+- name: "Test 5.1: Assert login failed with invalid password"
+  assert:
+    that:
+      - login_fail_result is failed
+      - login_fail_result.msg is defined
+
+# Test 6: Login without include_info
+- name: "Test 6: Login without include_info"
+  effectivelywild.technitium_dns.technitium_dns_login:
+    api_url: "{{ technitium_api_url_1 }}"
+    api_port: "{{ technitium_api_port_1 }}"
+    username: "{{ admin_username }}"
+    password: "{{ admin_password }}"
+    include_info: false
+  register: login_no_info_result
+
+- name: "Test 6.1: Assert info is not included"
+  assert:
+    that:
+      - login_no_info_result is not failed
+      - login_no_info_result.token is defined
+      - login_no_info_result.info is not defined

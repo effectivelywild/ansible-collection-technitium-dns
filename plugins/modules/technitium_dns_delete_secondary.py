@@ -163,43 +163,31 @@ class DeleteSecondaryModule(TechnitiumModule):
         params = self.params
         secondary_node_id = params['secondary_node_id']
 
-        # First check if cluster is initialized
-        state_data = self.request('/api/admin/cluster/state')
-        if state_data.get('status') != 'ok':
-            error_msg = state_data.get('errorMessage') or "Unknown error"
-            self.fail_json(msg=f"Failed to check cluster state: {error_msg}", api_response=state_data)
+        # Get and validate cluster state
+        cluster_initialized, cluster_state = self.get_cluster_state()
+        self.require_cluster_initialized(cluster_initialized, cluster_state)
 
-        cluster_state = state_data.get('response', {})
-        cluster_initialized = cluster_state.get('clusterInitialized', False)
+        # Validate this is a Primary node
+        self.validate_cluster_node_type(
+            cluster_state,
+            'Primary',
+            "This is not a Primary node. Secondary nodes can only be deleted from the Primary node."
+        )
 
-        if not cluster_initialized:
-            self.fail_json(msg="Cluster is not initialized")
+        # Find and validate the Secondary node (will fail if wrong type, exit if not found)
+        secondary_node = self.get_node_by_id(
+            cluster_state,
+            secondary_node_id,
+            expected_type='Secondary',
+            fail_if_not_found=False
+        )
 
-        # Check if this is a Primary node
-        current_nodes = cluster_state.get('clusterNodes', [])
-        self_node = next((n for n in current_nodes if n.get('state') == 'Self'), None)
-
-        if self_node and self_node.get('type') != 'Primary':
-            self.fail_json(
-                msg="This is not a Primary node. Secondary nodes can only be deleted from the Primary node.",
-                cluster_state=cluster_state
-            )
-
-        # Check if the Secondary node exists
-        secondary_node = next((n for n in current_nodes if n.get('id') == secondary_node_id), None)
-
+        # Idempotent check - if not found, nothing to delete
         if not secondary_node:
             self.exit_json(
                 changed=False,
                 cluster_state=cluster_state,
                 msg=f"Secondary node with ID {secondary_node_id} not found in cluster"
-            )
-
-        # Verify it's actually a Secondary node
-        if secondary_node.get('type') != 'Secondary':
-            self.fail_json(
-                msg=f"Node {secondary_node_id} is type '{secondary_node.get('type')}', not 'Secondary'",
-                cluster_state=cluster_state
             )
 
         # If we're in check mode, report that we would make changes

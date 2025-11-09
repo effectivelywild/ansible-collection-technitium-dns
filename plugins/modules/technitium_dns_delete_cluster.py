@@ -133,22 +133,11 @@ class DeleteClusterModule(TechnitiumModule):
         params = self.params
         force_delete = params.get('force_delete', False)
 
-        # First check if cluster is initialized
-        state_data = self.request('/api/admin/cluster/state')
-        if state_data.get('status') != 'ok':
-            error_msg = state_data.get('errorMessage') or "Unknown error"
-            self.fail_json(msg=f"Failed to check cluster state: {error_msg}", api_response=state_data)
+        # Get cluster state
+        cluster_initialized, cluster_state = self.get_cluster_state()
 
-        cluster_state = state_data.get('response', {})
-        cluster_initialized = cluster_state.get('clusterInitialized', False)
-
-        # If cluster is not initialized, nothing to do
-        if not cluster_initialized:
-            self.exit_json(
-                changed=False,
-                cluster_state=cluster_state,
-                msg="Cluster is not initialized"
-            )
+        # If cluster is not initialized, nothing to do (idempotent)
+        self.require_cluster_not_initialized(cluster_initialized, cluster_state, "Cluster is not initialized")
 
         # If we're in check mode, report that we would make changes
         if self.check_mode:

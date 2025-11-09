@@ -178,25 +178,16 @@ class UpdatePrimaryNodeModule(TechnitiumModule):
         primary_node_url = params['primary_node_url']
         primary_node_ip_address = params.get('primary_node_ip_address')
 
-        # First check if cluster is initialized
-        state_params = {}
-        if node:
-            state_params['node'] = node
-
-        state_data = self.request('/api/admin/cluster/state', params=state_params)
-        if state_data.get('status') != 'ok':
-            error_msg = state_data.get('errorMessage') or "Unknown error"
-            self.fail_json(msg=f"Failed to check cluster state: {error_msg}", api_response=state_data)
-
-        cluster_state = state_data.get('response', {})
-        cluster_initialized = cluster_state.get('clusterInitialized', False)
-
-        if not cluster_initialized:
-            self.fail_json(msg="Not part of any cluster")
+        # Get and validate cluster state
+        cluster_initialized, cluster_state = self.get_cluster_state(node=node)
+        self.require_cluster_initialized(
+            cluster_initialized,
+            cluster_state,
+            fail_message="Not part of any cluster"
+        )
 
         # Check if this is a Secondary node
-        current_nodes = cluster_state.get('clusterNodes', [])
-        self_node = next((n for n in current_nodes if n.get('state') == 'Self'), None)
+        self_node = self.get_self_node(cluster_state)
 
         if not self_node:
             self.fail_json(msg="Could not identify current node", cluster_state=cluster_state)
@@ -214,7 +205,7 @@ class UpdatePrimaryNodeModule(TechnitiumModule):
             )
 
         # Check if the Primary node details need updating
-        primary_node = next((n for n in current_nodes if n.get('type') == 'Primary'), None)
+        primary_node = self.get_primary_node(cluster_state)
 
         if primary_node:
             current_url = primary_node.get('url', '')
@@ -242,11 +233,7 @@ class UpdatePrimaryNodeModule(TechnitiumModule):
             )
 
         # Build update parameters
-        update_params = {
-            'primaryNodeUrl': primary_node_url
-        }
-        if node:
-            update_params['node'] = node
+        update_params = self.build_cluster_params(node=node, primaryNodeUrl=primary_node_url)
         if primary_node_ip_address:
             update_params['primaryNodeIpAddress'] = primary_node_ip_address
 

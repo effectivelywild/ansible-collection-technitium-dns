@@ -205,22 +205,15 @@ class InitClusterModule(TechnitiumModule):
         cluster_domain = params['cluster_domain']
         primary_node_ip_address = params['primary_node_ip_address']
 
-        # First check if cluster is already initialized
-        state_data = self.request('/api/admin/cluster/state')
-        if state_data.get('status') != 'ok':
-            error_msg = state_data.get('errorMessage') or "Unknown error"
-            self.fail_json(msg=f"Failed to check cluster state: {error_msg}", api_response=state_data)
-
-        cluster_state = state_data.get('response', {})
-        already_initialized = cluster_state.get('clusterInitialized', False)
+        # Get cluster state
+        already_initialized, cluster_state = self.get_cluster_state()
 
         # If already initialized, check if it matches our desired state
         if already_initialized:
             current_domain = cluster_state.get('clusterDomain')
-            current_nodes = cluster_state.get('clusterNodes', [])
 
             # Find the primary node
-            primary_node = next((n for n in current_nodes if n.get('type') == 'Primary'), None)
+            primary_node = self.get_primary_node(cluster_state)
 
             if current_domain == cluster_domain:
                 # Already initialized with the same domain

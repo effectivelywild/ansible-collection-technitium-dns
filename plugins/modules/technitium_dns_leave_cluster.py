@@ -12,7 +12,6 @@ version_added: "1.0.0"
 description:
     - Remove all cluster configuration from this Secondary node and leave the cluster gracefully.
     - There will be no data loss except for the cluster configuration.
-    - You will need to re-join the cluster to use this DNS server as a Secondary node again.
     - This can only be called at a Secondary node.
 author:
     - Frank Muise (@effectivelywild)
@@ -141,36 +140,22 @@ class LeaveClusterModule(TechnitiumModule):
         node = params.get('node')
         force_leave = params.get('force_leave', False)
 
-        # First check if cluster is initialized
-        state_params = {}
-        if node:
-            state_params['node'] = node
+        # Get cluster state
+        cluster_initialized, cluster_state = self.get_cluster_state(node=node)
 
-        state_data = self.request('/api/admin/cluster/state', params=state_params)
-        if state_data.get('status') != 'ok':
-            error_msg = state_data.get('errorMessage') or "Unknown error"
-            self.fail_json(msg=f"Failed to check cluster state: {error_msg}", api_response=state_data)
+        # If cluster is not initialized, nothing to do (idempotent)
+        self.require_cluster_not_initialized(
+            cluster_initialized,
+            cluster_state,
+            exit_message="Not part of any cluster"
+        )
 
-        cluster_state = state_data.get('response', {})
-        cluster_initialized = cluster_state.get('clusterInitialized', False)
-
-        # If cluster is not initialized, nothing to do
-        if not cluster_initialized:
-            self.exit_json(
-                changed=False,
-                cluster_state=cluster_state,
-                msg="Not part of any cluster"
-            )
-
-        # Check if this is a Secondary node
-        current_nodes = cluster_state.get('clusterNodes', [])
-        self_node = next((n for n in current_nodes if n.get('state') == 'Self'), None)
-
-        if self_node and self_node.get('type') == 'Primary':
-            self.fail_json(
-                msg="This is a Primary node. Use technitium_dns_delete_cluster to delete the cluster instead.",
-                cluster_state=cluster_state
-            )
+        # Validate this is a Secondary node
+        self.validate_cluster_node_type(
+            cluster_state,
+            'Secondary',
+            "This is a Primary node. Use technitium_dns_delete_cluster to delete the cluster instead."
+        )
 
         # If we're in check mode, report that we would make changes
         if self.check_mode:
@@ -180,9 +165,7 @@ class LeaveClusterModule(TechnitiumModule):
             )
 
         # Build leave parameters
-        leave_params = {}
-        if node:
-            leave_params['node'] = node
+        leave_params = self.build_cluster_params(node=node)
         if force_leave:
             leave_params['forceLeave'] = 'true'
 

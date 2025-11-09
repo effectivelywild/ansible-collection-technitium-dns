@@ -214,31 +214,16 @@ class SetClusterOptionsModule(TechnitiumModule):
         if config_retry is not None and not (30 <= config_retry <= 3600):
             self.fail_json(msg="config_retry_interval_seconds must be between 30 and 3600")
 
-        # First check if cluster is initialized
-        state_params = {}
-        if node:
-            state_params['node'] = node
+        # Get and validate cluster state
+        cluster_initialized, cluster_state = self.get_cluster_state(node=node)
+        self.require_cluster_initialized(cluster_initialized, cluster_state)
 
-        state_data = self.request('/api/admin/cluster/state', params=state_params)
-        if state_data.get('status') != 'ok':
-            error_msg = state_data.get('errorMessage') or "Unknown error"
-            self.fail_json(msg=f"Failed to check cluster state: {error_msg}", api_response=state_data)
-
-        cluster_state = state_data.get('response', {})
-        cluster_initialized = cluster_state.get('clusterInitialized', False)
-
-        if not cluster_initialized:
-            self.fail_json(msg="Cluster is not initialized")
-
-        # Check if this is a Primary node
-        current_nodes = cluster_state.get('clusterNodes', [])
-        self_node = next((n for n in current_nodes if n.get('state') == 'Self'), None)
-
-        if self_node and self_node.get('type') != 'Primary':
-            self.fail_json(
-                msg="This is not a Primary node. Cluster options can only be set on the Primary node.",
-                cluster_state=cluster_state
-            )
+        # Validate this is a Primary node
+        self.validate_cluster_node_type(
+            cluster_state,
+            'Primary',
+            "This is not a Primary node. Cluster options can only be set on the Primary node."
+        )
 
         # Check if values would actually change
         current_heartbeat_refresh = cluster_state.get('heartbeatRefreshIntervalSeconds')
@@ -271,9 +256,7 @@ class SetClusterOptionsModule(TechnitiumModule):
             )
 
         # Build options parameters
-        options_params = {}
-        if node:
-            options_params['node'] = node
+        options_params = self.build_cluster_params(node=node)
         if heartbeat_refresh is not None:
             options_params['heartbeatRefreshIntervalSeconds'] = heartbeat_refresh
         if heartbeat_retry is not None:

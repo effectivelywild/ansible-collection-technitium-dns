@@ -10,16 +10,20 @@
     image: "technitium/dns-server:{{ item.image_tag }}"
     state: started
     ports:
-     - "{{ item.http_port }}:5380/tcp"
-     - "{{ item.https_port }}:53443/tcp"
+     - "{{ item.http_port }}:{{ item.http_port }}/tcp"
+     - "{{ item.https_port }}:{{ item.https_port }}/tcp"
     volumes:
       - "{{ item.name }}-config:/etc/dns"
     restart_policy: unless-stopped
     sysctls:
       net.ipv4.ip_local_port_range: "1024 65000"
     env:
-      DNS_SERVER_DOMAIN: "{{ dns_server_domain }}"
+      DNS_SERVER_DOMAIN: "{{ item.dns_server_domain }}"
       DNS_SERVER_ADMIN_PASSWORD: "{{ dns_server_admin_password }}"
+      DNS_SERVER_WEB_SERVICE_HTTP_PORT: "{{ item.http_port }}"
+      DNS_SERVER_WEB_SERVICE_HTTPS_PORT: "{{ item.https_port }}"
+      DNS_SERVER_WEB_SERVICE_ENABLE_HTTPS: "true"
+      DNS_SERVER_WEB_SERVICE_USE_SELF_SIGNED_CERT: "true"
   loop: "{{ dns_servers_to_create }}"
 
 - name: Create API token for all containers

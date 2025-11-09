@@ -106,31 +106,20 @@ class ResyncClusterModule(TechnitiumModule):
         params = self.params
         node = params.get('node')
 
-        # First check if cluster is initialized
-        state_params = {}
-        if node:
-            state_params['node'] = node
+        # Get and validate cluster state
+        cluster_initialized, cluster_state = self.get_cluster_state(node=node)
+        self.require_cluster_initialized(
+            cluster_initialized,
+            cluster_state,
+            fail_message="Not part of any cluster"
+        )
 
-        state_data = self.request('/api/admin/cluster/state', params=state_params)
-        if state_data.get('status') != 'ok':
-            error_msg = state_data.get('errorMessage') or "Unknown error"
-            self.fail_json(msg=f"Failed to check cluster state: {error_msg}", api_response=state_data)
-
-        cluster_state = state_data.get('response', {})
-        cluster_initialized = cluster_state.get('clusterInitialized', False)
-
-        if not cluster_initialized:
-            self.fail_json(msg="Not part of any cluster")
-
-        # Check if this is a Secondary node
-        current_nodes = cluster_state.get('clusterNodes', [])
-        self_node = next((n for n in current_nodes if n.get('state') == 'Self'), None)
-
-        if self_node and self_node.get('type') != 'Secondary':
-            self.fail_json(
-                msg="This is not a Secondary node. Resync can only be triggered on Secondary nodes.",
-                cluster_state=cluster_state
-            )
+        # Validate this is a Secondary node
+        self.validate_cluster_node_type(
+            cluster_state,
+            'Secondary',
+            "This is not a Secondary node. Resync can only be triggered on Secondary nodes."
+        )
 
         # If we're in check mode, report that we would make changes
         if self.check_mode:
@@ -140,9 +129,7 @@ class ResyncClusterModule(TechnitiumModule):
             )
 
         # Build resync parameters
-        resync_params = {}
-        if node:
-            resync_params['node'] = node
+        resync_params = self.build_cluster_params(node=node)
 
         # Trigger resync
         resync_data = self.request('/api/admin/cluster/secondary/resync', params=resync_params, method='POST')

@@ -259,22 +259,15 @@ class InitJoinClusterModule(TechnitiumModule):
         primary_node_password = params['primary_node_password']
         primary_node_totp = params.get('primary_node_totp')
 
-        # First check if this node is already in a cluster
-        state_data = self.request('/api/admin/cluster/state')
-        if state_data.get('status') != 'ok':
-            error_msg = state_data.get('errorMessage') or "Unknown error"
-            self.fail_json(msg=f"Failed to check cluster state: {error_msg}", api_response=state_data)
-
-        cluster_state = state_data.get('response', {})
-        already_initialized = cluster_state.get('clusterInitialized', False)
+        # Get cluster state
+        already_initialized, cluster_state = self.get_cluster_state()
 
         # If already initialized, check if it's already joined to the expected cluster
         if already_initialized:
             current_domain = cluster_state.get('clusterDomain')
-            current_nodes = cluster_state.get('clusterNodes', [])
 
             # Check if this is a Secondary node (not Primary)
-            self_node = next((n for n in current_nodes if n.get('state') == 'Self'), None)
+            self_node = self.get_self_node(cluster_state)
             if self_node and self_node.get('type') == 'Primary':
                 self.fail_json(
                     msg="This node is a Primary node. Use technitium_dns_delete_cluster to remove cluster configuration first.",
