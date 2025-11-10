@@ -34,14 +34,15 @@
     fail_msg: "Test user should have been created successfully"
 
 # Phase 3: Test idempotency - no changes when current state matches desired
-- name: "Test idempotency - set same display name"
+# Note: Due to v14 regression, users are created with displayName=username, so we test with username
+- name: "Test idempotency - set same display name as username"
   technitium_dns_set_user_details:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     username: "{{ test_user.username }}"
-    displayName: "{{ test_user.displayName }}"
+    displayName: "{{ test_user.username }}"
   register: idempotent_result
 
 - name: "Assert idempotency - no changes when state matches"
@@ -72,7 +73,7 @@
       - "'would be updated' in checkmode_result.msg"
       - checkmode_result.diff is defined
       - checkmode_result.diff.displayName is defined
-      - checkmode_result.diff.displayName.current == test_user.displayName
+      - checkmode_result.diff.displayName.current == test_user.username
       - checkmode_result.diff.displayName.desired == "Updated Test User"
     fail_msg: "Check mode should show what would change"
 
@@ -89,7 +90,7 @@
 - name: "Assert user details unchanged after check mode"
   assert:
     that:
-      - user_after_checkmode.user_details.displayName == test_user.displayName
+      - user_after_checkmode.user_details.displayName == test_user.username
       - user_after_checkmode.user_details.disabled == false
     fail_msg: "User details should not change in check mode"
 

@@ -29,27 +29,28 @@
       - not users_result.changed
     fail_msg: "User listing should have succeeded"
 
-# Phase 3: Verify Administrator user exists
-- name: "Check if Administrator user exists"
+# Phase 3: Verify admin user exists
+- name: "Check if admin user exists"
   assert:
     that:
-      - users_result.users | selectattr('displayName', 'equalto', 'Administrator') | list | length > 0
-    fail_msg: "Administrator user should exist in the user list"
+      - users_result.users | selectattr('username', 'equalto', 'admin') | list | length > 0
+    fail_msg: "Admin user should exist in the user list"
 
-- name: "Verify Administrator user has expected properties"
+- name: "Verify admin user has expected properties"
   assert:
     that:
       - admin_user.username is defined
-      - admin_user.displayName == 'Administrator'
+      - admin_user.username == 'admin'
+      - admin_user.displayName == 'admin'
       - admin_user.disabled is defined
       - admin_user.disabled is boolean
       - admin_user.previousSessionLoggedOn is defined
       - admin_user.previousSessionRemoteAddress is defined
       - admin_user.recentSessionLoggedOn is defined
       - admin_user.recentSessionRemoteAddress is defined
-    fail_msg: "Administrator user should have all expected properties"
+    fail_msg: "Admin user should have all expected properties"
   vars:
-    admin_user: "{{ users_result.users | selectattr('displayName', 'equalto', 'Administrator') | first }}"
+    admin_user: "{{ users_result.users | selectattr('username', 'equalto', 'admin') | first }}"
 
 # Phase 4: Test failure cases
 - name: "Test invalid API token"
