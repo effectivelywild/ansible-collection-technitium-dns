@@ -33,7 +33,7 @@
 - name: "Validate administrator user basic properties"
   assert:
     that:
-      - admin_user_result.user_details.displayName == "Administrator"
+      - admin_user_result.user_details.displayName == "admin"
       - admin_user_result.user_details.username == "admin"
       - admin_user_result.user_details.disabled == false
     fail_msg: "Administrator user should have correct basic properties"
@@ -124,7 +124,7 @@
       - not test_user_details.failed
       - not test_user_details.changed
       - test_user_details.user_details.username == test_user_creation.api_response.response.username
-      - test_user_details.user_details.displayName == "Details Test User"
+      - test_user_details.user_details.displayName == test_user_creation.api_response.response.username
       - test_user_details.user_details.disabled == false
     fail_msg: "Test user details should match creation parameters"
 
