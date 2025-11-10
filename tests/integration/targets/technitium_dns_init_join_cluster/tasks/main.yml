@@ -1,0 +1,367 @@
+---
+# Cleanup - Ensure cluster is deleted before tests
+- name: "Cleanup: Login to secondary01 to get valid token"
+  effectivelywild.technitium_dns.technitium_dns_login:
+    api_url: "{{ technitium_api_url_5 }}"
+    api_port: "{{ technitium_api_port_5 }}"
+    username: "{{ admin_username }}"
+    password: "{{ admin_password }}"
+  register: secondary_login_cleanup
+  ignore_errors: true
+
+- name: "Cleanup: Update token fact for secondary01"
+  ansible.builtin.set_fact:
+    technitium_api_token_5: "{{ secondary_login_cleanup.token }}"
+  when: secondary_login_cleanup is not failed
+
+- name: "Cleanup: Leave cluster on secondary01 if joined (force)"
+  effectivelywild.technitium_dns.technitium_dns_leave_cluster:
+    api_url: "{{ technitium_api_url_5 }}"
+    api_token: "{{ technitium_api_token_5 }}"
+    api_port: "{{ technitium_api_port_5 }}"
+    force_leave: true
+  ignore_errors: true
+
+- name: "Cleanup: Login to secondary02 to get valid token"
+  effectivelywild.technitium_dns.technitium_dns_login:
+    api_url: "{{ technitium_api_url_6 }}"
+    api_port: "{{ technitium_api_port_6 }}"
+    username: "{{ admin_username }}"
+    password: "{{ admin_password }}"
+  register: secondary_login_cleanup_06
+  ignore_errors: true
+
+- name: "Cleanup: Update token fact for secondary02"
+  ansible.builtin.set_fact:
+    technitium_api_token_6: "{{ secondary_login_cleanup_06.token }}"
+  when: secondary_login_cleanup_06 is not failed
+
+- name: "Cleanup: Leave cluster on secondary02 if joined (force)"
+  effectivelywild.technitium_dns.technitium_dns_leave_cluster:
+    api_url: "{{ technitium_api_url_6 }}"
+    api_token: "{{ technitium_api_token_6 }}"
+    api_port: "{{ technitium_api_port_6 }}"
+    force_leave: true
+  ignore_errors: true
+
+- name: "Cleanup: Get cluster state from Primary to find orphaned Secondaries"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "{{ technitium_api_url_4 }}"
+    api_token: "{{ technitium_api_token_4 }}"
+    api_port: "{{ technitium_api_port_4 }}"
+  register: cleanup_primary_state
+  ignore_errors: true
+
+- name: "Cleanup: Delete orphaned Secondaries from Primary if exist"
+  effectivelywild.technitium_dns.technitium_dns_delete_secondary:
+    api_url: "{{ technitium_api_url_4 }}"
+    api_token: "{{ technitium_api_token_4 }}"
+    api_port: "{{ technitium_api_port_4 }}"
+    secondary_node_id: "{{ item.id }}"
+  loop: "{{ cleanup_primary_state.cluster_state.clusterNodes | selectattr('type', 'equalto', 'Secondary') | list }}"
+  when:
+    - cleanup_primary_state is not failed
+    - cleanup_primary_state.cluster_state.clusterInitialized | default(false)
+  ignore_errors: true
+
+- name: "Cleanup: Delete cluster on Primary (04) if exists"
+  effectivelywild.technitium_dns.technitium_dns_delete_cluster:
+    api_url: "{{ technitium_api_url_4 }}"
+    api_token: "{{ technitium_api_token_4 }}"
+    api_port: "{{ technitium_api_port_4 }}"
+  ignore_errors: true
+
+# Setup - Initialize Primary node
+- name: "Setup: Initialize cluster on Primary node (04)"
+  effectivelywild.technitium_dns.technitium_dns_init_cluster:
+    api_url: "{{ technitium_api_url_4 }}"
+    api_token: "{{ technitium_api_token_4 }}"
+    api_port: "{{ technitium_api_port_4 }}"
+    cluster_domain: "example.com"
+    primary_node_ip_address: "{{ primary_node_ip_address }}"
+  register: init_primary_result
+
+- name: "Setup: Wait for cluster to initialize"
+  ansible.builtin.pause:
+    seconds: 10
+
+# Test 1: Join cluster with required parameters
+- name: "Test 1: Join secondary01 node to cluster"
+  effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
+    api_url: "{{ technitium_api_url_5 }}"
+    api_token: "{{ technitium_api_token_5 }}"
+    api_port: "{{ technitium_api_port_5 }}"
+    secondary_node_ip_address: "{{ secondary_node_ip_address_01 }}"
+    primary_node_ip_address: "{{ primary_node_ip_address }}"
+    primary_node_url: "https://test04.local.example.com:53444/"
+    primary_node_username: "{{ admin_username }}"
+    primary_node_password: "{{ admin_password }}"
+    ignore_certificate_errors: true
+  register: join_result
+
+- name: "Test 1.1: Assert Secondary node joined successfully"
+  assert:
+    that:
+      - join_result is not failed
+      - join_result.changed == true
+      - join_result.cluster_state is defined
+      - join_result.cluster_state.clusterInitialized == true
+      - join_result.cluster_state.clusterDomain == "example.com"
+      - join_result.msg == "Successfully joined cluster"
+
+# Test 2: Verify cluster state from Primary shows Secondary node
+- name: "Test 2: Get cluster state from Primary node"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "{{ technitium_api_url_4 }}"
+    api_token: "{{ technitium_api_token_4 }}"
+    api_port: "{{ technitium_api_port_4 }}"
+  register: primary_state
+
+- name: "Test 2.1: Assert Primary sees Secondary node"
+  assert:
+    that:
+      - primary_state.cluster_state.clusterNodes | length == 2
+      - primary_state.cluster_state.clusterNodes | selectattr('type', 'equalto', 'Secondary') | list | length == 1
+      - primary_state.cluster_state.clusterNodes | selectattr('ipAddress', 'equalto', secondary_node_ip_address_01) | list | length == 1
+
+# Test 3: Login to Secondary to get new token (joining invalidates token)
+- name: "Test 3: Login to Secondary node to get valid token"
+  effectivelywild.technitium_dns.technitium_dns_login:
+    api_url: "{{ technitium_api_url_5 }}"
+    api_port: "{{ technitium_api_port_5 }}"
+    username: "{{ admin_username }}"
+    password: "{{ admin_password }}"
+  register: secondary_login
+
+- name: "Test 3.1: Update token fact for Secondary node"
+  ansible.builtin.set_fact:
+    technitium_api_token_5: "{{ secondary_login.token }}"
+
+# Test 4: Verify cluster state from Secondary
+- name: "Test 4: Get cluster state from Secondary node"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "{{ technitium_api_url_5 }}"
+    api_token: "{{ technitium_api_token_5 }}"
+    api_port: "{{ technitium_api_port_5 }}"
+  register: secondary_state
+
+- name: "Test 4.1: Assert Secondary node sees correct cluster state"
+  assert:
+    that:
+      - secondary_state.cluster_state.clusterInitialized == true
+      - secondary_state.cluster_state.clusterDomain == "example.com"
+      - secondary_state.cluster_state.clusterNodes | length == 2
+
+# Test 4a: Join second secondary02 node to cluster
+- name: "Test 4a: Join second secondary02 node to cluster"
+  effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
+    api_url: "{{ technitium_api_url_6 }}"
+    api_token: "{{ technitium_api_token_6 }}"
+    api_port: "{{ technitium_api_port_6 }}"
+    secondary_node_ip_address: "{{ secondary_node_ip_address_02 }}"
+    primary_node_ip_address: "{{ primary_node_ip_address }}"
+    primary_node_url: "https://test04.local.example.com:53444/"
+    primary_node_username: "{{ admin_username }}"
+    primary_node_password: "{{ admin_password }}"
+    ignore_certificate_errors: true
+  register: join_result_06
+
+- name: "Test 4a.1: Assert second Secondary node joined successfully"
+  assert:
+    that:
+      - join_result_06 is not failed
+      - join_result_06.changed == true
+      - join_result_06.cluster_state.clusterInitialized == true
+      - join_result_06.msg == "Successfully joined cluster"
+
+- name: "Test 4a.2: Get cluster state from Primary to verify both Secondary nodes"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "{{ technitium_api_url_4 }}"
+    api_token: "{{ technitium_api_token_4 }}"
+    api_port: "{{ technitium_api_port_4 }}"
+  register: primary_state_multi
+
+- name: "Test 4a.3: Assert Primary sees both Secondary nodes"
+  assert:
+    that:
+      - primary_state_multi.cluster_state.clusterNodes | length == 3
+      - primary_state_multi.cluster_state.clusterNodes | selectattr('type', 'equalto', 'Primary') | list | length == 1
+      - primary_state_multi.cluster_state.clusterNodes | selectattr('type', 'equalto', 'Secondary') | list | length == 2
+      - primary_state_multi.cluster_state.clusterNodes | selectattr('ipAddress', 'equalto', secondary_node_ip_address_01) | list | length == 1
+      - primary_state_multi.cluster_state.clusterNodes | selectattr('ipAddress', 'equalto', secondary_node_ip_address_02) | list | length == 1
+
+- name: "Test 4a.4: Wait for cluster with multiple Secondaries to sync"
+  ansible.builtin.pause:
+    seconds: 5
+
+# Test 5: Idempotency - Try to join again
+- name: "Test 5: Idempotent - Try to join Secondary node again"
+  effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
+    api_url: "{{ technitium_api_url_5 }}"
+    api_token: "{{ technitium_api_token_5 }}"
+    api_port: "{{ technitium_api_port_5 }}"
+    secondary_node_ip_address: "{{ secondary_node_ip_address_01 }}"
+    primary_node_ip_address: "{{ primary_node_ip_address }}"
+    primary_node_url: "https://test04.local.example.com:53444/"
+    primary_node_username: "{{ admin_username }}"
+    primary_node_password: "{{ admin_password }}"
+    ignore_certificate_errors: true
+  register: idempotent_result
+
+- name: "Test 5.1: Assert no changes made (idempotent)"
+  assert:
+    that:
+      - idempotent_result is not failed
+      - idempotent_result.changed == false
+      - "'Already joined to cluster' in idempotent_result.msg"
+
+# Test 6: Check mode - Leave and rejoin in check mode
+- name: "Test 6: Wait additional time for cluster to fully stabilize with multiple Secondaries"
+  ansible.builtin.pause:
+    seconds: 10
+
+- name: "Test 6.1: Login to secondary01 to get fresh token before leave test"
+  effectivelywild.technitium_dns.technitium_dns_login:
+    api_url: "{{ technitium_api_url_5 }}"
+    api_port: "{{ technitium_api_port_5 }}"
+    username: "{{ admin_username }}"
+    password: "{{ admin_password }}"
+  register: secondary_login_test6
+
+- name: "Test 6.2: Update token fact for secondary01"
+  ansible.builtin.set_fact:
+    technitium_api_token_5: "{{ secondary_login_test6.token }}"
+
+- name: "Test 6.3: Leave cluster to test check mode"
+  effectivelywild.technitium_dns.technitium_dns_leave_cluster:
+    api_url: "{{ technitium_api_url_5 }}"
+    api_token: "{{ technitium_api_token_5 }}"
+    api_port: "{{ technitium_api_port_5 }}"
+  register: leave_result
+
+- name: "Test 6.4: Join cluster in check mode"
+  effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
+    api_url: "{{ technitium_api_url_5 }}"
+    api_token: "{{ technitium_api_token_5 }}"
+    api_port: "{{ technitium_api_port_5 }}"
+    secondary_node_ip_address: "{{ secondary_node_ip_address_01 }}"
+    primary_node_ip_address: "{{ primary_node_ip_address }}"
+    primary_node_url: "https://test04.local.example.com:53444/"
+    primary_node_username: "{{ admin_username }}"
+    primary_node_password: "{{ admin_password }}"
+    ignore_certificate_errors: true
+  check_mode: true
+  register: check_mode_result
+
+- name: "Test 6.4: Assert check mode reports changes but doesn't join"
+  assert:
+    that:
+      - check_mode_result is not failed
+      - check_mode_result.changed == true
+      - "'Would join cluster' in check_mode_result.msg"
+
+- name: "Test 6.5: Verify cluster was not actually joined"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "{{ technitium_api_url_5 }}"
+    api_token: "{{ technitium_api_token_5 }}"
+    api_port: "{{ technitium_api_port_5 }}"
+  register: verify_not_joined
+
+- name: "Test 6.6: Assert cluster is not initialized on Secondary"
+  assert:
+    that:
+      - verify_not_joined.cluster_state.clusterInitialized == false
+
+# Test 7: Negative test - Try to join Primary node as Secondary
+- name: "Test 7: Try to join Primary node as Secondary (should fail)"
+  effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
+    api_url: "{{ technitium_api_url_4 }}"
+    api_token: "{{ technitium_api_token_4 }}"
+    api_port: "{{ technitium_api_port_4 }}"
+    secondary_node_ip_address: "{{ primary_node_ip_address }}"
+    primary_node_ip_address: "{{ primary_node_ip_address }}"
+    primary_node_url: "https://test04.local.example.com:53444/"
+    primary_node_username: "{{ admin_username }}"
+    primary_node_password: "{{ admin_password }}"
+    ignore_certificate_errors: true
+  register: negative_primary_result
+  ignore_errors: true
+
+- name: "Test 7.1: Assert failure when trying to join Primary as Secondary"
+  assert:
+    that:
+      - negative_primary_result is failed
+      - "'This node is a Primary node' in negative_primary_result.msg"
+
+# Test 8: Negative test - Invalid credentials
+- name: "Test 8: Try to join with invalid credentials (should fail)"
+  effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
+    api_url: "{{ technitium_api_url_5 }}"
+    api_token: "{{ technitium_api_token_5 }}"
+    api_port: "{{ technitium_api_port_5 }}"
+    secondary_node_ip_address: "{{ secondary_node_ip_address_01 }}"
+    primary_node_ip_address: "{{ primary_node_ip_address }}"
+    primary_node_url: "https://test04.local.example.com:53444/"
+    primary_node_username: "{{ admin_username }}"
+    primary_node_password: "wrongpassword"
+    ignore_certificate_errors: true
+  register: negative_creds_result
+  ignore_errors: true
+
+- name: "Test 8.1: Assert failure with invalid credentials"
+  assert:
+    that:
+      - negative_creds_result is failed
+      - "'Failed to join cluster' in negative_creds_result.msg"
+
+# Cleanup - Delete cluster and leave nodes
+- name: "Cleanup: Leave cluster on secondary01"
+  effectivelywild.technitium_dns.technitium_dns_leave_cluster:
+    api_url: "{{ technitium_api_url_5 }}"
+    api_token: "{{ technitium_api_token_5 }}"
+    api_port: "{{ technitium_api_port_5 }}"
+  ignore_errors: true
+
+- name: "Cleanup: Login to secondary02 to get valid token"
+  effectivelywild.technitium_dns.technitium_dns_login:
+    api_url: "{{ technitium_api_url_6 }}"
+    api_port: "{{ technitium_api_port_6 }}"
+    username: "{{ admin_username }}"
+    password: "{{ admin_password }}"
+  register: secondary_login_06_cleanup
+  ignore_errors: true
+
+- name: "Cleanup: Leave cluster on secondary02"
+  effectivelywild.technitium_dns.technitium_dns_leave_cluster:
+    api_url: "{{ technitium_api_url_6 }}"
+    api_token: "{{ secondary_login_06_cleanup.token }}"
+    api_port: "{{ technitium_api_port_6 }}"
+  when: secondary_login_06_cleanup is not failed
+  ignore_errors: true
+
+- name: "Cleanup: Delete cluster on Primary (04)"
+  effectivelywild.technitium_dns.technitium_dns_delete_cluster:
+    api_url: "{{ technitium_api_url_4 }}"
+    api_token: "{{ technitium_api_token_4 }}"
+    api_port: "{{ technitium_api_port_4 }}"
+  register: final_cleanup
+
+- name: "Cleanup: Verify cluster was deleted on Primary"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "{{ technitium_api_url_4 }}"
+    api_token: "{{ technitium_api_token_4 }}"
+    api_port: "{{ technitium_api_port_4 }}"
+  register: final_verify_primary
+
+- name: "Cleanup: Verify cluster was deleted on Secondary"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "{{ technitium_api_url_5 }}"
+    api_token: "{{ technitium_api_token_5 }}"
+    api_port: "{{ technitium_api_port_5 }}"
+  register: final_verify_secondary
+
+- name: "Cleanup: Assert clusters are not initialized"
+  assert:
+    that:
+      - final_verify_primary.cluster_state.clusterInitialized == false
+      - final_verify_secondary.cluster_state.clusterInitialized == false
