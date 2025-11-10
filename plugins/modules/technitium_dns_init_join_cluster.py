@@ -86,14 +86,12 @@ options:
             - The password of the administrator user.
         required: true
         type: str
-        no_log: true
     primary_node_totp:
         description:
             - The 6-digit code from your authenticator app for the administrator user.
             - Only required if the user has 2FA enabled.
         required: false
         type: str
-        no_log: true
 '''
 
 EXAMPLES = r'''
