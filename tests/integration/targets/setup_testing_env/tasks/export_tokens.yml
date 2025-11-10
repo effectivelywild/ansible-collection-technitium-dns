@@ -19,20 +19,20 @@
     dest: "{{ lookup('env', 'TOKEN_FILE_3') | default('/tmp/technitium03_token') }}"
   when: technitium_tokens[('technitium03' + (lookup('env', 'CONTAINER_SUFFIX') | default('')))] is defined
 
-- name: Export technitium_cluster_primary token to file  
+- name: Export technitium04 token to file  
   copy:
-    content: "{{ technitium_tokens[('technitium_cluster_primary' + (lookup('env', 'CONTAINER_SUFFIX') | default('')))].token }}"
-    dest: "{{ lookup('env', 'TOKEN_FILE_4') | default('/tmp/technitium_cluster_primary_token') }}"
-  when: technitium_tokens[('technitium_cluster_primary' + (lookup('env', 'CONTAINER_SUFFIX') | default('')))] is defined
+    content: "{{ technitium_tokens[('technitium04' + (lookup('env', 'CONTAINER_SUFFIX') | default('')))].token }}"
+    dest: "{{ lookup('env', 'TOKEN_FILE_4') | default('/tmp/technitium04_token') }}"
+  when: technitium_tokens[('technitium04' + (lookup('env', 'CONTAINER_SUFFIX') | default('')))] is defined
+  
+- name: Export technitium05 token to file  
+  copy:
+    content: "{{ technitium_tokens[('technitium05' + (lookup('env', 'CONTAINER_SUFFIX') | default('')))].token }}"
+    dest: "{{ lookup('env', 'TOKEN_FILE_5') | default('/tmp/technitium05_token') }}"
+  when: technitium_tokens[('technitium05' + (lookup('env', 'CONTAINER_SUFFIX') | default('')))] is defined
 
-- name: Export technitium_cluster_secondary01 token to file  
+- name: Export technitium06 token to file  
   copy:
-    content: "{{ technitium_tokens[('technitium_cluster_secondary01' + (lookup('env', 'CONTAINER_SUFFIX') | default('')))].token }}"
-    dest: "{{ lookup('env', 'TOKEN_FILE_5') | default('/tmp/technitium_cluster_secondary01_token') }}"
-  when: technitium_tokens[('technitium_cluster_secondary01' + (lookup('env', 'CONTAINER_SUFFIX') | default('')))] is defined
-
-- name: Export technitium_cluster_secondary02 token to file  
-  copy:
-    content: "{{ technitium_tokens[('technitium_cluster_secondary02' + (lookup('env', 'CONTAINER_SUFFIX') | default('')))].token }}"
-    dest: "{{ lookup('env', 'TOKEN_FILE_6') | default('/tmp/technitium_cluster_secondary02_token') }}"
+    content: "{{ technitium_tokens[('technitium06' + (lookup('env', 'CONTAINER_SUFFIX') | default('')))].token }}"
+    dest: "{{ lookup('env', 'TOKEN_FILE_6') | default('/tmp/technitium06_token') }}"
   when: technitium_tokens[('technitium_cluster_secondary02' + (lookup('env', 'CONTAINER_SUFFIX') | default('')))] is defined
