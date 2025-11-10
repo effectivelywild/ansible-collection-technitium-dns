@@ -137,7 +137,10 @@ jobs:
           echo "TOKEN_FILE_1=/tmp/technitium01_token_${SAFE_JOB_ID}_${RUN_ID}" >> $GITHUB_ENV
           echo "TOKEN_FILE_2=/tmp/technitium02_token_${SAFE_JOB_ID}_${RUN_ID}" >> $GITHUB_ENV
           echo "TOKEN_FILE_3=/tmp/technitium03_token_${SAFE_JOB_ID}_${RUN_ID}" >> $GITHUB_ENV
-          
+          echo "TOKEN_FILE_4=/tmp/technitium04_token_${SAFE_JOB_ID}_${RUN_ID}" >> $GITHUB_ENV
+          echo "TOKEN_FILE_5=/tmp/technitium05_token_${SAFE_JOB_ID}_${RUN_ID}" >> $GITHUB_ENV
+          echo "TOKEN_FILE_6=/tmp/technitium06_token_${SAFE_JOB_ID}_${RUN_ID}" >> $GITHUB_ENV
+
           # Calculate unique ports using hash of job ID (guaranteed unique)
           JOB_HASH=$(echo "${SAFE_JOB_ID}" | shasum | cut -c1-4)
           PORT_OFFSET=$((0x${JOB_HASH} % 500 + 1))
@@ -146,9 +149,15 @@ jobs:
           echo "HTTP_PORT_1=$((6000 + PORT_OFFSET * 10 + 1))" >> $GITHUB_ENV
           echo "HTTP_PORT_2=$((6000 + PORT_OFFSET * 10 + 2))" >> $GITHUB_ENV
           echo "HTTP_PORT_3=$((6000 + PORT_OFFSET * 10 + 3))" >> $GITHUB_ENV
+          echo "HTTP_PORT_4=$((6000 + PORT_OFFSET * 10 + 4))" >> $GITHUB_ENV
+          echo "HTTP_PORT_5=$((6000 + PORT_OFFSET * 10 + 5))" >> $GITHUB_ENV
+          echo "HTTP_PORT_6=$((6000 + PORT_OFFSET * 10 + 6))" >> $GITHUB_ENV
           echo "HTTPS_PORT_1=$((50000 + PORT_OFFSET * 10 + 1))" >> $GITHUB_ENV  
           echo "HTTPS_PORT_2=$((50000 + PORT_OFFSET * 10 + 2))" >> $GITHUB_ENV
           echo "HTTPS_PORT_3=$((50000 + PORT_OFFSET * 10 + 3))" >> $GITHUB_ENV
+          echo "HTTPS_PORT_4=$((50000 + PORT_OFFSET * 10 + 4))" >> $GITHUB_ENV
+          echo "HTTPS_PORT_5=$((50000 + PORT_OFFSET * 10 + 5))" >> $GITHUB_ENV
+          echo "HTTPS_PORT_6=$((50000 + PORT_OFFSET * 10 + 6))" >> $GITHUB_ENV
 
 
       - name: Setup testing environment
@@ -166,12 +175,27 @@ jobs:
           echo "api_token_2=$API_TOKEN_2" >> $GITHUB_OUTPUT
           API_TOKEN_3=$(cat "${TOKEN_FILE_3}")
           echo "api_token_3=$API_TOKEN_3" >> $GITHUB_OUTPUT
+          API_TOKEN_4=$(cat "${TOKEN_FILE_4}")
+          echo "api_token_4=$API_TOKEN_4" >> $GITHUB_OUTPUT
+          API_TOKEN_5=$(cat "${TOKEN_FILE_5}")
+          echo "api_token_5=$API_TOKEN_5" >> $GITHUB_OUTPUT
+          API_TOKEN_6=$(cat "${TOKEN_FILE_6}")
+          echo "api_token_6=$API_TOKEN_6" >> $GITHUB_OUTPUT
 
           # Get container IP for notify_name_server using dynamic container name
-          CONTAINER_NAME="technitium01${CONTAINER_SUFFIX}"
-          
-          
-          echo "technitium01_ip=$CONTAINER_IP" >> $GITHUB_OUTPUT
+          SERVERS="01 04 05 06"
+
+          # Loop through each server number
+          for NUM in $SERVERS; do
+            # Construct the dynamic container name
+            CONTAINER_NAME="technitium${NUM}${CONTAINER_SUFFIX}"
+            
+            # Get the container IP
+            IP_ADDRESS=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$CONTAINER_NAME")
+
+            # Export the IP as a GitHub Output variable
+            echo "technitium${NUM}_ip=$IP_ADDRESS" >> $GITHUB_OUTPUT
+          done
 
       - name: Create integration config
         run: |
@@ -187,14 +211,37 @@ jobs:
           technitium_api_url_3: http://localhost
           technitium_api_token_3: ${{ steps.get_server_values.outputs.api_token_3 }}
           technitium_api_port_3: ${HTTP_PORT_3}
-    
+
+          technitium_api_url_4: http://localhost
+          technitium_api_token_4: ${{ steps.get_server_values.outputs.api_token_4 }}
+          technitium_api_port_4: ${HTTP_PORT_4}
+
+          technitium_api_url_5: http://localhost
+          technitium_api_token_5: ${{ steps.get_server_values.outputs.api_token_5 }}
+          technitium_api_port_5: ${HTTP_PORT_5}
+
+          technitium_api_url_6: http://localhost
+          technitium_api_token_6: ${{ steps.get_server_values.outputs.api_token_6 }}
+          technitium_api_port_6: ${HTTP_PORT_6}
+
           validate_certs: false
 
           # Notify Name Server (technitium01), used for Zone testing
           notify_name_server: ${{ steps.get_server_values.outputs.technitium01_ip }}
 
+          # Primary Name Server for cluster
+          primary_node_ip_address: ${{ steps.get_server_values.outputs.technitium04_ip }}
+
+          # Secondary cluster node IPs
+          secondary_node_ip_address_01: ${{ steps.get_server_values.outputs.technitium05_ip }}
+          secondary_node_ip_address_02: ${{ steps.get_server_values.outputs.technitium06_ip }}
+          
           # Debugging options
           debug: true
+
+          # Login Info
+          admin_username: admin
+          admin_password: topsecret
 
           # Testing domain - unique per job to avoid conflicts
           testing_suffix: ${TESTING_SUFFIX}
