@@ -53,7 +53,10 @@
     technitium01_name: "technitium01{{ lookup('env', 'CONTAINER_SUFFIX') | default('') }}"
     technitium02_name: "technitium02{{ lookup('env', 'CONTAINER_SUFFIX') | default('') }}"
     technitium03_name: "technitium03{{ lookup('env', 'CONTAINER_SUFFIX') | default('') }}"
-    
+    technitium04_name: "technitium04{{ lookup('env', 'CONTAINER_SUFFIX') | default('') }}"
+    technitium05_name: "technitium05{{ lookup('env', 'CONTAINER_SUFFIX') | default('') }}"
+    technitium06_name: "technitium06{{ lookup('env', 'CONTAINER_SUFFIX') | default('') }}"
+
 - name: Create DNS zones of technitium01 for zone transfers
   ansible.builtin.uri:
     url: "http://localhost:{{ dns_servers[technitium01_name].http_port }}/api/zones/create?token={{ technitium_tokens[technitium01_name].token }}&zone={{ item.name }}&type={{ item.type }}"
