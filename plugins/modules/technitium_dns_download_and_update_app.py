@@ -199,19 +199,8 @@ class DownloadAndUpdateAppModule(TechnitiumModule):
         if not app_exists:
             self.fail_json(msg=f"App '{name}' is not installed. Use download_and_install_app module to install it first.")
 
-        # Check if update is needed based on updateAvailable flag and URL comparison
-        # The updateUrl field shows the latest available version, not the currently installed version
-        update_available = existing_app.get('updateAvailable', False)
-        existing_update_url = existing_app.get('updateUrl', '')
-
-        # If no update is available and user is trying to update to the "latest" version (updateUrl),
-        # then the app is already up-to-date
-        if not update_available and existing_update_url == url:
-            self.exit_json(
-                changed=False,
-                updated_app=existing_app,
-                msg=f"App '{name}' is already at the latest version (version {existing_app.get('version', 'unknown')})"
-            )
+        # Store the current version before updating
+        current_version = existing_app.get('version', '')
 
         # Download and update the app
         params = {
@@ -222,10 +211,21 @@ class DownloadAndUpdateAppModule(TechnitiumModule):
         self.validate_api_response(data)
 
         updated_app = data.get('response', {}).get('updatedApp', {})
+        new_version = updated_app.get('version', '')
+
+        # Check if the version actually changed to determine idempotency
+        # If the version is the same, no actual update occurred
+        if current_version and new_version and current_version == new_version:
+            self.exit_json(
+                changed=False,
+                updated_app=updated_app,
+                msg=f"App '{name}' is already at version {new_version}"
+            )
+
         self.exit_json(
             changed=True,
             updated_app=updated_app,
-            msg=f"App '{name}' updated successfully"
+            msg=f"App '{name}' updated successfully from version {current_version} to {new_version}"
         )
 
 
