@@ -85,7 +85,11 @@
 - name: "Print cluster initialization result"
   ansible.builtin.debug:
     var: init_primary_result
-  
+
+- name: "Setup: Wait for cluster to initialize"
+  ansible.builtin.pause:
+    seconds: 10
+
 # Test 1: Delete empty cluster (no Secondary nodes)
 - name: "Test 1: Delete cluster with no secondary01 node"
   effectivelywild.technitium_dns.technitium_dns_delete_cluster:
@@ -102,6 +106,10 @@
       - delete_result.cluster_state is defined
       - delete_result.cluster_state.clusterInitialized == false
       - delete_result.msg == "Cluster deleted successfully"
+
+- name: "Setup: Wait for cluster to delete"
+  ansible.builtin.pause:
+    seconds: 10
 
 # Test 2: Idempotency - Delete again
 - name: "Test 2: Idempotent - Try to delete cluster again"
