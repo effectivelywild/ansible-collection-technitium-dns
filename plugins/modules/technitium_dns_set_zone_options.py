@@ -370,6 +370,64 @@ class SetZoneOptionsModule(TechnitiumModule):
         supports_check_mode=True
     )
 
+    def _normalize_primary_nameserver_addresses(self, value):
+        """
+        Normalize primaryNameServerAddresses to include default ports.
+
+        In Technitium DNS v14+, the API returns addresses with explicit ports.
+        Default ports depend on primaryZoneTransferProtocol:
+        - Tcp: port 53
+        - Tls: port 853
+        - Quic: port 853
+
+        This method ensures addresses are compared consistently by adding
+        the default port if not specified.
+        """
+        # Get the protocol to determine default port
+        protocol = self.params.get('primaryZoneTransferProtocol')
+        if protocol is None:
+            # If we're normalizing current values, get from current state
+            protocol = getattr(self, '_current_protocol', None)
+
+        # Determine default port based on protocol
+        if protocol == 'Tcp':
+            default_port = '53'
+        elif protocol in ['Tls', 'Quic']:
+            default_port = '853'
+        else:
+            # If no protocol specified, assume port 53 (standard DNS)
+            default_port = '53'
+
+        # Convert value to list
+        if isinstance(value, str):
+            addresses = [x.strip() for x in value.split(",") if x.strip()]
+        elif isinstance(value, list):
+            addresses = [str(x) for x in value]
+        else:
+            addresses = [str(value)]
+
+        # Normalize each address to include port
+        normalized = []
+        for addr in addresses:
+            addr = addr.strip()
+            # Check if port is already specified
+            if ':' in addr and not addr.startswith('['):
+                # IPv4 with port already specified
+                normalized.append(addr)
+            elif addr.startswith('['):
+                # IPv6 address - check for port
+                if ']:' in addr:
+                    # IPv6 with port already specified
+                    normalized.append(addr)
+                else:
+                    # IPv6 without port - add default
+                    normalized.append(f"{addr}:{default_port}")
+            else:
+                # No port specified - add default
+                normalized.append(f"{addr}:{default_port}")
+
+        return sorted(normalized)
+
     def _normalize_value(self, key, value):
         """Normalize a value for comparison purposes."""
         list_like_fields = [
@@ -385,6 +443,10 @@ class SetZoneOptionsModule(TechnitiumModule):
         # Normalize booleans to lowercase strings
         if isinstance(value, bool):
             return str(value).lower()
+
+        # Special handling for primaryNameServerAddresses to normalize ports
+        if key == 'primaryNameServerAddresses':
+            return self._normalize_primary_nameserver_addresses(value)
 
         # Normalize list-like fields
         if key in list_like_fields:
@@ -425,6 +487,10 @@ class SetZoneOptionsModule(TechnitiumModule):
                 msg=f"Technitium API error (get options): {error_msg}", api_response=get_data)
         current = get_data.get('response', {})
         zone_type = current.get('type')
+
+        # Store current protocol for normalizing primaryNameServerAddresses
+        # Use user-provided protocol if specified, otherwise use current protocol from API
+        self._current_protocol = params.get('primaryZoneTransferProtocol') or current.get('primaryZoneTransferProtocol')
 
         # 1b. Conditional parameter validation based on zone type
         allowed_params = {
