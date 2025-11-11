@@ -210,7 +210,11 @@
       - force_delete_result.changed == true
       - force_delete_result.cluster_state.clusterInitialized == false
 
-- name: "Test 5.2: Login to Secondary node to check if orphaned"
+- name: "Test 5.2: Wait for cluster to delete"
+  ansible.builtin.pause:
+    seconds: 10
+
+- name: "Test 5.3: Login to Secondary node to check if orphaned"
   effectivelywild.technitium_dns.technitium_dns_login:
     api_url: "{{ technitium_api_url_5 }}"
     api_port: "{{ technitium_api_port_5 }}"
@@ -218,14 +222,14 @@
     password: "{{ admin_password }}"
   register: orphaned_login
 
-- name: "Test 5.3: Verify Secondary is still part of cluster (orphaned)"
+- name: "Test 5.4: Verify Secondary is still part of cluster (orphaned)"
   effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
     api_url: "{{ technitium_api_url_5 }}"
     api_token: "{{ orphaned_login.token }}"
     api_port: "{{ technitium_api_port_5 }}"
   register: orphaned_state
 
-- name: "Test 5.4: Assert Secondary is still initialized (orphaned)"
+- name: "Test 5.5: Assert Secondary is still initialized (orphaned)"
   assert:
     that:
       - orphaned_state.cluster_state.clusterInitialized == true
