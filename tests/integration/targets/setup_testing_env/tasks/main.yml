@@ -26,6 +26,16 @@
       DNS_SERVER_WEB_SERVICE_USE_SELF_SIGNED_CERT: "true"
   loop: "{{ dns_servers_to_create }}"
 
+- name: "Get container info"
+  community.docker.docker_container_info:
+    name: "{{ item.name }}"
+  loop: "{{ dns_servers_to_create }}"
+  register: container_info
+
+- name: "Print container info"
+  ansible.builtin.debug:
+    var: container_info.results
+    
 - name: Create API token for all containers
   ansible.builtin.uri:
     url: "http://localhost:{{ item.http_port }}/api/user/createToken?user=admin&pass={{ dns_server_admin_password }}&tokenName=MyToken1"
