@@ -1,0 +1,90 @@
+---
+# Integration tests for technitium_dns_get_stats node parameter (cluster support)
+
+- name: Setup test cluster for node parameter tests
+  include_role:
+    name: test_cluster_manager
+  vars:
+    cluster_action: "setup"
+    cluster_primary_http_port: "{{ technitium_cluster_role_primary_http_port }}"
+    cluster_secondary_http_port: "{{ technitium_cluster_role_secondary_http_port }}"
+    cluster_primary_https_port: "{{ technitium_cluster_role_primary_https_port }}"
+    cluster_secondary_https_port: "{{ technitium_cluster_role_secondary_https_port }}"
+
+# Test 1: Get stats without node parameter (default behavior - current node)
+- name: Get stats without node parameter
+  technitium_dns_get_stats:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    validate_certs: no
+  register: stats_default
+
+- name: Assert default stats returned
+  assert:
+    that:
+      - not stats_default.failed
+      - stats_default.stats is defined
+      - stats_default.stats.totalQueries is defined
+    fail_msg: "Stats retrieval without node parameter should succeed"
+
+# Test 2: Get stats for specific node (secondary)
+- name: Get stats for secondary node
+  technitium_dns_get_stats:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    node: "{{ cluster_secondary_node_domain }}"
+    validate_certs: no
+  register: stats_secondary
+
+- name: Assert secondary node stats returned
+  assert:
+    that:
+      - not stats_secondary.failed
+      - stats_secondary.stats is defined
+      - stats_secondary.stats.totalQueries is defined
+    fail_msg: "Stats retrieval for secondary node should succeed"
+
+# Test 3: Get cluster-wide stats (aggregate)
+- name: Get cluster-wide statistics
+  technitium_dns_get_stats:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    node: "cluster"
+    validate_certs: no
+  register: stats_cluster
+
+- name: Assert cluster stats returned
+  assert:
+    that:
+      - not stats_cluster.failed
+      - stats_cluster.stats is defined
+      - stats_cluster.stats.totalQueries is defined
+    fail_msg: "Cluster-wide stats retrieval should succeed"
+
+# Test 4: Get stats for primary node explicitly
+- name: Get stats for primary node
+  technitium_dns_get_stats:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    node: "{{ cluster_primary_node_domain }}"
+    validate_certs: no
+  register: stats_primary
+
+- name: Assert primary node stats returned
+  assert:
+    that:
+      - not stats_primary.failed
+      - stats_primary.stats is defined
+      - stats_primary.stats.totalQueries is defined
+    fail_msg: "Stats retrieval for primary node should succeed"
+
+# Cleanup
+- name: Teardown test cluster
+  include_role:
+    name: test_cluster_manager
+  vars:
+    cluster_action: "teardown"

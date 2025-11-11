@@ -147,7 +147,7 @@
     cluster_primary_http_port: "{{ cluster_primary_http_port }}"
     cluster_primary_https_port: "{{ cluster_primary_https_port }}"
     cluster_primary_api_token: "{{ cluster_primary_token }}"
-    cluster_primary_node_domain: "{{ primary_domain }}"
+    cluster_primary_node_domain: "cluster01.{{ cluster_domain }}"
     cluster_primary_node_ip: "{{ cluster_primary_ip }}"
 
     # Secondary node
@@ -155,7 +155,7 @@
     cluster_secondary_http_port: "{{ cluster_secondary_http_port }}"
     cluster_secondary_https_port: "{{ cluster_secondary_https_port }}"
     cluster_secondary_api_token: "{{ cluster_secondary_token }}"
-    cluster_secondary_node_domain: "{{ secondary_domain }}"
+    cluster_secondary_node_domain: "cluster02.{{ cluster_domain }}"
     cluster_secondary_node_ip: "{{ cluster_secondary_ip }}"
 
     # Cluster info
@@ -168,3 +168,7 @@
   ansible.builtin.debug:
     msg:
       - "Cluster setup complete!"
+      - "Primary API Token: {{ cluster_primary_api_token }}"
+      - "Secondary API Token: {{ cluster_secondary_api_token }}"
+      - "Primary http port: {{ cluster_primary_http_port }}"
+      - "Secondary http port: {{ cluster_secondary_http_port }}"

@@ -1,0 +1,135 @@
+---
+# Integration tests for technitium_dns_disable_zone node parameter (cluster support)
+
+- name: Setup test cluster for node parameter tests
+  include_role:
+    name: test_cluster_manager
+  vars:
+    cluster_action: "setup"
+    cluster_primary_http_port: "{{ technitium_cluster_role_primary_http_port }}"
+    cluster_secondary_http_port: "{{ technitium_cluster_role_secondary_http_port }}"
+    cluster_primary_https_port: "{{ technitium_cluster_role_primary_https_port }}"
+    cluster_secondary_https_port: "{{ technitium_cluster_role_secondary_https_port }}"
+
+# Setup: Create a zone on primary for testing
+- name: Create test zone on primary node
+  technitium_dns_create_zone:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    zone: "test-disable.local"
+    type: "Primary"
+    validate_certs: no
+
+# Test 1: Disable zone without node parameter (default behavior - current node)
+- name: Disable zone without node parameter
+  technitium_dns_disable_zone:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    zone: "test-disable.local"
+    validate_certs: no
+  register: disable_zone_default
+
+- name: Assert default disable zone succeeded
+  assert:
+    that:
+      - not disable_zone_default.failed
+      - disable_zone_default.changed
+      - "'disabled' in disable_zone_default.msg | lower"
+    fail_msg: "Disable zone without node parameter should succeed"
+
+- name: Verify zone is actually disabled (default node)
+  technitium_dns_get_zone_options:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    zone: "test-disable.local"
+    validate_certs: no
+  register: zone_options_default
+
+- name: Assert zone is disabled (disabled field is true)
+  assert:
+    that:
+      - not zone_options_default.failed
+      - zone_options_default.options.disabled == true
+    fail_msg: "Zone should be disabled (disabled field should be true)"
+
+# Test 2: Enable and disable zone on specific node (primary explicitly)
+- name: Enable zone on primary node explicitly
+  technitium_dns_enable_zone:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    zone: "test-disable.local"
+    node: "{{ cluster_primary_node_domain }}"
+    validate_certs: no
+
+- name: Disable zone on primary node explicitly
+  technitium_dns_disable_zone:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    zone: "test-disable.local"
+    node: "{{ cluster_primary_node_domain }}"
+    validate_certs: no
+  register: disable_zone_primary
+
+- name: Assert primary node disable zone succeeded
+  assert:
+    that:
+      - not disable_zone_primary.failed
+      - disable_zone_primary.changed
+      - "'disabled' in disable_zone_primary.msg | lower"
+    fail_msg: "Disable zone for primary node should succeed"
+
+- name: Verify zone is actually disabled on primary node
+  technitium_dns_get_zone_options:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    zone: "test-disable.local"
+    node: "{{ cluster_primary_node_domain }}"
+    validate_certs: no
+  register: zone_options_primary
+
+- name: Assert zone is disabled on primary node
+  assert:
+    that:
+      - not zone_options_primary.failed
+      - zone_options_primary.options.disabled == true
+    fail_msg: "Zone should be disabled on primary node (disabled field should be true)"
+
+# Test 3: Test idempotency - disable already disabled zone
+- name: Disable zone again (idempotency test)
+  technitium_dns_disable_zone:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    zone: "test-disable.local"
+    validate_certs: no
+  register: disable_zone_idempotent
+
+- name: Assert idempotency - no change when already disabled
+  assert:
+    that:
+      - not disable_zone_idempotent.failed
+      - not disable_zone_idempotent.changed
+      - "'already disabled' in disable_zone_idempotent.msg | lower"
+    fail_msg: "Disabling already disabled zone should be idempotent"
+
+# Cleanup
+- name: Delete test zone
+  technitium_dns_delete_zone:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    zone: "test-disable.local"
+    validate_certs: no
+  ignore_errors: yes
+
+- name: Teardown test cluster
+  include_role:
+    name: test_cluster_manager
+  vars:
+    cluster_action: "teardown"

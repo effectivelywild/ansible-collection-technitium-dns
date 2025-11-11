@@ -1,0 +1,118 @@
+---
+# Integration tests for technitium_dns_get_top_stats node parameter (cluster support)
+
+- name: Setup test cluster for node parameter tests
+  include_role:
+    name: test_cluster_manager
+  vars:
+    cluster_action: "setup"
+    cluster_primary_http_port: "{{ technitium_cluster_role_primary_http_port }}"
+    cluster_secondary_http_port: "{{ technitium_cluster_role_secondary_http_port }}"
+    cluster_primary_https_port: "{{ technitium_cluster_role_primary_https_port }}"
+    cluster_secondary_https_port: "{{ technitium_cluster_role_secondary_https_port }}"
+
+# Test 1: Get top stats without node parameter (default behavior - current node)
+- name: Get top domains without node parameter
+  technitium_dns_get_top_stats:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    stats_type: "TopDomains"
+    validate_certs: no
+  register: top_stats_default
+
+- name: Debug top stats default
+  ansible.builtin.debug:
+    var: top_stats_default
+  when: debug | default(false)
+
+- name: Assert default topDomains returned
+  assert:
+    that:
+      - not top_stats_default.failed
+      - top_stats_default.topDomains is defined
+      - top_stats_default.topDomains is sequence
+    fail_msg: "Top stats retrieval without node parameter should succeed"
+
+# Test 2: Get top stats for specific node (secondary)
+- name: Get top domains for secondary node
+  technitium_dns_get_top_stats:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    stats_type: "TopDomains"
+    node: "{{ cluster_secondary_node_domain }}"
+    validate_certs: no
+  register: top_stats_secondary
+
+- name: Assert secondary node top stats returned
+  assert:
+    that:
+      - not top_stats_secondary.failed
+      - top_stats_secondary.topDomains is defined
+      - top_stats_secondary.topDomains is sequence
+    fail_msg: "Top stats retrieval for secondary node should succeed"
+
+# Test 3: Get cluster-wide top stats (aggregate)
+- name: Get cluster-wide top domains
+  technitium_dns_get_top_stats:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    stats_type: "TopDomains"
+    node: "cluster"
+    validate_certs: no
+  register: top_stats_cluster
+
+- name: Assert cluster top stats returned
+  assert:
+    that:
+      - not top_stats_cluster.failed
+      - top_stats_cluster.topDomains is defined
+      - top_stats_cluster.topDomains is sequence
+    fail_msg: "Cluster-wide top stats retrieval should succeed"
+
+# Test 4: Get top stats for primary node explicitly
+- name: Get top domains for primary node
+  technitium_dns_get_top_stats:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    stats_type: "TopDomains"
+    node: "{{ cluster_primary_node_domain }}"
+    validate_certs: no
+  register: top_stats_primary
+
+- name: Assert primary node top stats returned
+  assert:
+    that:
+      - not top_stats_primary.failed
+      - top_stats_primary.topDomains is defined
+      - top_stats_primary.topDomains is sequence
+    fail_msg: "Top stats retrieval for primary node should succeed"
+
+# Test 5: Test with different stats type (topBlockedDomains)
+- name: Get top blocked domains for cluster
+  technitium_dns_get_top_stats:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    stats_type: "TopBlockedDomains"
+    node: "cluster"
+    validate_certs: no
+  register: top_blocked_cluster
+
+- name: Assert cluster top blocked stats returned
+  assert:
+    that:
+      - not top_blocked_cluster.failed
+      - top_blocked_cluster.topBlockedDomains is defined
+      - top_blocked_cluster.topBlockedDomains is sequence
+    fail_msg: "Cluster-wide top blocked domains retrieval should succeed"
+
+# Cleanup
+- name: Teardown test cluster
+  include_role:
+    name: test_cluster_manager
+  vars:
+    cluster_action: "teardown"

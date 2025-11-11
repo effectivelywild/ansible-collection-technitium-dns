@@ -49,17 +49,32 @@
   register: query1_result
   ignore_errors: true
 
+- name: Debug query 1 result
+  debug:
+    var: query1_result
+  when: debug | default(false)
+
 - name: "Perform DNS query 2 to google.com (should be blocked)"
   command: docker exec technitium02{{ container_suffix }} dig @localhost google.com +short
   delegate_to: localhost
   register: query2_result
   ignore_errors: true
 
+- name: Debug query 2 result
+  debug:
+    var: query2_result
+  when: debug | default(false)
+
 - name: "Perform DNS query 3 to google.com (should be blocked)"
   command: docker exec technitium02{{ container_suffix }} dig @localhost google.com +short
   delegate_to: localhost
   register: query3_result
   ignore_errors: true
+
+- name: Debug query 3 result
+  debug:
+    var: query3_result
+  when: debug | default(false)
 
 - name: "Pause 60 seconds to ensure stats are updated"
   pause:
@@ -180,3 +195,7 @@
     domain: "google.com"
   register: delete_blocked_result
   ignore_errors: true
+
+# Phase: Test node parameter (cluster support)
+- name: "Run node parameter tests"
+  include_tasks: test_node_parameter.yml

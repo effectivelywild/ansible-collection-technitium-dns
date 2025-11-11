@@ -61,6 +61,13 @@ options:
         required: false
         type: bool
         default: true
+    node:
+        description:
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
     zone:
         description:
             - The domain name of the zone to get options for.
@@ -208,6 +215,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 class GetZoneOptionsModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
+        node=dict(type='str', required=False),
         zone=dict(type='str', required=True),
         includeAvailableCatalogZoneNames=dict(type='bool', required=False, default=False),
         includeAvailableTsigKeyNames=dict(type='bool', required=False, default=False)
@@ -221,6 +229,8 @@ class GetZoneOptionsModule(TechnitiumModule):
         zone = params['zone']
 
         query = {'zone': zone}
+        if params.get('node'):
+            query['node'] = params['node']
         if params['includeAvailableCatalogZoneNames']:
             query['includeAvailableCatalogZoneNames'] = True
         if params['includeAvailableTsigKeyNames']:

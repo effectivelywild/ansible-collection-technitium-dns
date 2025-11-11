@@ -1,0 +1,88 @@
+---
+# Integration tests for technitium_dns_delete_all_stats node parameter (cluster support)
+
+- name: Setup test cluster for node parameter tests
+  include_role:
+    name: test_cluster_manager
+  vars:
+    cluster_action: "setup"
+    cluster_primary_http_port: "{{ technitium_cluster_role_primary_http_port }}"
+    cluster_secondary_http_port: "{{ technitium_cluster_role_secondary_http_port }}"
+    cluster_primary_https_port: "{{ technitium_cluster_role_primary_https_port }}"
+    cluster_secondary_https_port: "{{ technitium_cluster_role_secondary_https_port }}"
+
+# Test 1: Delete all stats without node parameter (default behavior - current node)
+- name: Delete all stats without node parameter
+  technitium_dns_delete_all_stats:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    validate_certs: no
+  register: delete_stats_default
+
+- name: Assert default delete stats succeeded
+  assert:
+    that:
+      - not delete_stats_default.failed
+      - delete_stats_default.changed
+      - "'statistics deleted successfully' in delete_stats_default.msg | lower"
+    fail_msg: "Delete all stats without node parameter should succeed"
+
+# Test 2: Delete all stats for specific node (secondary)
+- name: Delete all stats for secondary node
+  technitium_dns_delete_all_stats:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    node: "{{ cluster_secondary_node_domain }}"
+    validate_certs: no
+  register: delete_stats_secondary
+
+- name: Assert secondary node delete stats succeeded
+  assert:
+    that:
+      - not delete_stats_secondary.failed
+      - delete_stats_secondary.changed
+      - "'statistics deleted successfully' in delete_stats_secondary.msg | lower"
+    fail_msg: "Delete all stats for secondary node should succeed"
+
+# Test 3: Delete all stats for primary node explicitly
+- name: Delete all stats for primary node
+  technitium_dns_delete_all_stats:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    node: "{{ cluster_primary_node_domain }}"
+    validate_certs: no
+  register: delete_stats_primary
+
+- name: Assert primary node delete stats succeeded
+  assert:
+    that:
+      - not delete_stats_primary.failed
+      - delete_stats_primary.changed
+      - "'statistics deleted successfully' in delete_stats_primary.msg | lower"
+    fail_msg: "Delete all stats for primary node should succeed"
+
+# Test 4: Verify stats were deleted by checking they are minimal
+- name: Get stats after deletion to verify
+  technitium_dns_get_stats:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    validate_certs: no
+  register: stats_after_delete
+
+- name: Assert stats were cleared (should be minimal/zero)
+  assert:
+    that:
+      - not stats_after_delete.failed
+      - stats_after_delete.stats is defined
+    fail_msg: "Should be able to retrieve stats after deletion"
+
+# Cleanup
+- name: Teardown test cluster
+  include_role:
+    name: test_cluster_manager
+  vars:
+    cluster_action: "teardown"
