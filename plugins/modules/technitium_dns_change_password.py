@@ -47,9 +47,24 @@ options:
         default: true
     pass:
         description:
-            - The new password for the currently logged in user
+            - The current password for the currently logged in user
         required: true
         type: str
+    newPass:
+        description:
+            - The new password to be set for the currently logged in user
+        required: true
+        type: str
+    totp:
+        description:
+            - The 6-digit code from the authenticator app if the user has 2FA enabled
+        required: false
+        type: str
+    iterations:
+        description:
+            - The number of iterations for PBKDF2 SHA256 password hashing
+        required: false
+        type: int
 '''
 
 EXAMPLES = r'''
@@ -57,13 +72,31 @@ EXAMPLES = r'''
   technitium_dns_change_password:
     api_url: "http://localhost"
     api_token: "myapitoken"
-    pass: "NewSecurePassword123!"
+    pass: "OldPassword123"
+    newPass: "NewSecurePassword123!"
+
+- name: Change password with 2FA
+  technitium_dns_change_password:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    pass: "OldPassword123"
+    newPass: "NewSecurePassword123!"
+    totp: "123456"
+
+- name: Change password with custom iterations
+  technitium_dns_change_password:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    pass: "OldPassword123"
+    newPass: "NewSecurePassword123!"
+    iterations: 100000
 
 - name: Change password in check mode
   technitium_dns_change_password:
     api_url: "http://localhost"
     api_token: "myapitoken"
-    pass: "NewSecurePassword123!"
+    pass: "OldPassword123"
+    newPass: "NewSecurePassword123!"
   check_mode: true
 '''
 
@@ -101,7 +134,12 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 class ChangePasswordModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
-        **{'pass': dict(type='str', required=True, no_log=True)}
+        **{
+            'pass': dict(type='str', required=True, no_log=True),
+            'newPass': dict(type='str', required=True, no_log=True),
+            'totp': dict(type='str', required=False, no_log=True),
+            'iterations': dict(type='int', required=False)
+        }
     )
     module_kwargs = dict(
         supports_check_mode=True
@@ -109,7 +147,10 @@ class ChangePasswordModule(TechnitiumModule):
 
     def run(self):
         params = self.params
-        new_password = params['pass']
+        current_password = params['pass']
+        new_password = params['newPass']
+        totp = params.get('totp')
+        iterations = params.get('iterations')
 
         # Handle check mode - report what would be done without making changes
         if self.check_mode:
@@ -119,8 +160,20 @@ class ChangePasswordModule(TechnitiumModule):
                 api_response={"status": "ok", "check_mode": True}
             )
 
+        # Build API request parameters
+        request_params = {
+            'pass': current_password,
+            'newPass': new_password
+        }
+
+        if totp is not None:
+            request_params['totp'] = totp
+
+        if iterations is not None:
+            request_params['iterations'] = iterations
+
         # Make the API call to change password
-        data = self.request('/api/user/changePassword', params={'pass': new_password}, method='POST')
+        data = self.request('/api/user/changePassword', params=request_params, method='POST')
         self.validate_api_response(data)
 
         # Return success
