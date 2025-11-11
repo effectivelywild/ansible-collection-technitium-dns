@@ -85,7 +85,7 @@
     api_port: "{{ technitium_api_port_5 }}"
     secondary_node_ip_address: "{{ secondary_node_ip_address_01 }}"
     primary_node_ip_address: "{{ primary_node_ip_address }}"
-    primary_node_url: "https://test04.local.example.com:53444/"
+    primary_node_url: "https://technitium04{{ container_suffix }}:{{ technitium_https_port_4 }}/"
     primary_node_username: "{{ admin_username }}"
     primary_node_password: "{{ admin_password }}"
     ignore_certificate_errors: true
@@ -236,7 +236,7 @@
     api_port: "{{ technitium_api_port_5 }}"
     secondary_node_ip_address: "{{ secondary_node_ip_address_01 }}"
     primary_node_ip_address: "{{ primary_node_ip_address }}"
-    primary_node_url: "https://test04.local.example.com:53444/"
+    primary_node_url: "https://technitium04{{ container_suffix }}:{{ technitium_https_port_4 }}/"
     primary_node_username: "{{ admin_username }}"
     primary_node_password: "{{ admin_password }}"
     ignore_certificate_errors: true
@@ -357,7 +357,7 @@
     api_port: "{{ technitium_api_port_5 }}"
     secondary_node_ip_address: "{{ secondary_node_ip_address_01 }}"
     primary_node_ip_address: "{{ primary_node_ip_address }}"
-    primary_node_url: "https://test04.local.example.com:53444/"
+    primary_node_url: "https://technitium04{{ container_suffix }}:{{ technitium_https_port_4 }}/"
     primary_node_username: "{{ admin_username }}"
     primary_node_password: "{{ admin_password }}"
     ignore_certificate_errors: true
