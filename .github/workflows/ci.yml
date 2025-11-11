@@ -215,14 +215,17 @@ jobs:
           technitium_api_url_4: http://localhost
           technitium_api_token_4: ${{ steps.get_server_values.outputs.api_token_4 }}
           technitium_api_port_4: ${HTTP_PORT_4}
+          technitium_https_port_4: ${HTTPS_PORT_4}
 
           technitium_api_url_5: http://localhost
           technitium_api_token_5: ${{ steps.get_server_values.outputs.api_token_5 }}
           technitium_api_port_5: ${HTTP_PORT_5}
-
+          technitium_https_port_5: ${HTTPS_PORT_5}
+          
           technitium_api_url_6: http://localhost
           technitium_api_token_6: ${{ steps.get_server_values.outputs.api_token_6 }}
           technitium_api_port_6: ${HTTP_PORT_6}
+          technitium_https_port_6: ${HTTPS_PORT_6}
 
           validate_certs: false
 

@@ -7,6 +7,7 @@
 - name: "Create Technitium containers"
   community.docker.docker_container:
     name: "{{ item.name }}"
+    hostname: "{{ item.name }}"
     image: "technitium/dns-server:{{ item.image_tag }}"
     state: started
     ports:
@@ -35,7 +36,7 @@
 - name: "Print container info"
   ansible.builtin.debug:
     var: container_info.results
-    
+
 - name: Create API token for all containers
   ansible.builtin.uri:
     url: "http://localhost:{{ item.http_port }}/api/user/createToken?user=admin&pass={{ dns_server_admin_password }}&tokenName=MyToken1"
