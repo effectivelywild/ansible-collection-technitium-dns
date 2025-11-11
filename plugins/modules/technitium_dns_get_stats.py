@@ -42,6 +42,14 @@ options:
         required: false
         type: bool
         default: true
+    node:
+        description:
+            - The node domain name for which the stats data is needed
+            - When unspecified, the current node is used
+            - Set node name as 'cluster' to get aggregate stats for the entire cluster
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
     type:
         description:
             - The duration type for statistics.
@@ -89,6 +97,20 @@ EXAMPLES = r'''
     type: "Custom"
     start: "2024-01-01T00:00:00Z"
     end: "2024-01-31T23:59:59Z"
+  register: result
+
+- name: Get cluster-wide statistics
+  technitium_dns_get_stats:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    node: "cluster"
+  register: result
+
+- name: Get statistics for specific node
+  technitium_dns_get_stats:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    node: "node1.example.com"
   register: result
 
 - debug:
@@ -326,6 +348,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 
 class GetStatsModule(TechnitiumModule):
     argument_spec = dict(
+        node=dict(type='str', required=False),
         type=dict(type='str', required=False, default='LastHour',
                   choices=['LastHour', 'LastDay', 'LastWeek', 'LastMonth', 'LastYear', 'Custom']),
         utc=dict(type='bool', required=False, default=False),
@@ -339,6 +362,10 @@ class GetStatsModule(TechnitiumModule):
             'type': self.params['type'],
             'utc': str(self.params['utc']).lower()
         }
+
+        # Add node parameter if specified
+        if self.params.get('node'):
+            params['node'] = self.params['node']
 
         # Add custom date range parameters if type is Custom
         if self.params['type'] == 'Custom':

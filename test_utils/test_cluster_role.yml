@@ -1,0 +1,39 @@
+---
+# Test playbook for test_cluster_manager role
+# Usage:
+#   ansible-playbook test_utils/test_cluster_role.yml -e "action=setup"
+#   ansible-playbook test_utils/test_cluster_role.yml -e "action=teardown"
+
+- name: Test cluster manager role
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Validate action parameter
+      ansible.builtin.fail:
+        msg: "Please provide action parameter: -e 'action=setup' or -e 'action=teardown'"
+      when: action is not defined or action not in ['setup', 'teardown']
+
+    - name: Execute cluster manager role
+      ansible.builtin.include_role:
+        name: test_cluster_manager
+      vars:
+        cluster_action: "{{ action }}"
+
+    - name: Display cluster information (setup only)
+      ansible.builtin.debug:
+        msg:
+          - "Cluster setup complete!"
+          - "Primary URL: {{ cluster_primary_url }}:{{ cluster_primary_api_port }}"
+          - "Primary Token: {{ cluster_primary_api_token }}"
+          - "Primary Domain: {{ cluster_primary_node_domain }}"
+          - "Primary IP: {{ cluster_primary_node_ip }}"
+          - ""
+          - "Secondary URL: {{ cluster_secondary_url }}:{{ cluster_secondary_api_port }}"
+          - "Secondary Token: {{ cluster_secondary_api_token }}"
+          - "Secondary Domain: {{ cluster_secondary_node_domain }}"
+          - "Secondary IP: {{ cluster_secondary_node_ip }}"
+          - ""
+          - "Admin User: {{ cluster_admin_user }}"
+          - "Admin Pass: {{ cluster_admin_pass }}"
+      when: action == 'setup' and cluster_is_ready | default(false)

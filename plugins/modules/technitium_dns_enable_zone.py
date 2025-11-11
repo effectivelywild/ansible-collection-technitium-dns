@@ -50,6 +50,13 @@ options:
         required: false
         type: bool
         default: true
+    node:
+        description:
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
     zone:
         description:
             - The domain name of the zone to be enabled.
@@ -63,6 +70,13 @@ EXAMPLES = r'''
     api_url: "http://localhost"
     api_token: "myapitoken"
     zone: "example.com"
+
+- name: Enable a zone on specific cluster node
+  technitium_dns_enable_zone:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    zone: "example.com"
+    node: "node1.example.com"
 '''
 
 RETURN = r'''
@@ -104,6 +118,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 class EnableZoneModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
+        node=dict(type='str', required=False),
         zone=dict(type='str', required=True)
     )
     module_kwargs = dict(
@@ -115,6 +130,8 @@ class EnableZoneModule(TechnitiumModule):
 
         # Check if the zone exists and get its current status
         zone_check_query = {'zone': zone}
+        if self.params.get('node'):
+            zone_check_query['node'] = self.params['node']
         zone_check_data = self.request('/api/zones/options/get', params=zone_check_query)
         is_disabled = False
 
@@ -145,7 +162,10 @@ class EnableZoneModule(TechnitiumModule):
             self.exit_json(changed=False, msg=f"Zone '{zone}' is already enabled.", api_response={'status': 'ok', 'msg': f"Zone '{zone}' is already enabled."})
 
         # Enable the zone via the Technitium API
-        data = self.request('/api/zones/enable', params={'zone': zone}, method='POST')
+        enable_params = {'zone': zone}
+        if self.params.get('node'):
+            enable_params['node'] = self.params['node']
+        data = self.request('/api/zones/enable', params=enable_params, method='POST')
         if data.get('status') != 'ok':
             error_msg = data.get('errorMessage') or "Unknown error"
             self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)
