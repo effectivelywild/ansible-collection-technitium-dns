@@ -555,7 +555,8 @@ class SetZoneOptionsModule(TechnitiumModule):
             'disabled', 'catalog', 'overrideCatalogQueryAccess', 'overrideCatalogZoneTransfer', 'overrideCatalogNotify',
             'primaryNameServerAddresses', 'primaryZoneTransferProtocol', 'primaryZoneTransferTsigKeyName', 'validateZone',
             'queryAccess', 'queryAccessNetworkACL', 'zoneTransfer', 'zoneTransferNetworkACL', 'zoneTransferTsigKeyNames',
-            'notify', 'notifyNameServers', 'notifySecondaryCatalogsNameServers', 'update', 'updateNetworkACL', 'updateSecurityPolicies']:
+            'notify', 'notifyNameServers', 'notifySecondaryCatalogsNameServers', 'update', 'updateNetworkACL', 'updateSecurityPolicies'
+        ]:
             value = params.get(key)
             if value is not None:
                 # Validate input types before storing
