@@ -22,6 +22,10 @@
     force_leave: true
   ignore_errors: true
 
+- name: "Cleanup: Wait for cluster to stabilize"
+  ansible.builtin.pause:
+    seconds: 10
+
 - name: "Cleanup: Login to secondary02 to get valid token"
   effectivelywild.technitium_dns.technitium_dns_login:
     api_url: "{{ technitium_api_url_6 }}"
