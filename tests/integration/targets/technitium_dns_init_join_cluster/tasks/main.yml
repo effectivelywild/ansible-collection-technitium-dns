@@ -22,18 +22,16 @@
     force_leave: true
   ignore_errors: true
 
-- name: "Test 4.1a: Wait for cluster to stabilize"
-  ansible.builtin.pause:
-    seconds: 10
-
 - name: "Cleanup: Login to secondary02 to get valid token"
   effectivelywild.technitium_dns.technitium_dns_login:
     api_url: "{{ technitium_api_url_6 }}"
     api_port: "{{ technitium_api_port_6 }}"
     username: "{{ admin_username }}"
     password: "{{ admin_password }}"
-  register: secondary_login_cleanup_06
-  ignore_errors: true
+  register:  secondary_login_cleanup_06
+  until:  secondary_login_cleanup_06 is success
+  retries: 3
+  delay: 20
 
 - name: "Cleanup: Update token fact for secondary02"
   ansible.builtin.set_fact:
