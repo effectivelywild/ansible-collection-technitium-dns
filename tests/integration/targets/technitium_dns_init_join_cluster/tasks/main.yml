@@ -152,6 +152,10 @@
       - secondary_state.cluster_state.clusterDomain == "example.com"
       - secondary_state.cluster_state.clusterNodes | length == 2
 
+- name: "Test 4.1a: Wait for cluster to stabilize"
+  ansible.builtin.pause:
+    seconds: 10
+
 # Test 4a: Join second secondary02 node to cluster
 - name: "Test 4a: Join second secondary02 node to cluster"
   effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
