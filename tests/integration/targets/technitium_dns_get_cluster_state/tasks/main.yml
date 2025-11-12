@@ -1,75 +1,10 @@
 ---
-# Cleanup - Ensure clean state
-- name: "Cleanup: Login to secondary01 to get valid token"
-  effectivelywild.technitium_dns.technitium_dns_login:
-    api_url: "{{ technitium_api_url_5 }}"
-    api_port: "{{ technitium_api_port_5 }}"
-    username: "{{ admin_username }}"
-    password: "{{ admin_password }}"
-  register: secondary_login_cleanup
-  ignore_errors: true
-
-- name: "Cleanup: Update token fact for secondary01"
-  ansible.builtin.set_fact:
-    technitium_api_token_5: "{{ secondary_login_cleanup.token }}"
-  when: secondary_login_cleanup is not failed
-
-- name: "Cleanup: Leave cluster on secondary01 if joined"
-  effectivelywild.technitium_dns.technitium_dns_leave_cluster:
-    api_url: "{{ technitium_api_url_5 }}"
-    api_token: "{{ technitium_api_token_5 }}"
-    api_port: "{{ technitium_api_port_5 }}"
-    force_leave: true
-  ignore_errors: true
-
-- name: "Cleanup: Login to secondary02 to get valid token"
-  effectivelywild.technitium_dns.technitium_dns_login:
-    api_url: "{{ technitium_api_url_6 }}"
-    api_port: "{{ technitium_api_port_6 }}"
-    username: "{{ admin_username }}"
-    password: "{{ admin_password }}"
-  register: secondary_login_cleanup_06
-  ignore_errors: true
-
-- name: "Cleanup: Update token fact for secondary02"
-  ansible.builtin.set_fact:
-    technitium_api_token_6: "{{ secondary_login_cleanup_06.token }}"
-  when: secondary_login_cleanup_06 is not failed
-
-- name: "Cleanup: Leave cluster on secondary02 if joined"
-  effectivelywild.technitium_dns.technitium_dns_leave_cluster:
-    api_url: "{{ technitium_api_url_6 }}"
-    api_token: "{{ technitium_api_token_6 }}"
-    api_port: "{{ technitium_api_port_6 }}"
-    force_leave: true
-  ignore_errors: true
-
-- name: "Cleanup: Get cluster state from Primary to find orphaned Secondaries"
-  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
-    api_url: "{{ technitium_api_url_4 }}"
-    api_token: "{{ technitium_api_token_4 }}"
-    api_port: "{{ technitium_api_port_4 }}"
-  register: cleanup_primary_state
-  ignore_errors: true
-
-- name: "Cleanup: Delete orphaned Secondaries from Primary if exist"
-  effectivelywild.technitium_dns.technitium_dns_delete_secondary:
-    api_url: "{{ technitium_api_url_4 }}"
-    api_token: "{{ technitium_api_token_4 }}"
-    api_port: "{{ technitium_api_port_4 }}"
-    secondary_node_id: "{{ item.id }}"
-  loop: "{{ cleanup_primary_state.cluster_state.clusterNodes | selectattr('type', 'equalto', 'Secondary') | list }}"
-  when:
-    - cleanup_primary_state is not failed
-    - cleanup_primary_state.cluster_state.clusterInitialized | default(false)
-  ignore_errors: true
-
-- name: "Cleanup: Delete cluster on Primary if exists"
-  effectivelywild.technitium_dns.technitium_dns_delete_cluster:
-    api_url: "{{ technitium_api_url_4 }}"
-    api_token: "{{ technitium_api_token_4 }}"
-    api_port: "{{ technitium_api_port_4 }}"
-  ignore_errors: true
+# Cleanup - Ensure cluster is deleted before tests
+- name: Include test_utils role to ensure clean cluster state
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.test_utils
+  vars: 
+    action: "cleanup_cluster"
 
 # Test 1: Get cluster state when not initialized
 - name: "Test 1: Get cluster state when not initialized"
