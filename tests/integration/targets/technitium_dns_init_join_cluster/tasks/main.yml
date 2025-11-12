@@ -44,7 +44,10 @@
     api_token: "{{ technitium_api_token_6 }}"
     api_port: "{{ technitium_api_port_6 }}"
     force_leave: true
-  ignore_errors: true
+  register: secondary_leave_cleanup_06
+  until:  secondary_leave_cleanup_06 is success
+  retries: 3
+  delay: 20
 
 - name: "Cleanup: Get cluster state from Primary to find orphaned Secondaries"
   effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
