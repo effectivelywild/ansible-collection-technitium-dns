@@ -1319,3 +1319,7 @@
   ansible.builtin.assert:
     that:
       - invalid_param_2.failed
+
+# Phase: Test node parameter (cluster support)
+- name: "Run node parameter tests"
+  include_tasks: test_node_parameter.yml

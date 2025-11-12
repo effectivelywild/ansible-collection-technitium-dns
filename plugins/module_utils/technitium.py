@@ -77,18 +77,23 @@ class TechnitiumModule(AnsibleModule):
     def run(self):
         raise NotImplementedError("Subclasses must implement run()")
 
-    def validate_zone_exists(self, zone):
+    def validate_zone_exists(self, zone, node=None):
         """Validate that a zone exists, fail gracefully if not"""
         get_query = {'zone': zone}
+        if node:
+            get_query['node'] = node
         get_data = self.request('/api/zones/options/get', params=get_query)
         error_msg = get_data.get('errorMessage')
         if error_msg and 'No such zone was found' in error_msg:
             self.fail_json(msg=f"Zone '{zone}' does not exist: {error_msg}")
         return get_data
 
-    def get_dnssec_status(self, zone):
+    def get_dnssec_status(self, zone, node=None):
         """Get the DNSSEC status of a zone, with standardized error handling"""
-        zone_options_resp = self.request('/api/zones/options/get', params={'zone': zone})
+        query = {'zone': zone}
+        if node:
+            query['node'] = node
+        zone_options_resp = self.request('/api/zones/options/get', params=query)
         if zone_options_resp.get('status') != 'ok':
             error_msg = zone_options_resp.get('errorMessage') or zone_options_resp.get('error') or zone_options_resp.get('message') or "Unknown error"
             # Remove stackTrace if present for cleaner error responses

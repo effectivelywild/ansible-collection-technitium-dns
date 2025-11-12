@@ -1,0 +1,101 @@
+---
+# Integration tests for technitium_dns_sign_zone node parameter (cluster support)
+
+- name: Setup test cluster for node parameter tests
+  include_role:
+    name: test_cluster_manager
+  vars:
+    cluster_action: "setup"
+    cluster_primary_http_port: "{{ technitium_cluster_role_primary_http_port }}"
+    cluster_secondary_http_port: "{{ technitium_cluster_role_secondary_http_port }}"
+    cluster_primary_https_port: "{{ technitium_cluster_role_primary_https_port }}"
+    cluster_secondary_https_port: "{{ technitium_cluster_role_secondary_https_port }}"
+
+# Setup: Create a test zone on primary
+- name: Create test zone on primary node
+  technitium_dns_create_zone:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    zone: "test-signzone.local"
+    type: "Primary"
+    validate_certs: no
+
+# Test 1: Sign zone on specific node with ECDSA
+- name: Sign zone on primary node with ECDSA
+  technitium_dns_sign_zone:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    zone: "test-signzone.local"
+    node: "{{ cluster_primary_node_domain }}"
+    algorithm: "ECDSA"
+    curve: "P256"
+    dnsKeyTtl: 86400
+    zskRolloverDays: 30
+    nxProof: "NSEC"
+    validate_certs: no
+  register: sign_zone_primary
+
+- name: Assert sign zone on primary succeeded
+  assert:
+    that:
+      - not sign_zone_primary.failed
+      - sign_zone_primary.changed
+    fail_msg: "Sign zone on primary node should succeed"
+
+# Test 2: Verify zone is signed using get_dnssec_properties with node parameter
+- name: Get DNSSEC properties on primary node
+  technitium_dns_get_dnssec_properties:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    zone: "test-signzone.local"
+    node: "{{ cluster_primary_node_domain }}"
+    validate_certs: no
+  register: dnssec_props_primary
+
+- name: Assert zone is signed with expected properties
+  assert:
+    that:
+      - not dnssec_props_primary.failed
+      - dnssec_props_primary.dnssec_properties.dnssecStatus is defined
+      - dnssec_props_primary.dnssec_properties.dnssecStatus in ['SignedWithNSEC', 'SignedWithNSEC3']
+      - dnssec_props_primary.dnssec_properties.dnsKeyTtl == 86400
+    fail_msg: "Zone should be signed with expected DNSSEC properties"
+
+# Test 3: Idempotency - try to sign already signed zone
+- name: Try to sign already signed zone (idempotency test)
+  technitium_dns_sign_zone:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    zone: "test-signzone.local"
+    node: "{{ cluster_primary_node_domain }}"
+    algorithm: "ECDSA"
+    curve: "P256"
+    validate_certs: no
+  register: sign_zone_idempotent
+
+- name: Assert signing already signed zone is idempotent
+  assert:
+    that:
+      - not sign_zone_idempotent.failed
+      - not sign_zone_idempotent.changed
+    fail_msg: "Signing already signed zone should be idempotent"
+
+# Cleanup
+- name: Delete test zone
+  technitium_dns_delete_zone:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    zone: "test-signzone.local"
+    validate_certs: no
+  ignore_errors: yes
+
+- name: Teardown test cluster
+  include_role:
+    name: test_cluster_manager
+  vars:
+    cluster_action: "teardown"

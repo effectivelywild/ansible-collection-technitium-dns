@@ -1,0 +1,103 @@
+---
+# Integration tests for technitium_dns_unsign_zone node parameter (cluster support)
+
+- name: Setup test cluster for node parameter tests
+  include_role:
+    name: test_cluster_manager
+  vars:
+    cluster_action: "setup"
+    cluster_primary_http_port: "{{ technitium_cluster_role_primary_http_port }}"
+    cluster_secondary_http_port: "{{ technitium_cluster_role_secondary_http_port }}"
+    cluster_primary_https_port: "{{ technitium_cluster_role_primary_https_port }}"
+    cluster_secondary_https_port: "{{ technitium_cluster_role_secondary_https_port }}"
+
+# Setup: Create and sign a test zone on primary
+- name: Create test zone on primary node
+  technitium_dns_create_zone:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    zone: "test-unsignzone.local"
+    type: "Primary"
+    validate_certs: no
+
+- name: Sign test zone on primary node
+  technitium_dns_sign_zone:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    zone: "test-unsignzone.local"
+    node: "{{ cluster_primary_node_domain }}"
+    algorithm: "ECDSA"
+    curve: "P256"
+    validate_certs: no
+
+# Test 1: Unsign zone on specific node
+- name: Unsign zone on primary node
+  technitium_dns_unsign_zone:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    zone: "test-unsignzone.local"
+    node: "{{ cluster_primary_node_domain }}"
+    validate_certs: no
+  register: unsign_zone_primary
+
+- name: Assert unsign zone on primary succeeded
+  assert:
+    that:
+      - not unsign_zone_primary.failed
+      - unsign_zone_primary.changed
+    fail_msg: "Unsign zone on primary node should succeed"
+
+# Test 2: Verify zone is unsigned using get_zone_options with node parameter
+- name: Get zone options on primary node
+  technitium_dns_get_zone_options:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    zone: "test-unsignzone.local"
+    node: "{{ cluster_primary_node_domain }}"
+    validate_certs: no
+  register: zone_opts_primary
+
+- name: Assert zone DNSSEC status is unsigned
+  assert:
+    that:
+      - not zone_opts_primary.failed
+      - zone_opts_primary.options.dnssecStatus == "Unsigned"
+    fail_msg: "Zone should be unsigned after unsigning"
+
+# Test 3: Idempotency - try to unsign already unsigned zone
+- name: Try to unsign already unsigned zone (idempotency test)
+  technitium_dns_unsign_zone:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    zone: "test-unsignzone.local"
+    node: "{{ cluster_primary_node_domain }}"
+    validate_certs: no
+  register: unsign_zone_idempotent
+
+- name: Assert unsigning already unsigned zone is idempotent
+  assert:
+    that:
+      - not unsign_zone_idempotent.failed
+      - not unsign_zone_idempotent.changed
+    fail_msg: "Unsigning already unsigned zone should be idempotent"
+
+# Cleanup
+- name: Delete test zone
+  technitium_dns_delete_zone:
+    api_url: "{{ cluster_primary_url }}"
+    api_token: "{{ cluster_primary_api_token }}"
+    api_port: "{{ cluster_primary_http_port }}"
+    zone: "test-unsignzone.local"
+    validate_certs: no
+  ignore_errors: yes
+
+- name: Teardown test cluster
+  include_role:
+    name: test_cluster_manager
+  vars:
+    cluster_action: "teardown"
