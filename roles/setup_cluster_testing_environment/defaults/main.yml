@@ -22,3 +22,5 @@ admin_password: topsecret
 
 safe_job_id: thisisverysafe
 container_suffix: .example.com
+
+debug: false
