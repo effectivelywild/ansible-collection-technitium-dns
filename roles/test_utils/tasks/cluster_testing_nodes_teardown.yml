@@ -14,4 +14,3 @@
     volumes_filters:
       all: true
     networks: true
-

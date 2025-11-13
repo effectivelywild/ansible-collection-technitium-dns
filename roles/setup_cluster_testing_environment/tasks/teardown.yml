@@ -3,7 +3,7 @@
   community.docker.docker_container:
     name: "{{ container.name }}"
     state: absent
-    keep_volumes : false
+    keep_volumes: false
   loop: "{{ cluster_dns_servers_to_create }}"
   loop_control:
     loop_var: container
