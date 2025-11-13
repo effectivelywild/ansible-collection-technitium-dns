@@ -1,0 +1,80 @@
+---
+# Integration tests for technitium_dns_delete_zone node parameter (cluster support)
+
+# Setup testing environment
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+
+# Setup: Create a test zone on primary
+- name: Create test zone on primary node
+  technitium_dns_create_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-deletezone.local"
+    type: "Primary"
+    validate_certs: no
+
+# Test 1: Delete zone on specific node
+- name: Delete zone on primary node
+  technitium_dns_delete_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-deletezone.local"
+    node: "cluster_primary013"
+    validate_certs: no
+  register: delete_zone_primary
+
+- name: Assert delete zone on primary succeeded
+  assert:
+    that:
+      - not delete_zone_primary.failed
+      - delete_zone_primary.changed
+    fail_msg: "Delete zone on primary node should succeed"
+
+# Test 2: Verify zone is deleted using get_zone_info
+- name: Try to get zone info after deletion
+  technitium_dns_get_zone_info:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-deletezone.local"
+    node: "cluster_primary01"
+    validate_certs: no
+  register: zone_check_after_delete
+  ignore_errors: yes
+
+- name: Assert zone no longer exists
+  assert:
+    that:
+      - zone_check_after_delete.failed
+    fail_msg: "Zone should not exist after deletion"
+
+# Test 3: Idempotency - try to delete already deleted zone
+- name: Try to delete already deleted zone (idempotency test)
+  technitium_dns_delete_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-deletezone.local"
+    node: "cluster_primary01"
+    validate_certs: no
+  register: delete_zone_idempotent
+
+- name: Assert deleting already deleted zone is idempotent
+  assert:
+    that:
+      - not delete_zone_idempotent.failed
+      - not delete_zone_idempotent.changed
+    fail_msg: "Deleting already deleted zone should be idempotent"
+
+# Cleanup
+- name: Include setup_cluster_testing_environment for teardown
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

@@ -24,3 +24,5 @@ safe_job_id: thisisverysafe
 container_suffix: .example.com
 
 debug: false
+
+create_var_file: true

@@ -50,6 +50,13 @@ options:
         required: false
         type: bool
         default: true
+    node:
+        description:
+            - The name of the cluster node to target for this operation.
+            - Use to target a specific node in a DNS server cluster.
+        required: false
+        type: str
+        version_added: "0.2.0"
     zone:
         description:
             - The domain name of the zone to be deleted.
@@ -109,6 +116,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 class DeleteZoneModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
+        node=dict(type='str', required=False),
         zone=dict(type='str', required=True)
     )
     module_kwargs = dict(
@@ -117,10 +125,13 @@ class DeleteZoneModule(TechnitiumModule):
 
     def run(self):
         zone = self.params['zone']
+        node = self.params.get('node')
 
         # Check if the zone exists to ensure idempotent behavior
         # Idempotent delete: if zone doesn't exist, report no changes made
         zone_check_query = {'zone': zone}
+        if node:
+            zone_check_query['node'] = node
         zone_check_data = self.request('/api/zones/options/get', params=zone_check_query)
         zone_exists = True
 
@@ -147,7 +158,10 @@ class DeleteZoneModule(TechnitiumModule):
             self.exit_json(changed=False, msg=f"Zone '{zone}' does not exist.", api_response={'status': 'ok', 'msg': f"Zone '{zone}' does not exist."})
 
         # Delete the zone via the Technitium API
-        data = self.request('/api/zones/delete', params={'zone': zone}, method='POST')
+        delete_query = {'zone': zone}
+        if node:
+            delete_query['node'] = node
+        data = self.request('/api/zones/delete', params=delete_query, method='POST')
         if data.get('status') != 'ok':
             error_msg = data.get('errorMessage') or "Unknown error"
             self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)

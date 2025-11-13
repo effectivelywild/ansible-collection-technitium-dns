@@ -76,8 +76,8 @@
     env:
       DNS_SERVER_DOMAIN: "{{ item.dns_server_domain }}"
       DNS_SERVER_ADMIN_PASSWORD: "{{ admin_password }}"
-      DNS_SERVER_WEB_SERVICE_HTTP_PORT: "{{ item.http_port }}"
-      DNS_SERVER_WEB_SERVICE_HTTPS_PORT: "{{ item.https_port }}"
+      DNS_SERVER_WEB_SERVICE_HTTP_PORT: "{{ item.http_port | string }}"
+      DNS_SERVER_WEB_SERVICE_HTTPS_PORT: "{{ item.https_port | string }}"
       DNS_SERVER_WEB_SERVICE_ENABLE_HTTPS: "true"
       DNS_SERVER_WEB_SERVICE_USE_SELF_SIGNED_CERT: "true"
   loop: "{{ cluster_dns_servers_to_create }}"
@@ -157,6 +157,7 @@
     - "https_port_cluster_primary_01: {{ https_port_cluster_primary_01 }}"
     - "https_port_cluster_secondary_01: {{ https_port_cluster_secondary_01 }}"
     - "https_port_cluster_secondary_02: {{ https_port_cluster_secondary_02 }}"
+  when: create_var_file
 
 - name: cat file to verify path
   command: cat "{{ lookup('pipe', 'pwd') }}/integration_config.yml"

@@ -49,6 +49,13 @@ options:
             - The name of the catalog zone to become its member zone.
         required: false
         type: str
+    node:
+        description:
+            - The name of the cluster node to target for this operation.
+            - Use to target a specific node in a DNS server cluster.
+        required: false
+        type: str
+        version_added: "0.2.0"
     dnssecValidation:
         description:
             - Enable DNSSEC validation (Forwarder only)
@@ -205,6 +212,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 class CreateZoneModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
+        node=dict(type='str', required=False),
         zone=dict(type='str', required=True),
         type=dict(type='str', required=True, choices=[
                   "Primary", "Secondary", "Stub", "Forwarder", "SecondaryForwarder", "Catalog", "SecondaryCatalog"]),
@@ -240,7 +248,7 @@ class CreateZoneModule(TechnitiumModule):
         # Define a set of parameters that are always allowed, regardless of zone type.
         # These are the common parameters for the Technitium API module.
         common_params = {
-            'api_url', 'api_port', 'api_token', 'validate_certs', 'zone', 'type'
+            'api_url', 'api_port', 'api_token', 'validate_certs', 'node', 'zone', 'type'
         }
 
         # Validate parameters based on zone type
@@ -287,7 +295,10 @@ class CreateZoneModule(TechnitiumModule):
 
         # Check for existing zone to ensure idempotent behavior
         # If zone already exists with same type, return success without changes
-        info_data = self.request('/api/zones/list')
+        list_query = {}
+        if params.get('node'):
+            list_query['node'] = params['node']
+        info_data = self.request('/api/zones/list', params=list_query)
         zones = info_data.get('response', {}).get('zones', [])
         existing_zone = next((z for z in zones if z.get('name') == zone), None)
         if existing_zone:
@@ -309,6 +320,10 @@ class CreateZoneModule(TechnitiumModule):
             'zone': zone,
             'type': zone_type
         }
+
+        # Add node parameter if specified
+        if params.get('node'):
+            query['node'] = params['node']
 
         # Add optional parameters to the query, handling data type conversions
         for key in [
