@@ -10,7 +10,7 @@
 - name: "Test 1: Initialize cluster with required parameters"
   effectivelywild.technitium_dns.technitium_dns_init_cluster:
     api_url: http://localhost
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     cluster_domain: "example.com"
     primary_node_ip_address: "{{ primary_node_ip_address }}"
@@ -30,7 +30,7 @@
 - name: "Test 2: Get cluster state to verify initialization"
   effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
     api_url: http://localhost
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
   register: get_state_result
 
@@ -49,7 +49,7 @@
 - name: "Test 3: Idempotent - Initialize cluster with same parameters"
   effectivelywild.technitium_dns.technitium_dns_init_cluster:
     api_url: http://localhost
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     cluster_domain: "example.com"
     primary_node_ip_address: "{{ primary_node_ip_address }}"
@@ -66,14 +66,14 @@
 - name: "Test 4: Delete cluster for check mode test"
   effectivelywild.technitium_dns.technitium_dns_delete_cluster:
     api_url: http://localhost
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
   register: delete_result
 
 - name: "Test 4.1: Initialize cluster in check mode"
   effectivelywild.technitium_dns.technitium_dns_init_cluster:
     api_url: http://localhost
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     cluster_domain: "check-mode-cluster.example.com"
     primary_node_ip_address: "{{ primary_node_ip_address }}"
@@ -90,7 +90,7 @@
 - name: "Test 4.3: Verify cluster was not actually created"
   effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
     api_url: http://localhost
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
   register: verify_no_cluster
 
@@ -103,7 +103,7 @@
 - name: "Test 5: Initialize cluster with new domain"
   effectivelywild.technitium_dns.technitium_dns_init_cluster:
     api_url: http://localhost
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     cluster_domain: "negative-test.example.com"
     primary_node_ip_address: "{{ primary_node_ip_address }}"
@@ -112,7 +112,7 @@
 - name: "Test 5.1: Try to change cluster domain (should fail)"
   effectivelywild.technitium_dns.technitium_dns_init_cluster:
     api_url: http://localhost
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     cluster_domain: "different-domain.example.com"
     primary_node_ip_address: "{{ primary_node_ip_address }}"
@@ -131,7 +131,7 @@
 - name: "Test 6: Try to change Primary node IP address (should fail)"
   effectivelywild.technitium_dns.technitium_dns_init_cluster:
     api_url: http://localhost
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     cluster_domain: "negative-test.example.com"
     primary_node_ip_address: "192.168.99.99"

@@ -50,6 +50,24 @@ jobs:
       run: pip install -r ./tests/requirements.txt
       working-directory: ansible_collections/effectivelywild/technitium_dns
 
+    - name: Setup ignore file for devel
+      if: matrix.ansible == 'devel'
+      run: |
+        # Get the actual ansible-core version
+        ANSIBLE_CORE_VERSION=$(ansible --version | head -n1 | grep -oP '\[core \K[0-9]+\.[0-9]+')
+
+        if [[ -n "$ANSIBLE_CORE_VERSION" ]]; then
+          IGNORE_FILE="tests/sanity/ignore-$ANSIBLE_CORE_VERSION.txt"
+          DEVEL_IGNORE_FILE="tests/sanity/ignore-devel.txt"
+
+          # If ignore-devel.txt exists but version-specific file doesn't, create it
+          if [[ -f "$DEVEL_IGNORE_FILE" ]] && [[ ! -f "$IGNORE_FILE" ]]; then
+            echo "Creating ignore-$ANSIBLE_CORE_VERSION.txt from ignore-devel.txt"
+            cp "$DEVEL_IGNORE_FILE" "$IGNORE_FILE"
+          fi
+        fi
+      working-directory: ansible_collections/effectivelywild/technitium_dns
+
     - name: Run sanity tests
       run: |
         ansible-test sanity --docker -v --color --coverage --exclude .github/
@@ -98,6 +116,10 @@ jobs:
           - ansible: stable-2.17
             python: '3.13'
           - ansible: stable-2.17
+            python: '3.14'
+          - ansible: stable-2.18
+            python: '3.14'
+          - ansible: stable-2.19
             python: '3.14'
     steps:
       - name: Check out code

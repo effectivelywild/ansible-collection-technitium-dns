@@ -1,22 +1,19 @@
 ---
 # Integration tests for technitium_dns_sign_zone node parameter (cluster support)
 
-- name: Setup test cluster for node parameter tests
-  include_role:
-    name: test_cluster_manager
+# Setup testing environment
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
   vars:
-    cluster_action: "setup"
-    cluster_primary_http_port: "{{ technitium_cluster_role_primary_http_port }}"
-    cluster_secondary_http_port: "{{ technitium_cluster_role_secondary_http_port }}"
-    cluster_primary_https_port: "{{ technitium_cluster_role_primary_https_port }}"
-    cluster_secondary_https_port: "{{ technitium_cluster_role_secondary_https_port }}"
+    action: "setup"
 
 # Setup: Create a test zone on primary
 - name: Create test zone on primary node
   technitium_dns_create_zone:
-    api_url: "{{ cluster_primary_url }}"
-    api_token: "{{ cluster_primary_api_token }}"
-    api_port: "{{ cluster_primary_http_port }}"
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-signzone.local"
     type: "Primary"
     validate_certs: no
@@ -24,11 +21,11 @@
 # Test 1: Sign zone on specific node with ECDSA
 - name: Sign zone on primary node with ECDSA
   technitium_dns_sign_zone:
-    api_url: "{{ cluster_primary_url }}"
-    api_token: "{{ cluster_primary_api_token }}"
-    api_port: "{{ cluster_primary_http_port }}"
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-signzone.local"
-    node: "{{ cluster_primary_node_domain }}"
+    node: "cluster_primary01"
     algorithm: "ECDSA"
     curve: "P256"
     dnsKeyTtl: 86400
@@ -47,11 +44,11 @@
 # Test 2: Verify zone is signed using get_dnssec_properties with node parameter
 - name: Get DNSSEC properties on primary node
   technitium_dns_get_dnssec_properties:
-    api_url: "{{ cluster_primary_url }}"
-    api_token: "{{ cluster_primary_api_token }}"
-    api_port: "{{ cluster_primary_http_port }}"
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-signzone.local"
-    node: "{{ cluster_primary_node_domain }}"
+    node: "cluster_primary01"
     validate_certs: no
   register: dnssec_props_primary
 
@@ -67,11 +64,11 @@
 # Test 3: Idempotency - try to sign already signed zone
 - name: Try to sign already signed zone (idempotency test)
   technitium_dns_sign_zone:
-    api_url: "{{ cluster_primary_url }}"
-    api_token: "{{ cluster_primary_api_token }}"
-    api_port: "{{ cluster_primary_http_port }}"
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-signzone.local"
-    node: "{{ cluster_primary_node_domain }}"
+    node: "cluster_primary01"
     algorithm: "ECDSA"
     curve: "P256"
     validate_certs: no
@@ -87,15 +84,15 @@
 # Cleanup
 - name: Delete test zone
   technitium_dns_delete_zone:
-    api_url: "{{ cluster_primary_url }}"
-    api_token: "{{ cluster_primary_api_token }}"
-    api_port: "{{ cluster_primary_http_port }}"
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-signzone.local"
     validate_certs: no
   ignore_errors: yes
 
-- name: Teardown test cluster
-  include_role:
-    name: test_cluster_manager
+- name: Include setup_cluster_testing_environment for teardown
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
   vars:
-    cluster_action: "teardown"
+    action: "teardown"

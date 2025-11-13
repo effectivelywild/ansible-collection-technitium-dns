@@ -10,7 +10,7 @@
 - name: "Test 1: Get cluster state when not initialized"
   effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
     api_url: "http://localhost"
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
   register: uninit_state
 
@@ -28,7 +28,7 @@
 - name: "Test 2: Get cluster state with server IP addresses (not initialized)"
   effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
     api_url: "http://localhost"
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     include_server_ip_addresses: true
   register: uninit_state_ips
@@ -44,7 +44,7 @@
 - name: "Setup: Initialize cluster on Primary node (04)"
   effectivelywild.technitium_dns.technitium_dns_init_cluster:
     api_url: "http://localhost"
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     cluster_domain: "example.com"
     primary_node_ip_address: "{{ primary_node_ip_address }}"
@@ -58,7 +58,7 @@
 - name: "Test 3: Get cluster state when initialized (Primary only)"
   effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
     api_url: "http://localhost"
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
   register: init_state
 
@@ -83,7 +83,7 @@
 - name: "Test 4: Join secondary01 node to cluster"
   effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
     api_url: "http://localhost"
-    api_token: "{{ cluster_secondary01_token }}"
+    api_token: "{{ token_cluster_secondary_01 }}"
     api_port: "{{ api_port_cluster_secondary_01 }}"
     secondary_node_ip_address: "{{ secondary_node_ip_address_01 }}"
     primary_node_ip_address: "{{ primary_node_ip_address }}"
@@ -103,13 +103,13 @@
 
 - name: "Test 4.2: Update token fact for Secondary node"
   ansible.builtin.set_fact:
-    cluster_secondary01_token: "{{ secondary_login.token }}"
+    token_cluster_secondary_01: "{{ secondary_login.token }}"
 
 # Test 5: Get cluster state from Primary with Secondary node
 - name: "Test 5: Get cluster state from Primary with Secondary node"
   effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
     api_url: "http://localhost"
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
   register: primary_state_with_secondary
   retries: 3        
@@ -128,7 +128,7 @@
 - name: "Test 6: Get cluster state from Secondary node"
   effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
     api_url: "http://localhost"
-    api_token: "{{ cluster_secondary01_token }}"
+    api_token: "{{ token_cluster_secondary_01 }}"
     api_port: "{{ api_port_cluster_secondary_01 }}"
   register: secondary_state
   retries: 3        
@@ -152,7 +152,7 @@
 - name: "Test 7: Get cluster state with server IP addresses (initialized)"
   effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
     api_url: "http://localhost"
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     include_server_ip_addresses: true
   register: init_state_with_ips
@@ -168,7 +168,7 @@
 - name: "Test 8: Get cluster state in check mode"
   effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
     api_url: "http://localhost"
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
   check_mode: true
   register: check_mode_result

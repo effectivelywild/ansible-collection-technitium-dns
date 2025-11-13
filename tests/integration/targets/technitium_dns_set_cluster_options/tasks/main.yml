@@ -10,7 +10,7 @@
 - name: "Setup: Initialize cluster on Primary node (04)"
   effectivelywild.technitium_dns.technitium_dns_init_cluster:
     api_url: "http://localhost"
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     cluster_domain: "example.com"
     primary_node_ip_address: "{{ primary_node_ip_address }}"
@@ -19,7 +19,7 @@
 - name: "Setup: Get initial cluster state to check default values"
   effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
     api_url: "http://localhost"
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
   register: initial_state
 
@@ -35,7 +35,7 @@
 - name: "Test 1: Set heartbeat_refresh_interval_seconds to 60"
   effectivelywild.technitium_dns.technitium_dns_set_cluster_options:
     api_url: "http://localhost"
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     heartbeat_refresh_interval_seconds: 60
   register: set_heartbeat_refresh
@@ -56,7 +56,7 @@
 - name: "Test 2: Set heartbeat_retry_interval_seconds to 15"
   effectivelywild.technitium_dns.technitium_dns_set_cluster_options:
     api_url: "http://localhost"
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     heartbeat_retry_interval_seconds: 15
   register: set_heartbeat_retry
@@ -77,7 +77,7 @@
 - name: "Test 3: Set config_refresh_interval_seconds to 1800"
   effectivelywild.technitium_dns.technitium_dns_set_cluster_options:
     api_url: "http://localhost"
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     config_refresh_interval_seconds: 1800
   register: set_config_refresh
@@ -98,7 +98,7 @@
 - name: "Test 4: Set config_retry_interval_seconds to 90"
   effectivelywild.technitium_dns.technitium_dns_set_cluster_options:
     api_url: "http://localhost"
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     config_retry_interval_seconds: 90
   register: set_config_retry
@@ -120,7 +120,7 @@
 - name: "Test 5: Set multiple cluster options at once"
   effectivelywild.technitium_dns.technitium_dns_set_cluster_options:
     api_url: "http://localhost"
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     heartbeat_refresh_interval_seconds: 45
     heartbeat_retry_interval_seconds: 20
@@ -145,7 +145,7 @@
 - name: "Test 6: Idempotent - Set same values"
   effectivelywild.technitium_dns.technitium_dns_set_cluster_options:
     api_url: "http://localhost"
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     heartbeat_refresh_interval_seconds: 45
     heartbeat_retry_interval_seconds: 20
@@ -164,7 +164,7 @@
 - name: "Test 7: Set options in check mode"
   effectivelywild.technitium_dns.technitium_dns_set_cluster_options:
     api_url: "http://localhost"
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     heartbeat_refresh_interval_seconds: 50
   check_mode: true
@@ -180,7 +180,7 @@
 - name: "Test 7.2: Verify options were not actually changed"
   effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
     api_url: "http://localhost"
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
   register: verify_not_changed
 
@@ -193,7 +193,7 @@
 - name: "Test 8: Try to set heartbeat_refresh_interval_seconds below minimum (should fail)"
   effectivelywild.technitium_dns.technitium_dns_set_cluster_options:
     api_url: "http://localhost"
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     heartbeat_refresh_interval_seconds: 5
   register: negative_heartbeat_low
@@ -209,7 +209,7 @@
 - name: "Test 9: Try to set heartbeat_refresh_interval_seconds above maximum (should fail)"
   effectivelywild.technitium_dns.technitium_dns_set_cluster_options:
     api_url: "http://localhost"
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     heartbeat_refresh_interval_seconds: 500
   register: negative_heartbeat_high
@@ -225,7 +225,7 @@
 - name: "Test 10: Try to set config_refresh_interval_seconds below minimum (should fail)"
   effectivelywild.technitium_dns.technitium_dns_set_cluster_options:
     api_url: "http://localhost"
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     config_refresh_interval_seconds: 10
   register: negative_config_low
@@ -241,7 +241,7 @@
 - name: "Test 11: Try to set config_refresh_interval_seconds above maximum (should fail)"
   effectivelywild.technitium_dns.technitium_dns_set_cluster_options:
     api_url: "http://localhost"
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     config_refresh_interval_seconds: 5000
   register: negative_config_high
@@ -261,7 +261,7 @@
 - name: "Test 12.1: Join secondary01 node to cluster"
   effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
     api_url: "http://localhost"
-    api_token: "{{ cluster_secondary01_token }}"
+    api_token: "{{ token_cluster_secondary_01 }}"
     api_port: "{{ api_port_cluster_secondary_01 }}"
     secondary_node_ip_address: "{{ secondary_node_ip_address_01 }}"
     primary_node_ip_address: "{{ primary_node_ip_address }}"
@@ -319,13 +319,13 @@
 - name: "Test 14.1: Delete cluster on Primary"
   effectivelywild.technitium_dns.technitium_dns_delete_cluster:
     api_url: "http://localhost"
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
 
 - name: "Test 14.2: Try to set options when cluster not initialized (should fail)"
   effectivelywild.technitium_dns.technitium_dns_set_cluster_options:
     api_url: "http://localhost"
-    api_token: "{{ cluster_primary01_token }}"
+    api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     heartbeat_refresh_interval_seconds: 50
   register: negative_uninit_result

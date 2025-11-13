@@ -3,7 +3,7 @@ out
 tests/output/
 
 # Python virtual environments
-.venv/
+.venv*/
 
 # sphinx doc builds
 build/

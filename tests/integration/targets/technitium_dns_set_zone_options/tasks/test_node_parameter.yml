@@ -1,22 +1,19 @@
 ---
 # Integration tests for technitium_dns_set_zone_options node parameter (cluster support)
 
-- name: Setup test cluster for node parameter tests
-  include_role:
-    name: test_cluster_manager
+# Setup testing environment
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
   vars:
-    cluster_action: "setup"
-    cluster_primary_http_port: "{{ technitium_cluster_role_primary_http_port }}"
-    cluster_secondary_http_port: "{{ technitium_cluster_role_secondary_http_port }}"
-    cluster_primary_https_port: "{{ technitium_cluster_role_primary_https_port }}"
-    cluster_secondary_https_port: "{{ technitium_cluster_role_secondary_https_port }}"
+    action: "setup"
 
 # Setup: Create a test zone on primary
 - name: Create test zone on primary node
   technitium_dns_create_zone:
-    api_url: "{{ cluster_primary_url }}"
-    api_token: "{{ cluster_primary_api_token }}"
-    api_port: "{{ cluster_primary_http_port }}"
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-setoptions.local"
     type: "Primary"
     validate_certs: no
@@ -24,11 +21,11 @@
 # Test 1: Set zone options on specific node (primary explicitly)
 - name: Set zone options on primary node explicitly
   technitium_dns_set_zone_options:
-    api_url: "{{ cluster_primary_url }}"
-    api_token: "{{ cluster_primary_api_token }}"
-    api_port: "{{ cluster_primary_http_port }}"
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-setoptions.local"
-    node: "{{ cluster_primary_node_domain }}"
+    node: "cluster_primary01"
     disabled: false
     zoneTransfer: "Allow"
     notify: "ZoneNameServers"
@@ -44,11 +41,11 @@
 
 - name: Verify zone options on primary node
   technitium_dns_get_zone_options:
-    api_url: "{{ cluster_primary_url }}"
-    api_token: "{{ cluster_primary_api_token }}"
-    api_port: "{{ cluster_primary_http_port }}"
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-setoptions.local"
-    node: "{{ cluster_primary_node_domain }}"
+    node: "cluster_primary01"
     validate_certs: no
   register: verify_options_primary
 
@@ -64,11 +61,11 @@
 # Test 2: Test idempotency with node parameter
 - name: Set zone options again with same values (idempotency test)
   technitium_dns_set_zone_options:
-    api_url: "{{ cluster_primary_url }}"
-    api_token: "{{ cluster_primary_api_token }}"
-    api_port: "{{ cluster_primary_http_port }}"
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-setoptions.local"
-    node: "{{ cluster_primary_node_domain }}"
+    node: "cluster_primary01"
     disabled: false
     zoneTransfer: "Allow"
     notify: "ZoneNameServers"
@@ -85,11 +82,11 @@
 # Test 3: Update options with network ACLs using node parameter
 - name: Set zone options with ACLs on primary node
   technitium_dns_set_zone_options:
-    api_url: "{{ cluster_primary_url }}"
-    api_token: "{{ cluster_primary_api_token }}"
-    api_port: "{{ cluster_primary_http_port }}"
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-setoptions.local"
-    node: "{{ cluster_primary_node_domain }}"
+    node: "cluster_primary01"
     queryAccess: "UseSpecifiedNetworkACL"
     queryAccessNetworkACL:
       - "192.168.1.0/24"
@@ -106,11 +103,11 @@
 
 - name: Verify ACL options were set correctly on primary node
   technitium_dns_get_zone_options:
-    api_url: "{{ cluster_primary_url }}"
-    api_token: "{{ cluster_primary_api_token }}"
-    api_port: "{{ cluster_primary_http_port }}"
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-setoptions.local"
-    node: "{{ cluster_primary_node_domain }}"
+    node: "cluster_primary01"
     validate_certs: no
   register: verify_options_acl
 
@@ -127,15 +124,15 @@
 # Cleanup
 - name: Delete test zone
   technitium_dns_delete_zone:
-    api_url: "{{ cluster_primary_url }}"
-    api_token: "{{ cluster_primary_api_token }}"
-    api_port: "{{ cluster_primary_http_port }}"
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-setoptions.local"
     validate_certs: no
   ignore_errors: yes
 
-- name: Teardown test cluster
-  include_role:
-    name: test_cluster_manager
+- name: Include setup_cluster_testing_environment for teardown
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
   vars:
-    cluster_action: "teardown"
+    action: "teardown"

@@ -1,1 +1,2 @@
 plugins/modules/technitium_dns_get_zone_options.py validate-modules:bad-return-value-key
+plugins/modules/technitium_dns_set_zone_options.py validate-modules:bad-return-value-key
