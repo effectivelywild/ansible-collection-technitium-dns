@@ -1,0 +1,169 @@
+---
+- name: Debug initial variables
+  ansible.builtin.debug:
+    msg:
+      - "Action is {{ action }}"
+      - "Safe Job ID is {{ safe_job_id }}"
+      - "Container Suffix is {{ container_suffix }}"
+  when: debug | default(false)
+
+- name: Calculate port offset and final port numbers
+  ansible.builtin.set_fact:
+    job_hash: "{{ safe_job_id | hash('sha1') | truncate(4, True, '') }}"
+    port_offset: "{{ ((safe_job_id | hash('sha1') | truncate(4, True, '')) | int(base=16)) % 500 + 1 }}"
+
+- name: debug job_hash
+  ansible.builtin.debug:
+    msg: 
+      - "Job hash is {{ job_hash }}"
+      - "Port offset is {{ port_offset }}"
+  when: debug | default(false)
+
+- name: Set cluster port facts
+  ansible.builtin.set_fact:
+    api_port_cluster_primary_01: "{{ 6000 + (port_offset | int) * 10 + 4 }}"
+    api_port_cluster_secondary_01: "{{ 6000 + (port_offset | int) * 10 + 5 }}"
+    api_port_cluster_secondary_02: "{{ 6000 + (port_offset | int) * 10 + 6 }}"
+    https_port_cluster_primary_01: "{{ 50000 + (port_offset | int) * 10 + 4 }}"
+    https_port_cluster_secondary_01: "{{ 50000 + (port_offset | int) * 10 + 5 }}"
+    https_port_cluster_secondary_02: "{{ 50000 + (port_offset | int) * 10 + 6 }}"
+
+- name: Print cluster port facts
+  ansible.builtin.debug:
+    msg:
+      - "Cluster Primary HTTP Port: {{ api_port_cluster_primary_01 }}"
+      - "Cluster Secondary 01 HTTP Port: {{ api_port_cluster_secondary_01 }}"
+      - "Cluster Secondary 02 HTTP Port: {{ api_port_cluster_secondary_02 }}"
+      - "Cluster Primary HTTPS Port: {{ https_port_cluster_primary_01 }}"
+      - "Cluster Secondary 01 HTTPS Port: {{ https_port_cluster_secondary_01 }}"
+      - "Cluster Secondary 02 HTTPS Port: {{ https_port_cluster_secondary_02 }}"
+  when: debug | default(false)
+
+- name: "Cleanup: Stop and remove cluster_dns_servers_to_create Technitium DNS containers"
+  community.docker.docker_container:
+    name: "{{ container.name }}"
+    state: absent
+    keep_volumes : false
+  loop: "{{ cluster_dns_servers_to_create }}"
+  loop_control:
+    loop_var: container
+    label: "{{ container.name }}"
+  register: container_cleanup
+
+# keep_volumes : false doesn't seem to work, so we prune all unused volumes below
+- name: Prune dangling and unused Docker volumes
+  community.docker.docker_prune:
+    volumes: true
+    volumes_filters:
+      all: true
+    networks: true
+  when: container_cleanup.changed
+
+- name: "Create Technitium containers"
+  community.docker.docker_container:
+    name: "{{ item.name }}"
+    hostname: "{{ item.name }}"
+    image: "technitium/dns-server:{{ item.image_tag }}"
+    state: started
+    ports:
+     - "{{ item.http_port }}:{{ item.http_port }}/tcp"
+     - "{{ item.https_port }}:{{ item.https_port }}/tcp"
+    volumes:
+      - "{{ item.name }}-config:/etc/dns"
+    restart_policy: unless-stopped
+    sysctls:
+      net.ipv4.ip_local_port_range: "1024 65000"
+    env:
+      DNS_SERVER_DOMAIN: "{{ item.dns_server_domain }}"
+      DNS_SERVER_ADMIN_PASSWORD: "{{ admin_password }}"
+      DNS_SERVER_WEB_SERVICE_HTTP_PORT: "{{ item.http_port }}"
+      DNS_SERVER_WEB_SERVICE_HTTPS_PORT: "{{ item.https_port }}"
+      DNS_SERVER_WEB_SERVICE_ENABLE_HTTPS: "true"
+      DNS_SERVER_WEB_SERVICE_USE_SELF_SIGNED_CERT: "true"
+  loop: "{{ cluster_dns_servers_to_create }}"
+
+- name: "Get container info"
+  community.docker.docker_container_info:
+    name: "{{ item.name }}"
+  loop: "{{ cluster_dns_servers_to_create }}"
+  register: container_info
+
+- name: "Print container info"
+  ansible.builtin.debug:
+    var: container_info.results
+
+- name: Create API token for all containers
+  ansible.builtin.uri:
+    url: "http://localhost:{{ item.http_port }}/api/user/createToken?user=admin&pass={{ admin_password }}&tokenName=MyToken1"
+    method: GET
+  loop: "{{ cluster_dns_servers_to_create }}"
+  register: api_token
+
+- name: debug api_token
+  ansible.builtin.debug:
+    var: api_token
+  when: debug | default(false)
+
+- name: Set facts for each Technitium container
+  set_fact:
+    technitium_tokens: "{{ technitium_tokens | default({}) | combine({ item.item.name: {
+      'token': item.json.token} }) }}"
+  loop: "{{ api_token.results }}"
+  loop_control:
+    label: "{{ item.item.name }}"
+
+- name: Print technitium_tokens
+  ansible.builtin.debug:
+    var: technitium_tokens
+
+- name: Set token fact for cluster_primary01
+  set_fact:
+    cluster_primary01_token: "{{ technitium_tokens['cluster_primary01' + container_suffix].token }}"
+
+- name: Set token fact for cluster_secondary01
+  set_fact:
+    cluster_secondary01_token: "{{ technitium_tokens['cluster_secondary01' + container_suffix].token }}"
+
+- name: Set token fact for cluster_secondary02
+  set_fact:
+    cluster_secondary02_token: "{{ technitium_tokens['cluster_secondary02' + container_suffix].token }}"
+
+- name: Set IP Address fact for cluster_primary01
+  set_fact:
+    cluster_primary01_ip: "{{ container_info.results | selectattr('item.name', 'equalto', 'cluster_primary01' + container_suffix) | map(attribute='container.NetworkSettings.IPAddress') | first }}"
+
+- name: Set IP Address fact for cluster_secondary01
+  set_fact:
+    cluster_secondary01_ip: "{{ container_info.results | selectattr('item.name', 'equalto', 'cluster_secondary01' + container_suffix) | map(attribute='container.NetworkSettings.IPAddress') | first }}"
+
+- name: Set IP Address fact for cluster_secondary02
+  set_fact:
+    cluster_secondary02_ip: "{{ container_info.results | selectattr('item.name', 'equalto', 'cluster_secondary02' + container_suffix) | map(attribute='container.NetworkSettings.IPAddress') | first }}"
+ 
+- name: Update integration_config.yml with testing cluster variables
+  ansible.builtin.lineinfile:
+    path: "{{ lookup('pipe', 'pwd') }}/integration_config.yml"
+    line: "{{ item }}"
+  loop:
+    - "primary_node_ip_address: {{ cluster_primary01_ip }}"
+    - "secondary_node_ip_address_01: {{ cluster_secondary01_ip }}"
+    - "secondary_node_ip_address_02: {{ cluster_secondary02_ip }}"
+    - "cluster_primary01_token: {{ cluster_primary01_token }}"
+    - "cluster_secondary01_token: {{ cluster_secondary01_token }}"
+    - "cluster_secondary02_token: {{ cluster_secondary02_token }}"
+    - "api_port_cluster_primary_01: {{ api_port_cluster_primary_01 }}"
+    - "api_port_cluster_secondary_01: {{ api_port_cluster_secondary_01 }}"
+    - "api_port_cluster_secondary_02: {{ api_port_cluster_secondary_02 }}"
+    - "https_port_cluster_primary_01: {{ https_port_cluster_primary_01 }}"
+    - "https_port_cluster_secondary_01: {{ https_port_cluster_secondary_01 }}"
+    - "https_port_cluster_secondary_02: {{ https_port_cluster_secondary_02 }}"
+
+- name: cat file to verify path
+  command: cat "{{ lookup('pipe', 'pwd') }}/integration_config.yml"
+  register: cat_result
+  when: debug | default(false)
+
+- name: debug cat_result
+  ansible.builtin.debug:
+    var: cat_result
+  when: debug | default(false)

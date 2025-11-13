@@ -1,17 +1,17 @@
 ---
-# Cleanup - Ensure cluster is deleted before tests
-- name: Include test_utils role to ensure clean cluster state
+# Setup testing environment
+- name: Include setup_cluster_testing_environment for setup
   ansible.builtin.include_role:
-    name: effectivelywild.technitium_dns.test_utils
-  vars: 
-    action: "cleanup_cluster"
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
 
 # Setup - Initialize cluster and join Secondary
 - name: "Setup: Initialize cluster on Primary node (04)"
   effectivelywild.technitium_dns.technitium_dns_init_cluster:
-    api_url: "{{ technitium_api_url_4 }}"
-    api_token: "{{ technitium_api_token_4 }}"
-    api_port: "{{ technitium_api_port_4 }}"
+    api_url: "http://localhost"
+    api_token: "{{ cluster_primary01_token }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     cluster_domain: "example.com"
     primary_node_ip_address: "{{ primary_node_ip_address }}"
   register: init_primary_result
@@ -22,12 +22,12 @@
 
 - name: "Setup: Join secondary01 node to cluster"
   effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
-    api_url: "{{ technitium_api_url_5 }}"
-    api_token: "{{ technitium_api_token_5 }}"
-    api_port: "{{ technitium_api_port_5 }}"
+    api_url: "http://localhost"
+    api_token: "{{ cluster_secondary01_token }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
     secondary_node_ip_address: "{{ secondary_node_ip_address_01 }}"
     primary_node_ip_address: "{{ primary_node_ip_address }}"
-    primary_node_url: "https://technitium04{{ container_suffix }}:{{ technitium_https_port_4 }}/"
+    primary_node_url: "https://cluster_primary01{{ container_suffix }}:{{ https_port_cluster_primary_01 }}/"
     primary_node_username: "{{ admin_username }}"
     primary_node_password: "{{ admin_password }}"
     ignore_certificate_errors: true
@@ -35,15 +35,15 @@
 
 - name: "Setup: Login to Secondary node to get valid token"
   effectivelywild.technitium_dns.technitium_dns_login:
-    api_url: "{{ technitium_api_url_5 }}"
-    api_port: "{{ technitium_api_port_5 }}"
+    api_url: "http://localhost"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
     username: "{{ admin_username }}"
     password: "{{ admin_password }}"
   register: secondary_login
 
 - name: "Setup: Update token fact for Secondary node"
   ansible.builtin.set_fact:
-    technitium_api_token_5: "{{ secondary_login.token }}"
+    cluster_secondary01_token: "{{ secondary_login.token }}"
 
 - name: "Setup: Wait for initial sync"
   ansible.builtin.pause:
@@ -51,9 +51,9 @@
 
 - name: "Setup: Verify cluster has 2 nodes (1 Primary, 1 Secondary)"
   effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
-    api_url: "{{ technitium_api_url_4 }}"
-    api_token: "{{ technitium_api_token_4 }}"
-    api_port: "{{ technitium_api_port_4 }}"
+    api_url: "http://localhost"
+    api_token: "{{ cluster_primary01_token }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
   register: initial_state
 
 - name: "Setup: Assert cluster is correctly initialized"
@@ -66,9 +66,9 @@
 # Test 1: Promote Secondary to Primary
 - name: "Test 1: Promote secondary01 to Primary"
   effectivelywild.technitium_dns.technitium_dns_promote_secondary:
-    api_url: "{{ technitium_api_url_5 }}"
-    api_token: "{{ technitium_api_token_5 }}"
-    api_port: "{{ technitium_api_port_5 }}"
+    api_url: "http://localhost"
+    api_token: "{{ cluster_secondary01_token }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
   register: promote_result
 
 - name: "Test 1.1: Assert promotion succeeded"
@@ -82,15 +82,15 @@
 
 - name: "Test 1.2: Login to newly promoted Primary to get valid token"
   effectivelywild.technitium_dns.technitium_dns_login:
-    api_url: "{{ technitium_api_url_5 }}"
-    api_port: "{{ technitium_api_port_5 }}"
+    api_url: "http://localhost"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
     username: "{{ admin_username }}"
     password: "{{ admin_password }}"
   register: new_primary_login
 
 - name: "Test 1.3: Update token fact for new Primary"
   ansible.builtin.set_fact:
-    technitium_api_token_5: "{{ new_primary_login.token }}"
+    cluster_secondary01_token: "{{ new_primary_login.token }}"
 
 - name: "Test 1.4: Wait for promotion to complete"
   ansible.builtin.pause:
@@ -99,9 +99,9 @@
 # Test 2: Verify new Primary state
 - name: "Test 2: Get cluster state from new Primary"
   effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
-    api_url: "{{ technitium_api_url_5 }}"
-    api_token: "{{ technitium_api_token_5 }}"
-    api_port: "{{ technitium_api_port_5 }}"
+    api_url: "http://localhost"
+    api_token: "{{ cluster_secondary01_token }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
   register: new_primary_state
 
 - name: Debug new_primary_state
@@ -121,17 +121,17 @@
 # Test 3: Verify old Primary is no longer in cluster
 - name: "Test 3: Login to old Primary to check state"
   effectivelywild.technitium_dns.technitium_dns_login:
-    api_url: "{{ technitium_api_url_4 }}"
-    api_port: "{{ technitium_api_port_4 }}"
+    api_url: "http://localhost"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     username: "{{ admin_username }}"
     password: "{{ admin_password }}"
   register: old_primary_login
 
 - name: "Test 3.1: Get cluster state from old Primary"
   effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
-    api_url: "{{ technitium_api_url_4 }}"
+    api_url: "http://localhost"
     api_token: "{{ old_primary_login.token }}"
-    api_port: "{{ technitium_api_port_4 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
   register: old_primary_state
 
 - name: "Test 3.1: Debug old_primary_state"
@@ -147,23 +147,23 @@
 # Test 4: Check mode
 - name: "Test 4: Setup - Delete cluster on test05 (new Primary from Test 1)"
   effectivelywild.technitium_dns.technitium_dns_delete_cluster:
-    api_url: "{{ technitium_api_url_5 }}"
+    api_url: "http://localhost"
     api_token: "{{ new_primary_login.token }}"
-    api_port: "{{ technitium_api_port_5 }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
 
 - name: "Test 4.1: Setup - Delete example.com zone on test05"
   effectivelywild.technitium_dns.technitium_dns_delete_zone:
-    api_url: "{{ technitium_api_url_5 }}"
+    api_url: "http://localhost"
     api_token: "{{ new_primary_login.token }}"
-    api_port: "{{ technitium_api_port_5 }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
     zone: "example.com"
   ignore_errors: true
 
 - name: "Test 4.2: Setup - Reinitialize cluster for check mode test"
   effectivelywild.technitium_dns.technitium_dns_init_cluster:
-    api_url: "{{ technitium_api_url_4 }}"
+    api_url: "http://localhost"
     api_token: "{{ old_primary_login.token }}"
-    api_port: "{{ technitium_api_port_4 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     cluster_domain: "example.com"
     primary_node_ip_address: "{{ primary_node_ip_address }}"
 
@@ -173,27 +173,27 @@
 
 - name: "Test 4.4: Rejoin secondary01 as Secondary"
   effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
-    api_url: "{{ technitium_api_url_5 }}"
-    api_token: "{{ technitium_api_token_5 }}"
-    api_port: "{{ technitium_api_port_5 }}"
+    api_url: "http://localhost"
+    api_token: "{{ cluster_secondary01_token }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
     secondary_node_ip_address: "{{ secondary_node_ip_address_01 }}"
     primary_node_ip_address: "{{ primary_node_ip_address }}"
-    primary_node_url: "https://technitium04{{ container_suffix }}:{{ technitium_https_port_4 }}/"
+    primary_node_url: "https://cluster_primary01{{ container_suffix }}:{{ https_port_cluster_primary_01 }}/"
     primary_node_username: "{{ admin_username }}"
     primary_node_password: "{{ admin_password }}"
     ignore_certificate_errors: true
 
 - name: "Test 4.5: Login to rejoined Secondary"
   effectivelywild.technitium_dns.technitium_dns_login:
-    api_url: "{{ technitium_api_url_5 }}"
-    api_port: "{{ technitium_api_port_5 }}"
+    api_url: "http://localhost"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
     username: "{{ admin_username }}"
     password: "{{ admin_password }}"
   register: secondary_login_test4
 
 - name: "Test 4.6: Update token fact for Secondary"
   ansible.builtin.set_fact:
-    technitium_api_token_5: "{{ secondary_login_test4.token }}"
+    cluster_secondary01_token: "{{ secondary_login_test4.token }}"
 
 - name: "Test 4.7: Wait for sync"
   ansible.builtin.pause:
@@ -201,9 +201,9 @@
 
 - name: "Test 4.8: Promote Secondary in check mode"
   effectivelywild.technitium_dns.technitium_dns_promote_secondary:
-    api_url: "{{ technitium_api_url_5 }}"
-    api_token: "{{ technitium_api_token_5 }}"
-    api_port: "{{ technitium_api_port_5 }}"
+    api_url: "http://localhost"
+    api_token: "{{ cluster_secondary01_token }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
   check_mode: true
   register: check_mode_result
 
@@ -216,9 +216,9 @@
 
 - name: "Test 4.10: Verify Secondary was not actually promoted"
   effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
-    api_url: "{{ technitium_api_url_5 }}"
-    api_token: "{{ technitium_api_token_5 }}"
-    api_port: "{{ technitium_api_port_5 }}"
+    api_url: "http://localhost"
+    api_token: "{{ cluster_secondary01_token }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
   register: verify_not_promoted
 
 - name: "Test 4.11: Assert Secondary is still Secondary"
@@ -231,9 +231,9 @@
 # Test 5: Negative test - Try to promote from Primary node
 - name: "Test 5: Try to promote from Primary node (idempotent)"
   effectivelywild.technitium_dns.technitium_dns_promote_secondary:
-    api_url: "{{ technitium_api_url_4 }}"
+    api_url: "http://localhost"
     api_token: "{{ old_primary_login.token }}"
-    api_port: "{{ technitium_api_port_4 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
   register: negative_primary_result
 
 - name: "Test 5.1: Assert Primary node is idempotent"
@@ -246,15 +246,15 @@
 # Test 6: Negative test - Try to promote when cluster not initialized
 - name: "Test 6: Leave cluster on secondary01"
   effectivelywild.technitium_dns.technitium_dns_leave_cluster:
-    api_url: "{{ technitium_api_url_5 }}"
-    api_token: "{{ technitium_api_token_5 }}"
-    api_port: "{{ technitium_api_port_5 }}"
+    api_url: "http://localhost"
+    api_token: "{{ cluster_secondary01_token }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
 
 - name: "Test 6.1: Try to promote when not in cluster (should fail)"
   effectivelywild.technitium_dns.technitium_dns_promote_secondary:
-    api_url: "{{ technitium_api_url_5 }}"
-    api_token: "{{ technitium_api_token_5 }}"
-    api_port: "{{ technitium_api_port_5 }}"
+    api_url: "http://localhost"
+    api_token: "{{ cluster_secondary01_token }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
   register: negative_uninit_result
   ignore_errors: true
 
@@ -268,23 +268,23 @@
 # Note: test05 already left cluster in Test 6, and test04 still has cluster from Test 4
 - name: "Test 7: Setup - Delete cluster on test04"
   effectivelywild.technitium_dns.technitium_dns_delete_cluster:
-    api_url: "{{ technitium_api_url_4 }}"
+    api_url: "http://localhost"
     api_token: "{{ old_primary_login.token }}"
-    api_port: "{{ technitium_api_port_4 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
 
 - name: "Test 7.1: Setup - Delete example.com zone on test04"
   effectivelywild.technitium_dns.technitium_dns_delete_zone:
-    api_url: "{{ technitium_api_url_4 }}"
+    api_url: "http://localhost"
     api_token: "{{ old_primary_login.token }}"
-    api_port: "{{ technitium_api_port_4 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "example.com"
   ignore_errors: true
 
 - name: "Test 7.2: Setup - Reinitialize cluster for force delete test"
   effectivelywild.technitium_dns.technitium_dns_init_cluster:
-    api_url: "{{ technitium_api_url_4 }}"
+    api_url: "http://localhost"
     api_token: "{{ old_primary_login.token }}"
-    api_port: "{{ technitium_api_port_4 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     cluster_domain: "example.com"
     primary_node_ip_address: "{{ primary_node_ip_address }}"
 
@@ -294,27 +294,27 @@
 
 - name: "Test 7.4: Rejoin secondary01 as Secondary"
   effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
-    api_url: "{{ technitium_api_url_5 }}"
-    api_token: "{{ technitium_api_token_5 }}"
-    api_port: "{{ technitium_api_port_5 }}"
+    api_url: "http://localhost"
+    api_token: "{{ cluster_secondary01_token }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
     secondary_node_ip_address: "{{ secondary_node_ip_address_01 }}"
     primary_node_ip_address: "{{ primary_node_ip_address }}"
-    primary_node_url: "https://technitium04{{ container_suffix }}:{{ technitium_https_port_4 }}/"
+    primary_node_url: "https://cluster_primary01{{ container_suffix }}:{{ https_port_cluster_primary_01 }}/"
     primary_node_username: "{{ admin_username }}"
     primary_node_password: "{{ admin_password }}"
     ignore_certificate_errors: true
 
 - name: "Test 7.5: Login to rejoined Secondary"
   effectivelywild.technitium_dns.technitium_dns_login:
-    api_url: "{{ technitium_api_url_5 }}"
-    api_port: "{{ technitium_api_port_5 }}"
+    api_url: "http://localhost"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
     username: "{{ admin_username }}"
     password: "{{ admin_password }}"
   register: secondary_login_test7
 
 - name: "Test 7.6: Update token fact for Secondary"
   ansible.builtin.set_fact:
-    technitium_api_token_5: "{{ secondary_login_test7.token }}"
+    cluster_secondary01_token: "{{ secondary_login_test7.token }}"
 
 - name: "Test 7.7: Wait for sync"
   ansible.builtin.pause:
@@ -322,9 +322,9 @@
 
 - name: "Test 7.8: Promote Secondary with force_delete_primary"
   effectivelywild.technitium_dns.technitium_dns_promote_secondary:
-    api_url: "{{ technitium_api_url_5 }}"
-    api_token: "{{ technitium_api_token_5 }}"
-    api_port: "{{ technitium_api_port_5 }}"
+    api_url: "http://localhost"
+    api_token: "{{ cluster_secondary01_token }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
     force_delete_primary: true
   register: force_promote_result
 
@@ -337,17 +337,17 @@
 
 - name: "Test 7.10: Login to newly promoted Primary"
   effectivelywild.technitium_dns.technitium_dns_login:
-    api_url: "{{ technitium_api_url_5 }}"
-    api_port: "{{ technitium_api_port_5 }}"
+    api_url: "http://localhost"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
     username: "{{ admin_username }}"
     password: "{{ admin_password }}"
   register: new_primary_login_test7
 
 - name: "Test 7.11: Verify new Primary is standalone"
   effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
-    api_url: "{{ technitium_api_url_5 }}"
+    api_url: "http://localhost"
     api_token: "{{ new_primary_login_test7.token }}"
-    api_port: "{{ technitium_api_port_5 }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
   register: final_state
 
 - name: "Test 7.12: Assert new Primary is the only node"
@@ -357,21 +357,9 @@
       - final_state.cluster_state.clusterNodes | length == 1
       - final_state.cluster_state.clusterNodes[0].type == "Primary"
 
-# Cleanup - Delete cluster
-- name: "Cleanup: Delete cluster on new Primary (test05)"
-  effectivelywild.technitium_dns.technitium_dns_delete_cluster:
-    api_url: "{{ technitium_api_url_5 }}"
-    api_token: "{{ new_primary_login_test7.token }}"
-    api_port: "{{ technitium_api_port_5 }}"
-
-- name: "Cleanup: Verify cluster was deleted"
-  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
-    api_url: "{{ technitium_api_url_5 }}"
-    api_token: "{{ new_primary_login_test7.token }}"
-    api_port: "{{ technitium_api_port_5 }}"
-  register: final_verify
-
-- name: "Cleanup: Assert cluster is not initialized"
-  assert:
-    that:
-      - final_verify.cluster_state.clusterInitialized == false
+# Cleanup
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

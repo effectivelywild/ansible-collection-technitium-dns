@@ -82,6 +82,7 @@ jobs:
           - '3.11'
           - '3.12'
           - '3.13'
+          - '3.14'
         # exclude not supported combinations
         exclude:
           - ansible: devel
@@ -96,6 +97,8 @@ jobs:
             python: '3.10'
           - ansible: stable-2.17
             python: '3.13'
+          - ansible: stable-2.17
+            python: '3.14'
     steps:
       - name: Check out code
         uses: actions/checkout@v5
@@ -131,39 +134,32 @@ jobs:
           SAFE_JOB_ID=$(echo "$JOB_ID" | sed 's/[^a-zA-Z0-9]//g')
           RUN_ID="${{ github.run_id }}"
           
+          # Export unique identifiers as GitHub Environment variables
           echo "JOB_ID=${SAFE_JOB_ID}" >> $GITHUB_ENV
           echo "TESTING_SUFFIX=${SAFE_JOB_ID}-${RUN_ID}.test" >> $GITHUB_ENV
           echo "CONTAINER_SUFFIX=-${SAFE_JOB_ID}-${RUN_ID}" >> $GITHUB_ENV
+          
+          # Export Token file paths as GitHub Environment variables
           echo "TOKEN_FILE_1=/tmp/technitium01_token_${SAFE_JOB_ID}_${RUN_ID}" >> $GITHUB_ENV
           echo "TOKEN_FILE_2=/tmp/technitium02_token_${SAFE_JOB_ID}_${RUN_ID}" >> $GITHUB_ENV
           echo "TOKEN_FILE_3=/tmp/technitium03_token_${SAFE_JOB_ID}_${RUN_ID}" >> $GITHUB_ENV
-          echo "TOKEN_FILE_4=/tmp/technitium04_token_${SAFE_JOB_ID}_${RUN_ID}" >> $GITHUB_ENV
-          echo "TOKEN_FILE_5=/tmp/technitium05_token_${SAFE_JOB_ID}_${RUN_ID}" >> $GITHUB_ENV
-          echo "TOKEN_FILE_6=/tmp/technitium06_token_${SAFE_JOB_ID}_${RUN_ID}" >> $GITHUB_ENV
 
           # Calculate unique ports using hash of job ID (guaranteed unique)
           JOB_HASH=$(echo "${SAFE_JOB_ID}" | shasum | cut -c1-4)
           PORT_OFFSET=$((0x${JOB_HASH} % 500 + 1))
           
+          # Export port numbers as GitHub Environment variables
           echo "PORT_OFFSET=${PORT_OFFSET}" >> $GITHUB_ENV
           echo "HTTP_PORT_1=$((6000 + PORT_OFFSET * 10 + 1))" >> $GITHUB_ENV
           echo "HTTP_PORT_2=$((6000 + PORT_OFFSET * 10 + 2))" >> $GITHUB_ENV
           echo "HTTP_PORT_3=$((6000 + PORT_OFFSET * 10 + 3))" >> $GITHUB_ENV
-          echo "HTTP_PORT_4=$((6000 + PORT_OFFSET * 10 + 4))" >> $GITHUB_ENV
-          echo "HTTP_PORT_5=$((6000 + PORT_OFFSET * 10 + 5))" >> $GITHUB_ENV
-          echo "HTTP_PORT_6=$((6000 + PORT_OFFSET * 10 + 6))" >> $GITHUB_ENV
           echo "HTTPS_PORT_1=$((50000 + PORT_OFFSET * 10 + 1))" >> $GITHUB_ENV  
           echo "HTTPS_PORT_2=$((50000 + PORT_OFFSET * 10 + 2))" >> $GITHUB_ENV
           echo "HTTPS_PORT_3=$((50000 + PORT_OFFSET * 10 + 3))" >> $GITHUB_ENV
-          echo "HTTPS_PORT_4=$((50000 + PORT_OFFSET * 10 + 4))" >> $GITHUB_ENV
-          echo "HTTPS_PORT_5=$((50000 + PORT_OFFSET * 10 + 5))" >> $GITHUB_ENV
-          echo "HTTPS_PORT_6=$((50000 + PORT_OFFSET * 10 + 6))" >> $GITHUB_ENV
-
 
       - name: Setup testing environment
         run: ansible-playbook roles/test_utils/playbooks/run_setup_testing_env.yml
         working-directory: ./ansible_collections/effectivelywild/technitium_dns
-
 
       - name: Get Technitium server values
         id: get_server_values
@@ -175,70 +171,37 @@ jobs:
           echo "api_token_2=$API_TOKEN_2" >> $GITHUB_OUTPUT
           API_TOKEN_3=$(cat "${TOKEN_FILE_3}")
           echo "api_token_3=$API_TOKEN_3" >> $GITHUB_OUTPUT
-          API_TOKEN_4=$(cat "${TOKEN_FILE_4}")
-          echo "api_token_4=$API_TOKEN_4" >> $GITHUB_OUTPUT
-          API_TOKEN_5=$(cat "${TOKEN_FILE_5}")
-          echo "api_token_5=$API_TOKEN_5" >> $GITHUB_OUTPUT
-          API_TOKEN_6=$(cat "${TOKEN_FILE_6}")
-          echo "api_token_6=$API_TOKEN_6" >> $GITHUB_OUTPUT
 
-          # Get container IP for notify_name_server using dynamic container name
-          SERVERS="01 04 05 06"
+          # Get the necessary container IPs
+          TECHNITIUM01_IP_ADDRESS=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "technitium01${CONTAINER_SUFFIX}")
 
-          # Loop through each server number
-          for NUM in $SERVERS; do
-            # Construct the dynamic container name
-            CONTAINER_NAME="technitium${NUM}${CONTAINER_SUFFIX}"
-            
-            # Get the container IP
-            IP_ADDRESS=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$CONTAINER_NAME")
-
-            # Export the IP as a GitHub Output variable
-            echo "technitium${NUM}_ip=$IP_ADDRESS" >> $GITHUB_OUTPUT
-          done
+          # Export the IP as a GitHub Output variable
+          echo "technitium01_ip=$TECHNITIUM01_IP_ADDRESS" >> $GITHUB_OUTPUT
 
       - name: Create integration config
         run: |
           cat > tests/integration/integration_config.yml << EOF
+          # Standard nodes
           technitium_api_url_1: http://localhost
           technitium_api_token_1: ${{ steps.get_server_values.outputs.api_token_1 }}
           technitium_api_port_1: ${HTTP_PORT_1}
+          technitium_https_port_1: ${HTTPS_PORT_1}
 
           technitium_api_url_2: http://localhost
           technitium_api_token_2: ${{ steps.get_server_values.outputs.api_token_2 }}
           technitium_api_port_2: ${HTTP_PORT_2}
+          technitium_https_port_2: ${HTTPS_PORT_2}
 
           technitium_api_url_3: http://localhost
           technitium_api_token_3: ${{ steps.get_server_values.outputs.api_token_3 }}
           technitium_api_port_3: ${HTTP_PORT_3}
-
-          technitium_api_url_4: http://localhost
-          technitium_api_token_4: ${{ steps.get_server_values.outputs.api_token_4 }}
-          technitium_api_port_4: ${HTTP_PORT_4}
-          technitium_https_port_4: ${HTTPS_PORT_4}
-
-          technitium_api_url_5: http://localhost
-          technitium_api_token_5: ${{ steps.get_server_values.outputs.api_token_5 }}
-          technitium_api_port_5: ${HTTP_PORT_5}
-          technitium_https_port_5: ${HTTPS_PORT_5}
-          
-          technitium_api_url_6: http://localhost
-          technitium_api_token_6: ${{ steps.get_server_values.outputs.api_token_6 }}
-          technitium_api_port_6: ${HTTP_PORT_6}
-          technitium_https_port_6: ${HTTPS_PORT_6}
+          technitium_https_port_3: ${HTTPS_PORT_3}
 
           validate_certs: false
 
           # Notify Name Server (technitium01), used for Zone testing
           notify_name_server: ${{ steps.get_server_values.outputs.technitium01_ip }}
 
-          # Primary Name Server for cluster
-          primary_node_ip_address: ${{ steps.get_server_values.outputs.technitium04_ip }}
-
-          # Secondary cluster node IPs
-          secondary_node_ip_address_01: ${{ steps.get_server_values.outputs.technitium05_ip }}
-          secondary_node_ip_address_02: ${{ steps.get_server_values.outputs.technitium06_ip }}
-          
           # Debugging options
           debug: true
 
@@ -256,7 +219,7 @@ jobs:
       - name: Run integration tests that don't require KSK in Ready state
         run: |
           ansible-test integration --color --retry-on-error --continue-on-error --diff --python ${{ matrix.python }} --coverage --requirements \
-          --exclude technitium_dns_update_dnskey_ttl technitium_dns_delete_cluster technitium_dns_delete_secondary technitium_dns_get_cluster_state technitium_dns_init_cluster technitium_dns_init_join_cluster
+          --exclude technitium_dns_update_dnskey_ttl
         working-directory: ./ansible_collections/effectivelywild/technitium_dns
         env:
           ANSIBLE_COLLECTIONS_PATH: ../../
