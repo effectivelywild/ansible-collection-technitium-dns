@@ -1,0 +1,27 @@
+---
+dns_servers_to_create:
+  - name: "technitium01{{ lookup('env', 'CONTAINER_SUFFIX') | default('') }}"
+    http_port: "{{ lookup('env', 'HTTP_PORT_1') | default('5381') }}"
+    https_port: "{{ lookup('env', 'HTTPS_PORT_1') | default('53441') }}"
+    image_tag: "latest"
+  - name: "technitium02{{ lookup('env', 'CONTAINER_SUFFIX') | default('') }}"
+    http_port: "{{ lookup('env', 'HTTP_PORT_2') | default('5382') }}"
+    https_port: "{{ lookup('env', 'HTTPS_PORT_2') | default('53442') }}"
+    image_tag: "latest"
+  - name: "technitium03{{ lookup('env', 'CONTAINER_SUFFIX') | default('') }}"
+    http_port: "{{ lookup('env', 'HTTP_PORT_3') | default('5382') }}"
+    https_port: "{{ lookup('env', 'HTTPS_PORT_3') | default('53442') }}"
+    image_tag: "13.4.0"
+
+dns_server_admin_password: "topsecret"
+dns_server_domain: "testing.local"
+
+t1_zones_to_create:
+  - name: secondary.{{ lookup('env', 'TESTING_SUFFIX') | default('example.com') }}
+    type: Primary
+  - name: stub.{{ lookup('env', 'TESTING_SUFFIX') | default('example.com') }}
+    type: Primary
+
+t2_zones_to_create:
+  - name: update-dnskey-ttl-test1.{{ lookup('env', 'TESTING_SUFFIX') | default('example.com') }}
+    type: Primary
