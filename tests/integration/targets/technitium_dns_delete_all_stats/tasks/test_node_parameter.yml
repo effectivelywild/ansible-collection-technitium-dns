@@ -2,21 +2,17 @@
 # Integration tests for technitium_dns_delete_all_stats node parameter (cluster support)
 
 - name: Setup test cluster for node parameter tests
-  include_role:
-    name: test_cluster_manager
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
   vars:
-    cluster_action: "setup"
-    cluster_primary_http_port: "{{ technitium_cluster_role_primary_http_port }}"
-    cluster_secondary_http_port: "{{ technitium_cluster_role_secondary_http_port }}"
-    cluster_primary_https_port: "{{ technitium_cluster_role_primary_https_port }}"
-    cluster_secondary_https_port: "{{ technitium_cluster_role_secondary_https_port }}"
+    action: "setup"
 
 # Test 1: Delete all stats without node parameter (default behavior - current node)
 - name: Delete all stats without node parameter
   technitium_dns_delete_all_stats:
-    api_url: "{{ cluster_primary_url }}"
-    api_token: "{{ cluster_primary_api_token }}"
-    api_port: "{{ cluster_primary_http_port }}"
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     validate_certs: no
   register: delete_stats_default
 
@@ -31,10 +27,10 @@
 # Test 2: Delete all stats for specific node (secondary)
 - name: Delete all stats for secondary node
   technitium_dns_delete_all_stats:
-    api_url: "{{ cluster_primary_url }}"
-    api_token: "{{ cluster_primary_api_token }}"
-    api_port: "{{ cluster_primary_http_port }}"
-    node: "{{ cluster_secondary_node_domain }}"
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    node: "cluster_secondary01"
     validate_certs: no
   register: delete_stats_secondary
 
@@ -49,10 +45,10 @@
 # Test 3: Delete all stats for primary node explicitly
 - name: Delete all stats for primary node
   technitium_dns_delete_all_stats:
-    api_url: "{{ cluster_primary_url }}"
-    api_token: "{{ cluster_primary_api_token }}"
-    api_port: "{{ cluster_primary_http_port }}"
-    node: "{{ cluster_primary_node_domain }}"
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    node: "cluster_primary01"
     validate_certs: no
   register: delete_stats_primary
 
@@ -67,9 +63,9 @@
 # Test 4: Verify stats were deleted by checking they are minimal
 - name: Get stats after deletion to verify
   technitium_dns_get_stats:
-    api_url: "{{ cluster_primary_url }}"
-    api_token: "{{ cluster_primary_api_token }}"
-    api_port: "{{ cluster_primary_http_port }}"
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     validate_certs: no
   register: stats_after_delete
 
@@ -82,7 +78,7 @@
 
 # Cleanup
 - name: Teardown test cluster
-  include_role:
-    name: test_cluster_manager
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
   vars:
-    cluster_action: "teardown"
+    action: "teardown"

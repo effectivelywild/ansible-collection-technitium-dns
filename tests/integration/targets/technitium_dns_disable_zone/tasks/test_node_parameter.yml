@@ -2,21 +2,17 @@
 # Integration tests for technitium_dns_disable_zone node parameter (cluster support)
 
 - name: Setup test cluster for node parameter tests
-  include_role:
-    name: test_cluster_manager
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
   vars:
-    cluster_action: "setup"
-    cluster_primary_http_port: "{{ technitium_cluster_role_primary_http_port }}"
-    cluster_secondary_http_port: "{{ technitium_cluster_role_secondary_http_port }}"
-    cluster_primary_https_port: "{{ technitium_cluster_role_primary_https_port }}"
-    cluster_secondary_https_port: "{{ technitium_cluster_role_secondary_https_port }}"
+    action: "setup"
 
 # Setup: Create a zone on primary for testing
 - name: Create test zone on primary node
   technitium_dns_create_zone:
-    api_url: "{{ cluster_primary_url }}"
-    api_token: "{{ cluster_primary_api_token }}"
-    api_port: "{{ cluster_primary_http_port }}"
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-disable.local"
     type: "Primary"
     validate_certs: no
@@ -24,9 +20,9 @@
 # Test 1: Disable zone without node parameter (default behavior - current node)
 - name: Disable zone without node parameter
   technitium_dns_disable_zone:
-    api_url: "{{ cluster_primary_url }}"
-    api_token: "{{ cluster_primary_api_token }}"
-    api_port: "{{ cluster_primary_http_port }}"
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-disable.local"
     validate_certs: no
   register: disable_zone_default
@@ -41,9 +37,9 @@
 
 - name: Verify zone is actually disabled (default node)
   technitium_dns_get_zone_options:
-    api_url: "{{ cluster_primary_url }}"
-    api_token: "{{ cluster_primary_api_token }}"
-    api_port: "{{ cluster_primary_http_port }}"
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-disable.local"
     validate_certs: no
   register: zone_options_default
@@ -58,20 +54,20 @@
 # Test 2: Enable and disable zone on specific node (primary explicitly)
 - name: Enable zone on primary node explicitly
   technitium_dns_enable_zone:
-    api_url: "{{ cluster_primary_url }}"
-    api_token: "{{ cluster_primary_api_token }}"
-    api_port: "{{ cluster_primary_http_port }}"
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-disable.local"
-    node: "{{ cluster_primary_node_domain }}"
+    node: "cluster_primary01"
     validate_certs: no
 
 - name: Disable zone on primary node explicitly
   technitium_dns_disable_zone:
-    api_url: "{{ cluster_primary_url }}"
-    api_token: "{{ cluster_primary_api_token }}"
-    api_port: "{{ cluster_primary_http_port }}"
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-disable.local"
-    node: "{{ cluster_primary_node_domain }}"
+    node: "cluster_primary01"
     validate_certs: no
   register: disable_zone_primary
 
@@ -85,11 +81,11 @@
 
 - name: Verify zone is actually disabled on primary node
   technitium_dns_get_zone_options:
-    api_url: "{{ cluster_primary_url }}"
-    api_token: "{{ cluster_primary_api_token }}"
-    api_port: "{{ cluster_primary_http_port }}"
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-disable.local"
-    node: "{{ cluster_primary_node_domain }}"
+    node: "cluster_primary01"
     validate_certs: no
   register: zone_options_primary
 
@@ -103,9 +99,9 @@
 # Test 3: Test idempotency - disable already disabled zone
 - name: Disable zone again (idempotency test)
   technitium_dns_disable_zone:
-    api_url: "{{ cluster_primary_url }}"
-    api_token: "{{ cluster_primary_api_token }}"
-    api_port: "{{ cluster_primary_http_port }}"
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-disable.local"
     validate_certs: no
   register: disable_zone_idempotent
@@ -121,15 +117,15 @@
 # Cleanup
 - name: Delete test zone
   technitium_dns_delete_zone:
-    api_url: "{{ cluster_primary_url }}"
-    api_token: "{{ cluster_primary_api_token }}"
-    api_port: "{{ cluster_primary_http_port }}"
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-disable.local"
     validate_certs: no
   ignore_errors: yes
 
 - name: Teardown test cluster
-  include_role:
-    name: test_cluster_manager
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
   vars:
-    cluster_action: "teardown"
+    action: "teardown"
