@@ -96,3 +96,7 @@
 
 - name: "Include delete URI record integration test"
   ansible.builtin.include_tasks: test_delete_uri_records.yml
+
+# Test node parameter (cluster support)
+- name: "Test node parameter support"
+  include_tasks: test_node_parameter.yml

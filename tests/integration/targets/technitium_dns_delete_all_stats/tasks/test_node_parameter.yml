@@ -30,7 +30,7 @@
     api_url: http://localhost
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
-    node: "cluster_secondary01"
+    node: "cluster-secondary01.example.com"
     validate_certs: no
   register: delete_stats_secondary
 
@@ -48,7 +48,7 @@
     api_url: http://localhost
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
-    node: "cluster_primary01"
+    node: "cluster-primary01.example.com"
     validate_certs: no
   register: delete_stats_primary
 

@@ -141,6 +141,9 @@ class DeleteZoneModule(TechnitiumModule):
             if 'No such zone was found' in error_msg:
                 # Zone doesn't exist - this is expected for idempotent delete
                 zone_exists = False
+            elif 'No such node exists' in error_msg:
+                # Invalid node name provided - fail with clear error
+                self.fail_json(msg=f"Invalid node parameter: {error_msg}", api_response=zone_check_data)
             else:
                 # Unexpected API error occurred during zone existence check
                 self.fail_json(msg=f"Technitium API error checking zone: {error_msg}", api_response=zone_check_data)

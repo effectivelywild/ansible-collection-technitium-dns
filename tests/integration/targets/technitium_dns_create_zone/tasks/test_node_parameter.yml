@@ -16,7 +16,7 @@
     api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-createzone-primary.local"
     type: "Primary"
-    node: "cluster_primary01"
+    node: "cluster-primary01.example.com"
     validate_certs: no
   register: create_zone_primary
 
@@ -34,7 +34,7 @@
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-createzone-primary.local"
-    node: "cluster_primary01"
+    node: "cluster-primary01.example.com"
     validate_certs: no
   register: zone_info_primary
 
@@ -55,7 +55,7 @@
     api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-createzone-primary.local"
     type: "Primary"
-    node: "cluster_primary01"
+    node: "cluster-primary01.example.com"
     validate_certs: no
   register: create_zone_idempotent
 
@@ -74,7 +74,7 @@
     api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-createzone-forwarder.local"
     type: "Forwarder"
-    node: "cluster_primary01"
+    node: "cluster-primary01.example.com"
     forwarder: "8.8.8.8"
     initializeForwarder: true
     protocol: "Udp"
@@ -95,7 +95,7 @@
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-createzone-primary.local"
-    node: "cluster_primary01"
+    node: "cluster-primary01.example.com"
     validate_certs: no
   ignore_errors: yes
 
@@ -105,7 +105,7 @@
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-createzone-forwarder.local"
-    node: "cluster_primary01"
+    node: "cluster-primary01.example.com"
     validate_certs: no
   ignore_errors: yes
 

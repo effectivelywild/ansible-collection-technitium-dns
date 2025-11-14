@@ -66,7 +66,7 @@
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-enable.local"
-    node: "cluster_primary01"
+    node: "cluster-primary01.example.com"
     validate_certs: no
 
 - name: Enable zone on primary node explicitly
@@ -75,7 +75,7 @@
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-enable.local"
-    node: "cluster_primary01"
+    node: "cluster-primary01.example.com"
     validate_certs: no
   register: enable_zone_primary
 
@@ -93,7 +93,7 @@
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-enable.local"
-    node: "cluster_primary01"
+    node: "cluster-primary01.example.com"
     validate_certs: no
   register: zone_options_primary
 

@@ -1,0 +1,119 @@
+---
+# Integration tests for technitium_dns_get_record node parameter (cluster support)
+
+# Setup testing environment
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+
+# Setup: Create a test zone and add records
+- name: Create test zone on primary node
+  technitium_dns_create_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-getrecord.local"
+    type: "Primary"
+    validate_certs: no
+
+- name: Add A record for get test
+  technitium_dns_add_record:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    name: "www.test-getrecord.local"
+    zone: "test-getrecord.local"
+    type: "A"
+    ipAddress: "192.0.2.10"
+    ttl: 3600
+    validate_certs: no
+
+- name: Add TXT record for get test
+  technitium_dns_add_record:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    name: "test-getrecord.local"
+    zone: "test-getrecord.local"
+    type: "TXT"
+    text: "v=spf1 include:_spf.example.com ~all"
+    ttl: 3600
+    validate_certs: no
+
+# Test 1: Get specific record on specific node
+- name: Get A record on primary node
+  technitium_dns_get_record:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    name: "www.test-getrecord.local"
+    zone: "test-getrecord.local"
+    node: "cluster-primary01.example.com"
+    validate_certs: no
+  register: get_a_record
+
+- name: Assert A record retrieved successfully
+  assert:
+    that:
+      - not get_a_record.failed
+      - get_a_record.records | length > 0
+      - get_a_record.records[0].type == "A"
+      - get_a_record.records[0].rData.ipAddress == "192.0.2.10"
+    fail_msg: "Get A record on primary node should succeed"
+
+# Test 2: Get TXT record on specific node
+- name: Get TXT record on primary node
+  technitium_dns_get_record:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    name: "test-getrecord.local"
+    zone: "test-getrecord.local"
+    node: "cluster-primary01.example.com"
+    validate_certs: no
+  register: get_txt_record
+
+- name: Assert TXT record retrieved successfully
+  assert:
+    that:
+      - not get_txt_record.failed
+      - get_txt_record.records | length > 0
+    fail_msg: "Get TXT record on primary node should succeed"
+
+# Test 3: List all zone records on specific node
+- name: List all zone records on primary node
+  technitium_dns_get_record:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    name: "test-getrecord.local"
+    zone: "test-getrecord.local"
+    node: "cluster-primary01.example.com"
+    listZone: true
+    validate_certs: no
+  register: get_zone_records
+
+- name: Assert zone records retrieved successfully
+  assert:
+    that:
+      - not get_zone_records.failed
+      - get_zone_records.records | length >= 2
+    fail_msg: "Listing zone records on primary node should succeed"
+
+# Cleanup
+- name: Delete test zone
+  technitium_dns_delete_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-getrecord.local"
+    validate_certs: no
+  ignore_errors: yes
+
+- name: Include setup_cluster_testing_environment for teardown
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

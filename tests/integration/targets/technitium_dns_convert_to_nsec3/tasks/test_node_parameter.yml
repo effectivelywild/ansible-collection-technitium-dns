@@ -24,7 +24,7 @@
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-convertnsec3.local"
-    node: "cluster_primary01"
+    node: "cluster-primary01.example.com"
     algorithm: "ECDSA"
     curve: "P256"
     nxProof: "NSEC"
@@ -37,7 +37,7 @@
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-convertnsec3.local"
-    node: "cluster_primary01"
+    node: "cluster-primary01.example.com"
     validate_certs: no
   register: convert_to_nsec3_primary
 
@@ -55,7 +55,7 @@
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-convertnsec3.local"
-    node: "cluster_primary01"
+    node: "cluster-primary01.example.com"
     validate_certs: no
   register: dnssec_props_primary
 
@@ -73,7 +73,7 @@
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "test-convertnsec3.local"
-    node: "cluster_primary01"
+    node: "cluster-primary01.example.com"
     validate_certs: no
   register: convert_to_nsec3_idempotent
 

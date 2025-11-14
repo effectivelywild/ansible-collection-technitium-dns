@@ -58,6 +58,13 @@ options:
         required: false
         type: bool
         default: false
+    node:
+        description:
+            - Cluster node to get records from (cluster environments only)
+            - Specify the FQDN of the target cluster node
+        required: false
+        type: str
+        version_added: "0.2.0"
 '''
 
 EXAMPLES = r'''
@@ -235,6 +242,7 @@ class GetRecordsModule(TechnitiumModule):
         **TechnitiumModule.get_common_argument_spec(),
         name=dict(type='str', required=True, aliases=['domain']),
         zone=dict(type='str', required=False),
+        node=dict(type='str', required=False),
         listZone=dict(type='bool', required=False, default=False)
     )
     module_kwargs = dict(
@@ -262,6 +270,8 @@ class GetRecordsModule(TechnitiumModule):
         data = self.request('/api/zones/records/get', params=query)
         if data.get('status') != 'ok':
             error_msg = data.get('errorMessage') or "Unknown error"
+            if 'No such node exists' in error_msg:
+                self.fail_json(msg=f"Invalid node parameter: {error_msg}", api_response=data)
             self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)
 
         records = data.get('response', {}).get('records', [])
