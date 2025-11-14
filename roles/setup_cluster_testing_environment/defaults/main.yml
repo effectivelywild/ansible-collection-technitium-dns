@@ -26,3 +26,8 @@ container_suffix: .example.com
 debug: false
 
 create_var_file: true
+
+# Cluster initialization settings
+initialize_cluster: false  # Set to true to initialize a 3-node cluster after setup
+cluster_name: "test-cluster"  # Name of the cluster to create
+cluster_domain: "example.com"  # Domain name for the cluster

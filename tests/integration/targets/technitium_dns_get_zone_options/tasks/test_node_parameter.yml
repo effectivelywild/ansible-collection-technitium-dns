@@ -1,12 +1,13 @@
 ---
 # Integration tests for technitium_dns_get_zone_options node parameter (cluster support)
 
-# Setup testing environment
+# Setup testing environment with cluster initialization
 - name: Include setup_cluster_testing_environment for setup
   ansible.builtin.include_role:
     name: effectivelywild.technitium_dns.setup_cluster_testing_environment
   vars:
     action: "setup"
+    initialize_cluster: true
 
 # Setup: Create a test zone on primary
 - name: Create test zone on primary node

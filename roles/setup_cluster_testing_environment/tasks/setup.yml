@@ -168,3 +168,8 @@
   ansible.builtin.debug:
     var: cat_result
   when: debug | default(false)
+
+# Initialize cluster if requested
+- name: Initialize cluster
+  include_tasks: init_cluster.yml
+  when: initialize_cluster | default(false)

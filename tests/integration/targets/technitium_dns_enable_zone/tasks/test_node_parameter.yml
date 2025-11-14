@@ -6,6 +6,7 @@
     name: effectivelywild.technitium_dns.setup_cluster_testing_environment
   vars:
     action: "setup"
+    initialize_cluster: true
 
 # Setup: Create and disable a zone on primary for testing
 - name: Create test zone on primary node

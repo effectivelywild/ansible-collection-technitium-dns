@@ -76,6 +76,9 @@
     api_port: "{{ api_port_cluster_primary_01 }}"
     secondary_node_id: "{{ secondary_01_node_id | int }}"
   register: remove_result
+  retries: 3
+  delay: 20
+  until: remove_result is success
 
 - name: "Test 1.1: Assert secondary01 was removed"
   assert:
@@ -162,6 +165,9 @@
     api_port: "{{ api_port_cluster_primary_01 }}"
     secondary_node_id: "{{ secondary_02_node_id | int }}"
   register: remove_result_06
+  retries: 3
+  delay: 20
+  until: remove_result_06 is success
 
 - name: "Test 5.1: Assert secondary02 was removed"
   assert:

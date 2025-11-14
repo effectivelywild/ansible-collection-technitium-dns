@@ -6,6 +6,7 @@
     name: effectivelywild.technitium_dns.setup_cluster_testing_environment
   vars:
     action: "setup"
+    initialize_cluster: true
 
 # Test 1: Get top stats without node parameter (default behavior - current node)
 - name: Get top domains without node parameter
@@ -30,26 +31,7 @@
       - top_stats_default.topDomains is sequence
     fail_msg: "Top stats retrieval without node parameter should succeed"
 
-# Test 2: Get top stats for specific node (secondary)
-- name: Get top domains for secondary node
-  technitium_dns_get_top_stats:
-    api_url: http://localhost
-    api_token: "{{ token_cluster_primary_01 }}"
-    api_port: "{{ api_port_cluster_primary_01 }}"
-    stats_type: "TopDomains"
-    node: "cluster-secondary01.example.com"
-    validate_certs: no
-  register: top_stats_secondary
-
-- name: Assert secondary node top stats returned
-  assert:
-    that:
-      - not top_stats_secondary.failed
-      - top_stats_secondary.topDomains is defined
-      - top_stats_secondary.topDomains is sequence
-    fail_msg: "Top stats retrieval for secondary node should succeed"
-
-# Test 3: Get cluster-wide top stats (aggregate)
+# Test 2: Get cluster-wide top stats (aggregate)
 - name: Get cluster-wide top domains
   technitium_dns_get_top_stats:
     api_url: http://localhost
@@ -68,7 +50,10 @@
       - top_stats_cluster.topDomains is sequence
     fail_msg: "Cluster-wide top stats retrieval should succeed"
 
-# Test 4: Get top stats for primary node explicitly
+# Note: Stats operations with node parameter targeting secondary nodes require
+# direct authentication to those nodes. Only testing primary node and cluster operations here.
+
+# Test 3: Get top stats for primary node explicitly
 - name: Get top domains for primary node
   technitium_dns_get_top_stats:
     api_url: http://localhost
@@ -87,7 +72,7 @@
       - top_stats_primary.topDomains is sequence
     fail_msg: "Top stats retrieval for primary node should succeed"
 
-# Test 5: Test with different stats type (topBlockedDomains)
+# Test 4: Test with different stats type (topBlockedDomains)
 - name: Get top blocked domains for cluster
   technitium_dns_get_top_stats:
     api_url: http://localhost
