@@ -313,4 +313,7 @@
   loop: "{{ rollover_dnskey_test_zones }}"
   loop_control:
     loop_var: zone_item
-    label: "cleanup: {{ zone_item.zone }}"
+    label: "cleanup: {{ zone_item.zone }}"# Test node parameter (cluster support)
+- name: "Test node parameter support"
+  include_tasks: test_node_parameter.yml
+

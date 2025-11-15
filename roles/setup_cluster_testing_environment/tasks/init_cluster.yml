@@ -9,13 +9,16 @@
     api_port: "{{ api_port_cluster_primary_01 }}"
     cluster_domain: "{{ cluster_domain }}"
     primary_node_ip_address: "{{ cluster_primary01_ip }}"
-    validate_certs: no
   register: init_cluster_result
 
 - name: Debug init cluster result
   debug:
     var: init_cluster_result
   when: debug | default(false)
+
+- name: Wait for initial cluster to stabilize
+  ansible.builtin.pause:
+    seconds: 30
 
 - name: Join secondary node 1 to cluster
   effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
@@ -28,12 +31,31 @@
     primary_node_username: "{{ admin_username }}"
     primary_node_password: "{{ admin_password }}"
     ignore_certificate_errors: true
-    validate_certs: no
   register: join_cluster_secondary_01_result
+  retries: 3
+  delay: 20
+  until: join_cluster_secondary_01_result is success
 
 - name: Debug join cluster secondary 01 result
   debug:
     var: join_cluster_secondary_01_result
+  when: debug | default(false)
+
+- name: Verify cluster state is connected for secondary01
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    validate_certs: no
+  register: cluster_state
+  retries: 3
+  delay: 15
+  until: cluster_state.cluster_state.clusterNodes | selectattr('name', 'equalto', 'cluster-secondary01' ~ '.' ~ cluster_domain) | map(attribute='state') | first == "Connected"
+  ignore_errors: true
+
+- name: Debug cluster state
+  debug:
+    var: cluster_state
   when: debug | default(false)
 
 - name: Join secondary node 2 to cluster
@@ -47,30 +69,56 @@
     primary_node_username: "{{ admin_username }}"
     primary_node_password: "{{ admin_password }}"
     ignore_certificate_errors: true
-    validate_certs: no
   register: join_cluster_secondary_02_result
+  retries: 3
+  delay: 20
+  until: join_cluster_secondary_02_result is success
 
 - name: Debug join cluster secondary 02 result
   debug:
     var: join_cluster_secondary_02_result
   when: debug | default(false)
 
-- name: Wait for cluster to stabilize
-  pause:
-    seconds: 5
-
-- name: Verify cluster state
+- name: Verify cluster state is connected for secondary02
   effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
     api_url: http://localhost
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     validate_certs: no
   register: cluster_state
+  retries: 3
+  delay: 15
+  until: cluster_state.cluster_state.clusterNodes | selectattr('name', 'equalto', 'cluster-secondary02' ~ '.' ~ cluster_domain) | map(attribute='state') | first == "Connected"
+  ignore_errors: true
 
 - name: Debug cluster state
   debug:
     var: cluster_state
   when: debug | default(false)
+
+- name: "Login to secondary01 to create new token (join_init clears tokens)"
+  effectivelywild.technitium_dns.technitium_dns_login:
+    api_url: "http://localhost"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+    username: "{{ admin_username }}"
+    password: "{{ admin_password }}"
+  register: secondary01_login
+
+- name: "Update token fact for secondary01"
+  ansible.builtin.set_fact:
+    token_cluster_secondary_01: "{{ secondary01_login.token }}"
+
+- name: "Login to secondary02 to create new token (join_init clears tokens)"
+  effectivelywild.technitium_dns.technitium_dns_login:
+    api_url: "http://localhost"
+    api_port: "{{ api_port_cluster_secondary_02 }}"
+    username: "{{ admin_username }}"
+    password: "{{ admin_password }}"
+  register: secondary02_login
+
+- name: "Update token fact for secondary02"
+  ansible.builtin.set_fact:
+    token_cluster_secondary_02: "{{ secondary02_login.token }}"
 
 - name: Assert cluster has 3 members
   assert:

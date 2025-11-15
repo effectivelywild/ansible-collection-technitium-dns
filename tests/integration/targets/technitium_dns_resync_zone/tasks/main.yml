@@ -143,4 +143,7 @@
   loop_control:
     loop_var: zone_item
     label: "{{ zone_item.zone }}"
-  ignore_errors: true
+  ignore_errors: true# Test node parameter (cluster support)
+- name: "Test node parameter support"
+  include_tasks: test_node_parameter.yml
+

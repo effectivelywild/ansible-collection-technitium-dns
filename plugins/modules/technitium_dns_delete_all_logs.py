@@ -40,6 +40,13 @@ options:
         required: false
         type: bool
         default: true
+    node:
+        description:
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
 '''
 
 EXAMPLES = r'''
@@ -54,6 +61,12 @@ EXAMPLES = r'''
     api_url: "http://localhost"
     api_token: "myapitoken"
   when: cleanup_logs | default(false) | bool
+
+- name: Delete all logs on a specific cluster node
+  technitium_dns_delete_all_logs:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    node: "node1.cluster.example.com"
 '''
 
 RETURN = r'''
@@ -79,12 +92,17 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 
 class DeleteAllLogsModule(TechnitiumModule):
     argument_spec = dict(
-        **TechnitiumModule.get_common_argument_spec()
+        **TechnitiumModule.get_common_argument_spec(),
+        node=dict(type='str', required=False)
     )
 
     def run(self):
         # Delete all log files from the API
-        data = self.request('/api/logs/deleteAll')
+        params = {}
+        if self.params.get('node'):
+            params['node'] = self.params['node']
+
+        data = self.request('/api/logs/deleteAll', params=params)
         self.validate_api_response(data)
 
         self.exit_json(

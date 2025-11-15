@@ -335,3 +335,7 @@
       - uninstall_app_result.changed or "'not installed' in (uninstall_app_result.msg | lower)"
     fail_msg: "App uninstallation should have succeeded"
   when: query_logs_app is defined
+
+# Test node parameter (cluster support)
+- name: "Test node parameter support"
+  include_tasks: test_node_parameter.yml
