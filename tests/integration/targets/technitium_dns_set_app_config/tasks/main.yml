@@ -33,6 +33,9 @@
   register: install_result
   ignore_errors: true
   when: store_apps_list.store_apps | selectattr('name', 'equalto', 'Query Logs (Sqlite)') | list | length > 0
+  retries: 3
+  delay: 30
+  until: install_result is success
 
 - name: "Pause after install"
   pause:
@@ -47,6 +50,9 @@
     validate_certs: "{{ validate_certs }}"
     name: "Query Logs (Sqlite)"
   register: initial_config_result
+  retries: 3
+  delay: 30
+  until: initial_config_result is success
 
 - name: "Debug initial config"
   debug:

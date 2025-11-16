@@ -70,6 +70,10 @@
     api_port: "{{ api_port_cluster_primary_01 }}"
   register: delete_result
 
+- name: Wait for things to stabilize after deletion
+  ansible.builtin.pause:
+    seconds: 30
+
 - name: "Test 4.1: Initialize cluster in check mode"
   effectivelywild.technitium_dns.technitium_dns_init_cluster:
     api_url: http://localhost

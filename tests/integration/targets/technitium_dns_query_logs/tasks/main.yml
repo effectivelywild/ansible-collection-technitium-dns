@@ -47,6 +47,9 @@
     name: "{{ query_logs_app.name }}"
     url: "{{ query_logs_app.url }}"
   register: install_app_result
+  retries: 3
+  delay: 30
+  until: install_app_result is success
 
 - name: "Debug install app result"
   debug:
