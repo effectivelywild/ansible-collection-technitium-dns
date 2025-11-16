@@ -123,18 +123,3 @@
       - "'already enabled' in enable_zone_idempotent.msg | lower"
     fail_msg: "Enabling already enabled zone should be idempotent"
 
-# Cleanup
-- name: Delete test zone
-  technitium_dns_delete_zone:
-    api_url: http://localhost
-    api_token: "{{ token_cluster_primary_01 }}"
-    api_port: "{{ api_port_cluster_primary_01 }}"
-    zone: "test-enable.local"
-    validate_certs: no
-  ignore_errors: yes
-
-- name: Teardown test cluster
-  ansible.builtin.include_role:
-    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
-  vars:
-    action: "teardown"

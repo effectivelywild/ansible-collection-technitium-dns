@@ -65,7 +65,6 @@
       - stats_primary.stats.totalQueries is defined
     fail_msg: "Stats retrieval for primary node should succeed"
 
-# Cleanup
 - name: Include setup_cluster_testing_environment for teardown
   ansible.builtin.include_role:
     name: effectivelywild.technitium_dns.setup_cluster_testing_environment

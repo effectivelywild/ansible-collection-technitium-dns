@@ -68,16 +68,6 @@
       - zone_info_default.zones[0].type == zone_info_primary.zones[0].type
     fail_msg: "Zone info should match between default and explicit node calls"
 
-# Cleanup
-- name: Delete test zone
-  technitium_dns_delete_zone:
-    api_url: http://localhost
-    api_token: "{{ token_cluster_primary_01 }}"
-    api_port: "{{ api_port_cluster_primary_01 }}"
-    zone: "test-zoneinfo.local"
-    validate_certs: no
-  ignore_errors: yes
-
 - name: Include setup_cluster_testing_environment for teardown
   ansible.builtin.include_role:
     name: effectivelywild.technitium_dns.setup_cluster_testing_environment

@@ -62,7 +62,6 @@
       - "'No such node exists' in delete_log_invalid_node.msg"
     fail_msg: "Delete log with invalid node name should fail with appropriate error"
 
-# Cleanup
 - name: Include setup_cluster_testing_environment for teardown
   ansible.builtin.include_role:
     name: effectivelywild.technitium_dns.setup_cluster_testing_environment

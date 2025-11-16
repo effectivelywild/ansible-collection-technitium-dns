@@ -85,16 +85,6 @@
       - not convert_to_nsec_idempotent.changed
     fail_msg: "Converting already NSEC zone should be idempotent"
 
-# Cleanup
-- name: Delete test zone
-  technitium_dns_delete_zone:
-    api_url: http://localhost
-    api_token: "{{ token_cluster_primary_01 }}"
-    api_port: "{{ api_port_cluster_primary_01 }}"
-    zone: "test-convertnsec.local"
-    validate_certs: no
-  ignore_errors: yes
-
 - name: Include setup_cluster_testing_environment for teardown
   ansible.builtin.include_role:
     name: effectivelywild.technitium_dns.setup_cluster_testing_environment

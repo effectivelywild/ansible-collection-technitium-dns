@@ -91,9 +91,3 @@
       - top_blocked_cluster.topBlockedDomains is sequence
     fail_msg: "Cluster-wide top blocked domains retrieval should succeed"
 
-# Cleanup
-- name: Teardown test cluster
-  ansible.builtin.include_role:
-    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
-  vars:
-    action: "teardown"

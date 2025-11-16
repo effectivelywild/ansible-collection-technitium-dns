@@ -62,9 +62,3 @@
       - stats_after_delete.stats is defined
     fail_msg: "Should be able to retrieve stats after deletion"
 
-# Cleanup
-- name: Teardown test cluster
-  ansible.builtin.include_role:
-    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
-  vars:
-    action: "teardown"

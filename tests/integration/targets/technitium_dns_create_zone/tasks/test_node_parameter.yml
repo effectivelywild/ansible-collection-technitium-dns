@@ -89,27 +89,6 @@
       - create_forwarder_zone.changed
     fail_msg: "Create forwarder zone on primary node should succeed"
 
-# Cleanup
-- name: Delete Primary test zone
-  technitium_dns_delete_zone:
-    api_url: http://localhost
-    api_token: "{{ token_cluster_primary_01 }}"
-    api_port: "{{ api_port_cluster_primary_01 }}"
-    zone: "test-createzone-primary.local"
-    node: "cluster-primary01.example.com"
-    validate_certs: no
-  ignore_errors: yes
-
-- name: Delete Forwarder test zone
-  technitium_dns_delete_zone:
-    api_url: http://localhost
-    api_token: "{{ token_cluster_primary_01 }}"
-    api_port: "{{ api_port_cluster_primary_01 }}"
-    zone: "test-createzone-forwarder.local"
-    node: "cluster-primary01.example.com"
-    validate_certs: no
-  ignore_errors: yes
-
 - name: Include setup_cluster_testing_environment for teardown
   ansible.builtin.include_role:
     name: effectivelywild.technitium_dns.setup_cluster_testing_environment
