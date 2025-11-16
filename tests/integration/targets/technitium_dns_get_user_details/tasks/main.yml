@@ -137,3 +137,7 @@
     validate_certs: "{{ validate_certs }}"
     username: "{{ test_user_creation.api_response.response.username }}"
   ignore_errors: true
+
+# Test node parameter (cluster support)
+- name: "Test node parameter support"
+  include_tasks: test_node_parameter.yml

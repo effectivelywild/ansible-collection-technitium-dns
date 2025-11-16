@@ -1,0 +1,89 @@
+---
+# Integration tests for technitium_dns_set_permission_details node parameter (cluster support)
+
+# Setup testing environment with cluster initialization
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+    initialize_cluster: true
+
+# Test 1: Set permissions on primary node with explicit node parameter
+- name: Set Dashboard permissions on primary node
+  technitium_dns_set_permission_details:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    node: "cluster-primary01.example.com"
+    section: "Dashboard"
+    groupPermissions:
+      - name: "DNS Administrators"
+        canView: true
+        canModify: true
+        canDelete: false
+    validate_certs: no
+  register: set_permissions_primary
+
+- name: Assert set permissions on primary node succeeded
+  assert:
+    that:
+      - not set_permissions_primary.failed
+      - set_permissions_primary.api_response is defined
+      - set_permissions_primary.api_response.status == "ok"
+    fail_msg: "Set permissions on primary node should succeed"
+
+# Test 2: Verify permissions were set correctly
+- name: Get Dashboard permission details to verify
+  technitium_dns_get_permission_details:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    node: "cluster-primary01.example.com"
+    section: "Dashboard"
+    validate_certs: no
+  register: verify_permissions
+
+- name: Verify DNS Administrators group has correct permissions
+  assert:
+    that:
+      - verify_permissions.permission_details is defined
+      - verify_permissions.permission_details.section == "Dashboard"
+      - dns_admin_perms is defined
+      - dns_admin_perms.name == "DNS Administrators"
+      - dns_admin_perms.canView == true
+      - dns_admin_perms.canModify == true
+      - dns_admin_perms.canDelete == false
+    fail_msg: "DNS Administrators group should have correct Dashboard permissions"
+  vars:
+    dns_admin_perms: "{{ verify_permissions.permission_details.groupPermissions | selectattr('name', 'equalto', 'DNS Administrators') | first }}"
+
+# Test 3: Negative test - invalid node name
+- name: Try to set permissions with invalid node name
+  technitium_dns_set_permission_details:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    node: "invalid-node-name-xyz"
+    section: "Dashboard"
+    groupPermissions:
+      - name: "DNS Administrators"
+        canView: true
+        canModify: true
+        canDelete: false
+    validate_certs: no
+  register: set_permissions_invalid_node
+  ignore_errors: true
+
+- name: Assert set permissions with invalid node fails
+  assert:
+    that:
+      - set_permissions_invalid_node.failed
+      - "'No such node exists' in set_permissions_invalid_node.msg"
+    fail_msg: "Set permissions with invalid node name should fail with appropriate error"
+
+- name: Include setup_cluster_testing_environment for teardown
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

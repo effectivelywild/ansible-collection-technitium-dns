@@ -64,7 +64,7 @@
   ignore_errors: true
 
 - name: "Cleanup: Delete orphaned Secondaries from Primary if exist"
-  effectivelywild.technitium_dns.technitium_dns_delete_secondary:
+  effectivelywild.technitium_dns.technitium_dns_delete_secondary_node:
     api_url: "{{ technitium_api_url_4 }}"
     api_token: "{{ technitium_api_token_4 }}"
     api_port: "{{ technitium_api_port_4 }}"

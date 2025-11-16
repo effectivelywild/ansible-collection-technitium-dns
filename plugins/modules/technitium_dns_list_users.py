@@ -39,6 +39,13 @@ options:
             - Base URL for the Technitium DNS API
         required: true
         type: str
+    node:
+        description:
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
     validate_certs:
         description:
             - Whether to validate SSL certificates when making API requests.
@@ -56,6 +63,13 @@ EXAMPLES = r'''
 
 - debug:
     var: result.users
+
+- name: List users on a specific cluster node
+  technitium_dns_list_users:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    node: "node1.cluster.example.com"
+  register: result
 
 - name: Check if a specific user exists
   technitium_dns_list_users:
@@ -129,12 +143,18 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 
 class ListUsersModule(TechnitiumModule):
     argument_spec = dict(
+        node=dict(type='str', required=False),
         **TechnitiumModule.get_common_argument_spec()
     )
 
     def run(self):
+        # Build API request parameters
+        params = {}
+        if self.params.get('node'):
+            params['node'] = self.params['node']
+
         # Fetch all users from the API
-        data = self.request('/api/admin/users/list')
+        data = self.request('/api/admin/users/list', params=params)
         self.validate_api_response(data)
 
         users = data.get('response', {}).get('users', [])

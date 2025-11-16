@@ -6,29 +6,28 @@ __metaclass__ = type
 
 DOCUMENTATION = r'''
 ---
-module: technitium_dns_remove_secondary
-short_description: Remove a Secondary node from the cluster
+module: technitium_dns_delete_secondary_node
+short_description: Immediately delete a Secondary node from the cluster
 version_added: "1.0.0"
 description:
-    - Ask a Secondary node to leave the cluster gracefully.
-    - The Secondary node will initiate the Leave Cluster process.
-    - This is equivalent to running leave_cluster on the Secondary node itself.
+    - Immediately delete a Secondary node entry from the cluster without asking it to leave gracefully.
+    - The Secondary node will not be notified and will become orphaned.
+    - Use this when the Secondary node is unreachable or unresponsive.
     - This call can only be made at the Primary node.
 author:
     - Frank Muise (@effectivelywild)
 requirements:
     - Technitium DNS Server v14.0 or later
 seealso:
-  - module: effectivelywild.technitium_dns.technitium_dns_delete_secondary_node
-    description: Immediately delete a Secondary node without asking it to leave
-  - module: effectivelywild.technitium_dns.technitium_dns_leave_cluster
-    description: Leave cluster (run on Secondary node)
+  - module: effectivelywild.technitium_dns.technitium_dns_remove_secondary
+    description: Gracefully remove a Secondary node (asks it to leave)
   - module: effectivelywild.technitium_dns.technitium_dns_get_cluster_state
     description: Get cluster state information
 notes:
     - This operation requires Administration Delete permission.
     - This can only be run on the Primary node.
-    - The Secondary node will be asked to leave gracefully.
+    - The Secondary node will NOT be notified and will become orphaned.
+    - Use remove_secondary for graceful removal when possible.
 options:
     api_port:
         description:
@@ -54,25 +53,26 @@ options:
         default: true
     secondary_node_id:
         description:
-            - The Secondary node ID which needs to be asked to leave the cluster.
+            - The Secondary node ID which must be deleted from the cluster immediately.
             - This is the numeric ID visible in cluster state.
         required: true
         type: int
 '''
 
 EXAMPLES = r'''
-- name: Get cluster state to find Secondary node ID
+- name: Get cluster state to find unreachable Secondary node
   effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
     api_url: "http://localhost"
     api_token: "myapitoken"
   register: cluster_state
 
-- name: Remove Secondary node gracefully
-  effectivelywild.technitium_dns.technitium_dns_remove_secondary:
+- name: Delete unreachable Secondary node immediately
+  effectivelywild.technitium_dns.technitium_dns_delete_secondary_node:
     api_url: "http://localhost"
     api_token: "myapitoken"
     secondary_node_id: 811905692
   register: result
+  when: cluster_state.cluster_state.clusterNodes | selectattr('id', 'equalto', 811905692) | selectattr('state', 'equalto', 'Unreachable') | list | length > 0
 
 - name: Display updated cluster state
   debug:
@@ -81,7 +81,7 @@ EXAMPLES = r'''
 
 RETURN = r'''
 cluster_state:
-    description: Complete cluster state after removing Secondary node
+    description: Complete cluster state after deleting Secondary node
     type: dict
     returned: always
     contains:
@@ -126,7 +126,7 @@ cluster_state:
             returned: always
             sample: 60
         clusterNodes:
-            description: List of nodes in the cluster (Secondary node should be removed)
+            description: List of nodes in the cluster (Secondary node should be deleted)
             type: list
             returned: always
             elements: dict
@@ -144,13 +144,13 @@ msg:
     description: Status message
     type: str
     returned: always
-    sample: "Secondary node removed successfully"
+    sample: "Secondary node deleted successfully"
 '''
 
 from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 
-class RemoveSecondaryModule(TechnitiumModule):
+class DeleteSecondaryModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
         secondary_node_id=dict(type='int', required=True)
@@ -171,10 +171,10 @@ class RemoveSecondaryModule(TechnitiumModule):
         self.validate_cluster_node_type(
             cluster_state,
             'Primary',
-            "This is not a Primary node. Secondary nodes can only be removed from the Primary node."
+            "This is not a Primary node. Secondary nodes can only be deleted from the Primary node."
         )
 
-        # Find and validate the Secondary node
+        # Find and validate the Secondary node (will fail if wrong type, exit if not found)
         secondary_node = self.get_node_by_id(
             cluster_state,
             secondary_node_id,
@@ -182,7 +182,7 @@ class RemoveSecondaryModule(TechnitiumModule):
             fail_if_not_found=False
         )
 
-        # Idempotent check - if not found, nothing to remove
+        # Idempotent check - if not found, nothing to delete
         if not secondary_node:
             self.exit_json(
                 changed=False,
@@ -194,30 +194,30 @@ class RemoveSecondaryModule(TechnitiumModule):
         if self.check_mode:
             self.exit_json(
                 changed=True,
-                msg=f"Would remove Secondary node {secondary_node_id} ({secondary_node.get('name')})"
+                msg=f"Would delete Secondary node {secondary_node_id} ({secondary_node.get('name')})"
             )
 
-        # Remove the Secondary node
-        remove_params = {
+        # Delete the Secondary node
+        delete_params = {
             'secondaryNodeId': secondary_node_id
         }
 
-        remove_data = self.request('/api/admin/cluster/primary/removeSecondary', params=remove_params, method='POST')
-        if remove_data.get('status') != 'ok':
-            error_msg = remove_data.get('errorMessage') or "Unknown error"
+        delete_data = self.request('/api/admin/cluster/primary/deleteSecondary', params=delete_params, method='POST')
+        if delete_data.get('status') != 'ok':
+            error_msg = delete_data.get('errorMessage') or "Unknown error"
             self.fail_json(
-                msg=f"Failed to remove Secondary node: {error_msg}",
-                api_response=remove_data
+                msg=f"Failed to delete Secondary node: {error_msg}",
+                api_response=delete_data
             )
 
-        cluster_state = remove_data.get('response', {})
+        cluster_state = delete_data.get('response', {})
         self.exit_json(
             changed=True,
             cluster_state=cluster_state,
-            msg=f"Secondary node {secondary_node_id} removed successfully"
+            msg=f"Secondary node {secondary_node_id} deleted successfully"
         )
 
 
 if __name__ == '__main__':
-    module = RemoveSecondaryModule()
+    module = DeleteSecondaryModule()
     module.run()

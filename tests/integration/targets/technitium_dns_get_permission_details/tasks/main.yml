@@ -205,3 +205,7 @@
       - zones_permissions_result_2.permission_details.section == zones_permissions_result.permission_details.section
       - zones_permissions_result_2.permission_details.groupPermissions | length == zones_permissions_result.permission_details.groupPermissions | length
     fail_msg: "Permission details should be consistent"
+
+# Test node parameter (cluster support)
+- name: "Test node parameter support"
+  include_tasks: test_node_parameter.yml
