@@ -54,11 +54,14 @@ options:
         required: false
         type: bool
         default: true
-    secondary_node_ip_address:
+    secondary_node_ip_addresses:
         description:
-            - The static IP address of this DNS server that will be accessible by all other nodes in the cluster.
+            - The static IP address(es) of this DNS server that will be accessible by all other nodes in the cluster.
+            - Accepts a list of IP addresses for nodes with multiple network interfaces.
+            - When multiple IPs are provided, they will be used for cluster communication.
         required: true
-        type: str
+        type: list
+        elements: str
     primary_node_url:
         description:
             - The web service HTTPS URL of the Primary node in the cluster.
@@ -95,21 +98,34 @@ options:
 '''
 
 EXAMPLES = r'''
-- name: Join DNS server to cluster as Secondary node
+- name: Join DNS server to cluster as Secondary node with single IP
   effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
     api_url: "http://localhost"
     api_token: "myapitoken"
-    secondary_node_ip_address: "192.168.10.101"
+    secondary_node_ip_addresses:
+      - "192.168.10.101"
     primary_node_url: "https://server1.example.com:53443/"
     primary_node_username: "admin"
     primary_node_password: "adminpassword"
   register: result
 
+- name: Join cluster with multiple IP addresses
+  effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    secondary_node_ip_addresses:
+      - "192.168.10.101"
+      - "10.0.1.101"
+    primary_node_url: "https://server1.example.com:53443/"
+    primary_node_username: "admin"
+    primary_node_password: "adminpassword"
+
 - name: Join cluster with self-signed certificate on primary
   effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
     api_url: "http://localhost"
     api_token: "myapitoken"
-    secondary_node_ip_address: "192.168.10.102"
+    secondary_node_ip_addresses:
+      - "192.168.10.102"
     primary_node_url: "https://server1.example.com:53443/"
     primary_node_ip_address: "192.168.10.5"
     ignore_certificate_errors: true
@@ -120,7 +136,8 @@ EXAMPLES = r'''
   effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
     api_url: "http://localhost"
     api_token: "myapitoken"
-    secondary_node_ip_address: "192.168.10.103"
+    secondary_node_ip_addresses:
+      - "192.168.10.103"
     primary_node_url: "https://server1.example.com:53443/"
     primary_node_username: "admin"
     primary_node_password: "adminpassword"
@@ -235,7 +252,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 class InitJoinClusterModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
-        secondary_node_ip_address=dict(type='str', required=True),
+        secondary_node_ip_addresses=dict(type='list', elements='str', required=True),
         primary_node_url=dict(type='str', required=True),
         primary_node_ip_address=dict(type='str', required=False),
         ignore_certificate_errors=dict(type='bool', required=False, default=False),
@@ -249,7 +266,8 @@ class InitJoinClusterModule(TechnitiumModule):
 
     def run(self):
         params = self.params
-        secondary_node_ip_address = params['secondary_node_ip_address']
+        ip_list = params['secondary_node_ip_addresses']
+        secondary_node_ip_addresses_str = ','.join(ip_list)
         primary_node_url = params['primary_node_url']
         primary_node_ip_address = params.get('primary_node_ip_address')
         ignore_certificate_errors = params.get('ignore_certificate_errors', False)
@@ -286,9 +304,9 @@ class InitJoinClusterModule(TechnitiumModule):
                 msg=f"Would join cluster at '{primary_node_url}'"
             )
 
-        # Build join parameters
+        # Build join parameters - use new API parameter name
         join_params = {
-            'secondaryNodeIpAddress': secondary_node_ip_address,
+            'secondaryNodeIpAddresses': secondary_node_ip_addresses_str,
             'primaryNodeUrl': primary_node_url,
             'primaryNodeUsername': primary_node_username,
             'primaryNodePassword': primary_node_password

@@ -41,7 +41,7 @@
     that:
       - admin_user.username is defined
       - admin_user.username == 'admin'
-      - admin_user.displayName == 'admin'
+      - admin_user.displayName == 'Administrator'
       - admin_user.disabled is defined
       - admin_user.disabled is boolean
       - admin_user.previousSessionLoggedOn is defined

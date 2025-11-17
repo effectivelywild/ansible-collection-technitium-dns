@@ -13,7 +13,8 @@
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     cluster_domain: "example.com"
-    primary_node_ip_address: "{{ primary_node_ip_address }}"
+    primary_node_ip_addresses:
+      - "{{ primary_node_ip_address }}"
   register: init_result
 
 - name: "Test 1.1: Assert cluster was initialized"
@@ -34,6 +35,10 @@
     api_port: "{{ api_port_cluster_primary_01 }}"
   register: get_state_result
 
+- name: debug get_state_result
+  ansible.builtin.debug:
+    var: get_state_result
+
 - name: "Test 2.1: Assert cluster state matches expected values"
   assert:
     that:
@@ -42,7 +47,7 @@
       - get_state_result.cluster_state.clusterDomain == "example.com"
       - get_state_result.cluster_state.clusterNodes | length == 1
       - get_state_result.cluster_state.clusterNodes[0].type == "Primary"
-      - get_state_result.cluster_state.clusterNodes[0].ipAddress == primary_node_ip_address
+      - primary_node_ip_address in get_state_result.cluster_state.clusterNodes[0].ipAddresses
       - get_state_result.cluster_state.clusterNodes[0].state == "Self"
 
 # Test 3: Idempotency - Initialize cluster again with same parameters
@@ -52,7 +57,8 @@
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     cluster_domain: "example.com"
-    primary_node_ip_address: "{{ primary_node_ip_address }}"
+    primary_node_ip_addresses:
+      - "{{ primary_node_ip_address }}"
   register: idempotent_result
 
 - name: "Test 3.1: Assert no changes made (idempotent)"
@@ -80,7 +86,8 @@
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     cluster_domain: "check-mode-cluster.example.com"
-    primary_node_ip_address: "{{ primary_node_ip_address }}"
+    primary_node_ip_addresses:
+      - "{{ primary_node_ip_address }}"
   check_mode: true
   register: check_mode_result
 
@@ -110,7 +117,8 @@
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     cluster_domain: "negative-test.example.com"
-    primary_node_ip_address: "{{ primary_node_ip_address }}"
+    primary_node_ip_addresses:
+      - "{{ primary_node_ip_address }}"
   register: negative_init_result
 
 - name: "Test 5.1: Try to change cluster domain (should fail)"
@@ -119,7 +127,8 @@
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     cluster_domain: "different-domain.example.com"
-    primary_node_ip_address: "{{ primary_node_ip_address }}"
+    primary_node_ip_addresses:
+      - "{{ primary_node_ip_address }}"
   register: negative_result
   ignore_errors: true
 
@@ -138,7 +147,8 @@
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     cluster_domain: "negative-test.example.com"
-    primary_node_ip_address: "192.168.99.99"
+    primary_node_ip_addresses: 
+      - "192.168.99.99"
   register: negative_ip_result
   ignore_errors: true
 

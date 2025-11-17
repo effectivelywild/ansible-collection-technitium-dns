@@ -13,7 +13,8 @@
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     cluster_domain: "example.com"
-    primary_node_ip_address: "{{ primary_node_ip_address }}"
+    primary_node_ip_addresses:
+      - "{{ primary_node_ip_address }}"
   register: init_primary_result
 
 - name: "Setup: Wait for cluster to initialize"
@@ -26,7 +27,8 @@
     api_url: "http://localhost"
     api_token: "{{ token_cluster_secondary_01 }}"
     api_port: "{{ api_port_cluster_secondary_01 }}"
-    secondary_node_ip_address: "{{ secondary_node_ip_address_01 }}"
+    secondary_node_ip_addresses:
+      - "{{ secondary_node_ip_address_01 }}"
     primary_node_ip_address: "{{ primary_node_ip_address }}"
     primary_node_url: "https://cluster_primary01{{ container_suffix }}:{{ https_port_cluster_primary_01 }}/"
     primary_node_username: "{{ admin_username }}"
@@ -57,7 +59,7 @@
     that:
       - primary_state.cluster_state.clusterNodes | length == 2
       - primary_state.cluster_state.clusterNodes | selectattr('type', 'equalto', 'Secondary') | list | length == 1
-      - primary_state.cluster_state.clusterNodes | selectattr('ipAddress', 'equalto', secondary_node_ip_address_01) | list | length == 1
+      - primary_state.cluster_state.clusterNodes | map(attribute='ipAddresses') | select('contains', secondary_node_ip_address_01) | list | length == 1
 
 # Test 3: Login to Secondary to get new token (joining invalidates token)
 - name: "Test 3: Login to Secondary node to get valid token"
@@ -96,7 +98,8 @@
     api_url: "http://localhost"
     api_token: "{{ token_cluster_secondary_02 }}"
     api_port: "{{ api_port_cluster_secondary_02 }}"
-    secondary_node_ip_address: "{{ secondary_node_ip_address_02 }}"
+    secondary_node_ip_addresses:
+      - "{{ secondary_node_ip_address_02 }}"
     primary_node_ip_address: "{{ primary_node_ip_address }}"
     primary_node_url: "https://cluster_primary01{{ container_suffix }}:{{ https_port_cluster_primary_01 }}/"
     primary_node_username: "{{ admin_username }}"
@@ -125,8 +128,8 @@
       - primary_state_multi.cluster_state.clusterNodes | length == 3
       - primary_state_multi.cluster_state.clusterNodes | selectattr('type', 'equalto', 'Primary') | list | length == 1
       - primary_state_multi.cluster_state.clusterNodes | selectattr('type', 'equalto', 'Secondary') | list | length == 2
-      - primary_state_multi.cluster_state.clusterNodes | selectattr('ipAddress', 'equalto', secondary_node_ip_address_01) | list | length == 1
-      - primary_state_multi.cluster_state.clusterNodes | selectattr('ipAddress', 'equalto', secondary_node_ip_address_02) | list | length == 1
+      - primary_state_multi.cluster_state.clusterNodes | map(attribute='ipAddresses') | select('contains', secondary_node_ip_address_01) | list | length == 1
+      - primary_state_multi.cluster_state.clusterNodes | map(attribute='ipAddresses') | select('contains', secondary_node_ip_address_02) | list | length == 1
 
 - name: "Test 4a.4: Wait for cluster with multiple Secondaries to sync"
   ansible.builtin.pause:
@@ -138,7 +141,8 @@
     api_url: "http://localhost"
     api_token: "{{ token_cluster_secondary_01 }}"
     api_port: "{{ api_port_cluster_secondary_01 }}"
-    secondary_node_ip_address: "{{ secondary_node_ip_address_01 }}"
+    secondary_node_ip_addresses:
+      - "{{ secondary_node_ip_address_01 }}"
     primary_node_ip_address: "{{ primary_node_ip_address }}"
     primary_node_url: "https://cluster_primary01{{ container_suffix }}:{{ https_port_cluster_primary_01 }}/"
     primary_node_username: "{{ admin_username }}"
@@ -182,7 +186,8 @@
     api_url: "http://localhost"
     api_token: "{{ token_cluster_secondary_01 }}"
     api_port: "{{ api_port_cluster_secondary_01 }}"
-    secondary_node_ip_address: "{{ secondary_node_ip_address_01 }}"
+    secondary_node_ip_addresses:
+      - "{{ secondary_node_ip_address_01 }}"
     primary_node_ip_address: "{{ primary_node_ip_address }}"
     primary_node_url: "https://cluster_primary01{{ container_suffix }}:{{ https_port_cluster_primary_01 }}/"
     primary_node_username: "{{ admin_username }}"
@@ -216,7 +221,8 @@
     api_url: "http://localhost"
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
-    secondary_node_ip_address: "{{ primary_node_ip_address }}"
+    secondary_node_ip_addresses:
+      - "{{ primary_node_ip_address }}"
     primary_node_ip_address: "{{ primary_node_ip_address }}"
     primary_node_url: "https://cluster_primary01{{ container_suffix }}:{{ https_port_cluster_primary_01 }}/"
     primary_node_username: "{{ admin_username }}"
@@ -237,7 +243,8 @@
     api_url: "http://localhost"
     api_token: "{{ token_cluster_secondary_01 }}"
     api_port: "{{ api_port_cluster_secondary_01 }}"
-    secondary_node_ip_address: "{{ secondary_node_ip_address_01 }}"
+    secondary_node_ip_addresses:
+      - "{{ secondary_node_ip_address_01 }}"
     primary_node_ip_address: "{{ primary_node_ip_address }}"
     primary_node_url: "https://cluster_primary01{{ container_suffix }}:{{ https_port_cluster_primary_01 }}"
     primary_node_username: "{{ admin_username }}"

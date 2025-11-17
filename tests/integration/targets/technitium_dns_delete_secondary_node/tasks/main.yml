@@ -14,13 +14,18 @@
     api_port: "{{ api_port_cluster_primary_01 }}"
   register: initial_state
 
+- name: Debug initial_state
+  ansible.builtin.debug:
+    var: initial_state
+  when: debug | default(false)
+
 - name: "Setup: Extract secondary01 node ID"
   ansible.builtin.set_fact:
-    secondary_01_node_id: "{{ (initial_state.cluster_state.clusterNodes | selectattr('ipAddress', 'equalto', secondary_node_ip_address_01) | list | first).id | int }}"
+    secondary_01_node_id: "{{ (initial_state.cluster_state.clusterNodes | selectattr('ipAddresses', 'defined') | selectattr('ipAddresses', 'contains', secondary_node_ip_address_01) | list | first).id | int }}"
 
 - name: "Setup: Extract secondary02 node ID"
   ansible.builtin.set_fact:
-    secondary_02_node_id: "{{ (initial_state.cluster_state.clusterNodes | selectattr('ipAddress', 'equalto', secondary_node_ip_address_02) | list | first).id | int }}"
+    secondary_02_node_id: "{{ (initial_state.cluster_state.clusterNodes | selectattr('ipAddresses', 'defined') | selectattr('ipAddresses', 'contains', secondary_node_ip_address_02) | list | first).id | int }}"
 
 - name: "Setup: Verify cluster has 3 nodes"
   assert:

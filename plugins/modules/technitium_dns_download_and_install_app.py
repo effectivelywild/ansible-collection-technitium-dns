@@ -40,6 +40,13 @@ options:
             - Base URL for the Technitium DNS API
         required: true
         type: str
+    node:
+        description:
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
     validate_certs:
         description:
             - Whether to validate SSL certificates when making API requests.
@@ -77,6 +84,14 @@ EXAMPLES = r'''
     api_token: "myapitoken"
     name: "Geo Continent"
     url: "https://download.technitium.com/dns/apps/GeoContinentApp.zip"
+
+- name: Install app on a specific cluster node
+  technitium_dns_download_and_install_app:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    name: "Wild IP"
+    url: "https://download.technitium.com/dns/apps/WildIpApp.zip"
+    node: "node1.cluster.example.com"
 '''
 
 RETURN = r'''
@@ -163,6 +178,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 
 class DownloadAndInstallAppModule(TechnitiumModule):
     argument_spec = dict(
+        node=dict(type='str', required=False),
         name=dict(type='str', required=True),
         url=dict(type='str', required=True),
         **TechnitiumModule.get_common_argument_spec()
@@ -177,7 +193,8 @@ class DownloadAndInstallAppModule(TechnitiumModule):
             self.fail_json(msg="URL must start with 'https://'")
 
         # Check if app already exists
-        app_exists, existing_app = self.check_app_exists(name)
+        node = self.params.get('node')
+        app_exists, existing_app = self.check_app_exists(name, node=node)
 
         if app_exists:
             # App already installed, return success with changed=False
@@ -192,6 +209,9 @@ class DownloadAndInstallAppModule(TechnitiumModule):
             'name': name,
             'url': url
         }
+        if self.params.get('node'):
+            params['node'] = self.params['node']
+
         data = self.request('/api/apps/downloadAndInstall', params=params)
         self.validate_api_response(data)
 

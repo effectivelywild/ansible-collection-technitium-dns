@@ -60,21 +60,35 @@ options:
             - This cannot be changed later.
         required: true
         type: str
-    primary_node_ip_address:
+    primary_node_ip_addresses:
         description:
-            - The static IP address of this DNS server.
+            - The static IP address(es) of this DNS server.
             - Must be accessible by all other DNS servers to be added later as Secondary nodes.
+            - Accepts a list of IP addresses for nodes with multiple network interfaces.
+            - When multiple IPs are provided, they will be used for cluster communication.
         required: true
-        type: str
+        type: list
+        elements: str
 '''
 
 EXAMPLES = r'''
-- name: Initialize a new DNS cluster
+- name: Initialize a new DNS cluster with single IP
   effectivelywild.technitium_dns.technitium_dns_init_cluster:
     api_url: "http://localhost"
     api_token: "myapitoken"
     cluster_domain: "example.com"
-    primary_node_ip_address: "192.168.10.5"
+    primary_node_ip_addresses:
+      - "192.168.10.5"
+  register: result
+
+- name: Initialize cluster with multiple IP addresses
+  effectivelywild.technitium_dns.technitium_dns_init_cluster:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    cluster_domain: "example.com"
+    primary_node_ip_addresses:
+      - "192.168.10.5"
+      - "10.0.1.5"
   register: result
 
 - name: Display cluster state after initialization
@@ -87,7 +101,8 @@ EXAMPLES = r'''
     api_token: "myapitoken"
     api_port: 5381
     cluster_domain: "dns-cluster.example.com"
-    primary_node_ip_address: "10.0.1.5"
+    primary_node_ip_addresses:
+      - "10.0.1.5"
 '''
 
 RETURN = r'''
@@ -194,7 +209,7 @@ class InitClusterModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
         cluster_domain=dict(type='str', required=True),
-        primary_node_ip_address=dict(type='str', required=True)
+        primary_node_ip_addresses=dict(type='list', elements='str', required=True)
     )
     module_kwargs = dict(
         supports_check_mode=True
@@ -203,7 +218,10 @@ class InitClusterModule(TechnitiumModule):
     def run(self):
         params = self.params
         cluster_domain = params['cluster_domain']
-        primary_node_ip_address = params['primary_node_ip_address']
+        ip_list = params['primary_node_ip_addresses']
+        primary_node_ip_addresses_str = ','.join(ip_list)
+        # For idempotency check, use first IP
+        primary_node_ip_address = ip_list[0]
 
         # Get cluster state
         already_initialized, cluster_state = self.get_cluster_state()
@@ -217,7 +235,9 @@ class InitClusterModule(TechnitiumModule):
 
             if current_domain == cluster_domain:
                 # Already initialized with the same domain
-                if primary_node and primary_node.get('ipAddress') == primary_node_ip_address:
+                # Note: For idempotency we check if the first IP address is in the node's IP list
+                current_ip_addresses = primary_node.get('ipAddresses', []) if primary_node else []
+                if primary_node and primary_node_ip_address in current_ip_addresses:
                     # Perfect match - no changes needed
                     self.exit_json(
                         changed=False,
@@ -228,7 +248,7 @@ class InitClusterModule(TechnitiumModule):
                     # Domain matches but IP address differs
                     self.fail_json(
                         msg=f"Cluster already initialized with domain '{cluster_domain}' but different IP address. "
-                            f"Current: {primary_node.get('ipAddress') if primary_node else 'unknown'}, "
+                            f"Current: {', '.join(current_ip_addresses) if current_ip_addresses else 'unknown'}, "
                             f"Desired: {primary_node_ip_address}",
                         cluster_state=cluster_state
                     )
@@ -247,10 +267,10 @@ class InitClusterModule(TechnitiumModule):
                 msg=f"Would initialize cluster with domain '{cluster_domain}'"
             )
 
-        # Initialize the cluster
+        # Initialize the cluster - use new API parameter name
         init_params = {
             'clusterDomain': cluster_domain,
-            'primaryNodeIpAddress': primary_node_ip_address
+            'primaryNodeIpAddresses': primary_node_ip_addresses_str
         }
 
         init_data = self.request('/api/admin/cluster/init', params=init_params, method='POST')

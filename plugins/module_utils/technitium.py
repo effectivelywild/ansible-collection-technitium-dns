@@ -104,9 +104,16 @@ class TechnitiumModule(AnsibleModule):
         dnssec_status = zone_info.get('dnssecStatus', '').lower()
         return dnssec_status, zone_info
 
-    def get_dnssec_properties(self, zone):
-        """Get DNSSEC properties for a zone, with standardized error handling"""
+    def get_dnssec_properties(self, zone, node=None):
+        """Get DNSSEC properties for a zone, with standardized error handling
+
+        Args:
+            zone (str): Zone name
+            node (str): Optional node parameter for cluster operations
+        """
         params = {'zone': zone}
+        if node:
+            params['node'] = node
         data = self.request('/api/zones/dnssec/properties/get', params=params)
 
         if data.get('status') != 'ok':
@@ -271,18 +278,23 @@ class TechnitiumModule(AnsibleModule):
         existing_log = next((log for log in log_files if log.get('fileName') == log_name), None)
         return existing_log is not None, existing_log
 
-    def check_app_exists(self, app_name):
+    def check_app_exists(self, app_name, node=None):
         """Check if an app is installed and return app data if found
 
         Args:
             app_name (str): Name of the app (e.g., "Query Logs (Sqlite)")
+            node (str): Optional node parameter for cluster environments
 
         Returns:
             tuple: (exists: bool, app_data: dict or None)
                 - exists: True if app is installed, False otherwise
                 - app_data: dict containing app details if found, None otherwise
         """
-        list_data = self.request('/api/apps/list')
+        params = {}
+        if node:
+            params['node'] = node
+
+        list_data = self.request('/api/apps/list', params=params)
         self.validate_api_response(list_data)
 
         apps = list_data.get('response', {}).get('apps', [])

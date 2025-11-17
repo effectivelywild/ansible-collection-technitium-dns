@@ -42,6 +42,13 @@ options:
         required: false
         type: bool
         default: true
+    node:
+        description:
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
     name:
         description:
             - The name of the app to retrieve the config from
@@ -70,6 +77,14 @@ EXAMPLES = r'''
 - name: Display config if it exists
   debug:
     msg: "App configuration: {{ app_config.config }}"
+
+- name: Get app config on a specific cluster node
+  technitium_dns_get_app_config:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    name: "Split Horizon"
+    node: "node1.cluster.example.com"
+  register: result
 '''
 
 RETURN = r'''
@@ -95,6 +110,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 
 class GetAppConfigModule(TechnitiumModule):
     argument_spec = dict(
+        node=dict(type='str', required=False),
         name=dict(type='str', required=True),
         **TechnitiumModule.get_common_argument_spec()
     )
@@ -106,6 +122,9 @@ class GetAppConfigModule(TechnitiumModule):
         params = {
             'name': name
         }
+        if self.params.get('node'):
+            params['node'] = self.params['node']
+
         data = self.request('/api/apps/config/get', params=params)
         self.validate_api_response(data)
 

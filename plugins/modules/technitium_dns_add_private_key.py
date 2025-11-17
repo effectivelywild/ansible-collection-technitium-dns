@@ -42,6 +42,13 @@ options:
     required: false
     type: bool
     default: true
+  node:
+    description:
+      - The node domain name for which this API call is intended
+      - When unspecified, the current node is used
+      - This parameter can be used only when Clustering is initialized
+    required: false
+    type: str
   zone:
     description:
       - The name of the primary zone to add the private key to
@@ -151,6 +158,16 @@ EXAMPLES = r'''
     algorithm: "ECDSA"
     curve: "P384"
     rollover_days: 90
+
+- name: Add EDDSA private key on a specific cluster node
+  technitium_dns_add_private_key:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    zone: "example.com"
+    key_type: "ZoneSigningKey"
+    algorithm: "EDDSA"
+    curve: "ED25519"
+    node: "node1.cluster.example.com"
 '''
 
 RETURN = r'''
@@ -183,6 +200,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 
 class AddPrivateKeyModule(TechnitiumModule):
     argument_spec = dict(
+        node=dict(type='str', required=False),
         **TechnitiumModule.get_common_argument_spec(),
         zone=dict(type='str', required=True),
         key_type=dict(type='str', required=True, choices=['KeySigningKey', 'ZoneSigningKey']),
@@ -237,12 +255,13 @@ class AddPrivateKeyModule(TechnitiumModule):
         zone = self.params['zone']
         key_type = self.params['key_type']
         algorithm = self.params['algorithm']
+        node = self.params.get('node')
 
         # Validate algorithm-specific parameters
         self.validate_algorithm_parameters()
 
         # Get DNSSEC properties to validate zone is signed
-        dnssec_props = self.get_dnssec_properties(zone)
+        dnssec_props = self.get_dnssec_properties(zone, node=node)
         dnssec_status = dnssec_props.get('dnssecStatus', '').lower()
 
         if dnssec_status == 'unsigned':
@@ -266,6 +285,8 @@ class AddPrivateKeyModule(TechnitiumModule):
         }
 
         # Add optional parameters
+        if node:
+            query['node'] = node
         if self.params.get('rollover_days') is not None:
             query['rolloverDays'] = self.params['rollover_days']
         if self.params.get('pem_private_key'):

@@ -8,7 +8,8 @@
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     cluster_domain: "{{ cluster_domain }}"
-    primary_node_ip_address: "{{ cluster_primary01_ip }}"
+    primary_node_ip_addresses:
+      - "{{ cluster_primary01_ip }}"
   register: init_cluster_result
 
 - name: Debug init cluster result
@@ -25,7 +26,8 @@
     api_url: http://localhost
     api_token: "{{ token_cluster_secondary_01 }}"
     api_port: "{{ api_port_cluster_secondary_01 }}"
-    secondary_node_ip_address: "{{ cluster_secondary01_ip }}"
+    secondary_node_ip_addresses:
+      - "{{ cluster_secondary01_ip }}"
     primary_node_url: "http://{{ cluster_primary01_ip }}:{{ api_port_cluster_primary_01 }}"
     primary_node_ip_address: "{{ cluster_primary01_ip }}"
     primary_node_username: "{{ admin_username }}"
@@ -63,7 +65,8 @@
     api_url: http://localhost
     api_token: "{{ token_cluster_secondary_02 }}"
     api_port: "{{ api_port_cluster_secondary_02 }}"
-    secondary_node_ip_address: "{{ cluster_secondary02_ip }}"
+    secondary_node_ip_addresses:
+      - "{{ cluster_secondary02_ip }}"
     primary_node_url: "http://{{ cluster_primary01_ip }}:{{ api_port_cluster_primary_01 }}"
     primary_node_ip_address: "{{ cluster_primary01_ip }}"
     primary_node_username: "{{ admin_username }}"

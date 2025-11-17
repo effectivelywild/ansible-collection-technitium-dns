@@ -198,7 +198,9 @@ class UpdateClusterNodeIpModule(TechnitiumModule):
         # Check current IP address to determine if change is needed
         self_node = self.get_self_node(cluster_state)
 
-        if self_node and self_node.get('ipAddress') == ip_address:
+        # v14.1 API uses ipAddresses (array) instead of ipAddress (string)
+        current_ip_addresses = self_node.get('ipAddresses', []) if self_node else []
+        if self_node and ip_address in current_ip_addresses:
             self.exit_json(
                 changed=False,
                 cluster_state=cluster_state,
@@ -212,8 +214,8 @@ class UpdateClusterNodeIpModule(TechnitiumModule):
                 msg=f"Would update node IP address to '{ip_address}'"
             )
 
-        # Build update parameters
-        update_params = self.build_cluster_params(node=node, ipAddress=ip_address)
+        # Build update parameters - v14.1 API uses ipAddresses parameter
+        update_params = self.build_cluster_params(node=node, ipAddresses=ip_address)
 
         # Update node IP address
         update_data = self.request('/api/admin/cluster/updateIpAddress', params=update_params, method='POST')

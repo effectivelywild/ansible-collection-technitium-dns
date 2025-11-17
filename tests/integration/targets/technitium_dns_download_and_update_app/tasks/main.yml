@@ -242,3 +242,7 @@
     name: "What Is My Dns"
   register: cleanup_result
   ignore_errors: true
+
+# Test node parameter (cluster support)
+- name: "Test node parameter support"
+  include_tasks: test_node_parameter.yml

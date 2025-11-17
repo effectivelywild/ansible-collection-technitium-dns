@@ -33,7 +33,7 @@
 - name: Verify admin user has expected properties
   assert:
     that:
-      - get_user_details_primary.user_details.displayName == "admin"
+      - get_user_details_primary.user_details.displayName == "Administrator"
       - get_user_details_primary.user_details.disabled == false
       - get_user_details_primary.user_details.memberOfGroups is defined
       - get_user_details_primary.user_details.groups is defined
