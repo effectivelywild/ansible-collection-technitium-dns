@@ -1,0 +1,114 @@
+---
+# Integration tests for technitium_dns_update_private_key node parameter (cluster support)
+
+# Setup testing environment with cluster initialization
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+    initialize_cluster: true
+
+# Create and sign a test zone
+- name: "Create test zone for DNSSEC testing"
+  technitium_dns_create_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecupdate.example.com"
+    type: "Primary"
+    validate_certs: no
+
+- name: "Sign the test zone"
+  technitium_dns_sign_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecupdate.example.com"
+    algorithm: "ECDSA"
+    curve: "P256"
+    zskRolloverDays: 30
+    validate_certs: no
+
+# Get DNSSEC properties to find the key tag
+- name: "Get DNSSEC properties"
+  technitium_dns_get_dnssec_properties:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecupdate.example.com"
+    validate_certs: no
+  register: dnssec_props
+
+- name: Debug dnssec_props
+  ansible.builtin.debug:
+    var: dnssec_props
+  when: debug | default(false)
+
+- name: "Extract ZSK key tag"
+  set_fact:
+    zsk_key_tag: "{{ (dnssec_props.dnssec_properties.dnssecPrivateKeys | selectattr('keyType', 'equalto', 'ZoneSigningKey') | first).keyTag }}"
+
+# Test 1: Update private key without node parameter
+- name: Update private key without node parameter
+  technitium_dns_update_private_key:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecupdate.example.com"
+    key_tag: "{{ zsk_key_tag }}"
+    rollover_days: 45
+    validate_certs: no
+  register: update_default
+
+- name: Assert default key update succeeded
+  assert:
+    that:
+      - not update_default.failed
+      - update_default.changed
+    fail_msg: "Private key update without node parameter should succeed"
+
+# Test 2: Update private key with explicit node parameter
+- name: Update private key with node parameter
+  technitium_dns_update_private_key:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecupdate.example.com"
+    key_tag: "{{ zsk_key_tag }}"
+    rollover_days: 60
+    node: "cluster-primary01.example.com"
+    validate_certs: no
+  register: update_with_node
+
+- name: Assert key update with node parameter succeeded
+  assert:
+    that:
+      - not update_with_node.failed
+      - update_with_node.changed
+    fail_msg: "Private key update with node parameter should succeed"
+
+# Cleanup
+- name: "Unsign the test zone"
+  technitium_dns_unsign_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecupdate.example.com"
+    validate_certs: no
+  ignore_errors: true
+
+- name: "Delete test zone"
+  technitium_dns_delete_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecupdate.example.com"
+    validate_certs: no
+  ignore_errors: true
+
+- name: Include setup_cluster_testing_environment for teardown
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

@@ -59,7 +59,7 @@
   loop_control:
     loop_var: container
     label: "{{ container.name }}-config"
-  ignore_errors: yes
+  ignore_errors: true
 
 # keep_volumes : false doesn't seem to work, so we prune all unused volumes below
 - name: Prune dangling and unused Docker volumes

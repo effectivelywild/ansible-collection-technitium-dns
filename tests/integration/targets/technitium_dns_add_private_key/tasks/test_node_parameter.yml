@@ -1,0 +1,96 @@
+---
+# Integration tests for technitium_dns_add_private_key node parameter (cluster support)
+
+# Setup testing environment with cluster initialization
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+    initialize_cluster: true
+
+# Create and sign a test zone on the primary node
+- name: "Create test zone for DNSSEC testing"
+  technitium_dns_create_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecnode.example.com"
+    type: "Primary"
+    validate_certs: no
+
+- name: "Sign the test zone"
+  technitium_dns_sign_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecnode.example.com"
+    algorithm: "ECDSA"
+    curve: "P256"
+    validate_certs: no
+
+# Test 1: Add private key without node parameter (default behavior)
+- name: Add private key without node parameter
+  technitium_dns_add_private_key:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecnode.example.com"
+    keyType: "ZoneSigningKey"
+    algorithm: "ECDSA"
+    curve: "P256"
+    validate_certs: no
+  register: key_default
+
+- name: Assert default key addition succeeded
+  assert:
+    that:
+      - not key_default.failed
+      - key_default.changed
+    fail_msg: "Private key addition without node parameter should succeed"
+
+# Test 2: Add private key with explicit node parameter (primary node)
+- name: Add private key with node parameter
+  technitium_dns_add_private_key:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecnode.example.com"
+    keyType: "KeySigningKey"
+    algorithm: "ECDSA"
+    curve: "P256"
+    node: "cluster-primary01.example.com"
+    validate_certs: no
+  register: key_with_node
+
+- name: Assert key addition with node parameter succeeded
+  assert:
+    that:
+      - not key_with_node.failed
+      - key_with_node.changed
+    fail_msg: "Private key addition with node parameter should succeed"
+
+# Cleanup
+- name: "Unsign the test zone"
+  technitium_dns_unsign_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecnode.example.com"
+    validate_certs: no
+  ignore_errors: true
+
+- name: "Delete test zone"
+  technitium_dns_delete_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecnode.example.com"
+    validate_certs: no
+  ignore_errors: true
+
+- name: Include setup_cluster_testing_environment for teardown
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

@@ -1,0 +1,140 @@
+---
+# Integration tests for technitium_dns_delete_private_key node parameter (cluster support)
+
+# Setup testing environment with cluster initialization
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+    initialize_cluster: true
+
+# Create and sign a test zone
+- name: "Create test zone for DNSSEC testing"
+  technitium_dns_create_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecdelete.example.com"
+    type: "Primary"
+    validate_certs: no
+
+- name: "Sign the test zone"
+  technitium_dns_sign_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecdelete.example.com"
+    algorithm: "ECDSA"
+    curve: "P256"
+    validate_certs: no
+
+# Test 1: Add and delete key without node parameter
+- name: "Add a ZSK key for deletion test"
+  technitium_dns_add_private_key:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecdelete.example.com"
+    keyType: "ZoneSigningKey"
+    algorithm: "ECDSA"
+    curve: "P256"
+    validate_certs: no
+
+- name: "Get DNSSEC properties to find generated key"
+  technitium_dns_get_dnssec_properties:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecdelete.example.com"
+    validate_certs: no
+  register: dnssec_props_1
+
+- name: "Find generated ZSK key tag"
+  set_fact:
+    generated_key_tag_1: "{{ (dnssec_props_1.dnssecPrivateKeys | selectattr('state', 'equalto', 'Generated') | selectattr('keyType', 'equalto', 'ZoneSigningKey') | first).keyTag }}"
+
+- name: Delete private key without node parameter
+  technitium_dns_delete_private_key:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecdelete.example.com"
+    key_tag: "{{ generated_key_tag_1 }}"
+    validate_certs: no
+  register: delete_default
+
+- name: Assert default key deletion succeeded
+  assert:
+    that:
+      - not delete_default.failed
+      - delete_default.changed
+    fail_msg: "Private key deletion without node parameter should succeed"
+
+# Test 2: Add and delete key with explicit node parameter
+- name: "Add another ZSK key for node parameter test"
+  technitium_dns_add_private_key:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecdelete.example.com"
+    keyType: "ZoneSigningKey"
+    algorithm: "ECDSA"
+    curve: "P256"
+    validate_certs: no
+
+- name: "Get DNSSEC properties to find second generated key"
+  technitium_dns_get_dnssec_properties:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecdelete.example.com"
+    validate_certs: no
+  register: dnssec_props_2
+
+- name: "Find second generated ZSK key tag"
+  set_fact:
+    generated_key_tag_2: "{{ (dnssec_props_2.dnssecPrivateKeys | selectattr('state', 'equalto', 'Generated') | selectattr('keyType', 'equalto', 'ZoneSigningKey') | first).keyTag }}"
+
+- name: Delete private key with node parameter
+  technitium_dns_delete_private_key:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecdelete.example.com"
+    key_tag: "{{ generated_key_tag_2 }}"
+    node: "cluster-primary01.example.com"
+    validate_certs: no
+  register: delete_with_node
+
+- name: Assert key deletion with node parameter succeeded
+  assert:
+    that:
+      - not delete_with_node.failed
+      - delete_with_node.changed
+    fail_msg: "Private key deletion with node parameter should succeed"
+
+# Cleanup
+- name: "Unsign the test zone"
+  technitium_dns_unsign_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecdelete.example.com"
+    validate_certs: no
+  ignore_errors: true
+
+- name: "Delete test zone"
+  technitium_dns_delete_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecdelete.example.com"
+    validate_certs: no
+  ignore_errors: true
+
+- name: Include setup_cluster_testing_environment for teardown
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"
