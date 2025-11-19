@@ -23,5 +23,6 @@ __pycache__/
 *.py[cod]
 *.pyo
 
-# Local claude files
+# Local agent files
 .claude/
+.codex/

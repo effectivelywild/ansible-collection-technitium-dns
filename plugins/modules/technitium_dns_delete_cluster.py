@@ -51,6 +51,14 @@ options:
         required: false
         type: bool
         default: true
+    node:
+        description:
+            - The node domain name for which this call is intended.
+            - When unspecified, the current node (the primary) is used.
+            - Set the node name to `cluster` to target the entire cluster.
+            - This parameter can only be used when clustering is initialized.
+        required: false
+        type: str
     force_delete:
         description:
             - Set to true to delete the cluster even when Secondary nodes exist, orphaning them.
@@ -123,7 +131,8 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 class DeleteClusterModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
-        force_delete=dict(type='bool', required=False, default=False)
+        force_delete=dict(type='bool', required=False, default=False),
+        node=dict(type='str', required=False)
     )
     module_kwargs = dict(
         supports_check_mode=True
@@ -150,6 +159,9 @@ class DeleteClusterModule(TechnitiumModule):
         delete_params = {}
         if force_delete:
             delete_params['forceDelete'] = 'true'
+        node = params.get('node')
+        if node:
+            delete_params['node'] = node
 
         delete_data = self.request('/api/admin/cluster/primary/delete', params=delete_params, method='POST')
         if delete_data.get('status') != 'ok':
