@@ -299,14 +299,7 @@ class CreateZoneModule(TechnitiumModule):
         if params.get('node'):
             list_query['node'] = params['node']
         info_data = self.request('/api/zones/list', params=list_query)
-
-        # Check for node validation errors
-        if info_data.get('status') != 'ok':
-            error_msg = info_data.get('errorMessage', '')
-            if 'No such node exists' in error_msg:
-                self.fail_json(msg=f"Invalid node parameter: {error_msg}", api_response=info_data)
-            else:
-                self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=info_data)
+        self.validate_api_response(info_data)
 
         zones = info_data.get('response', {}).get('zones', [])
         existing_zone = next((z for z in zones if z.get('name') == zone), None)

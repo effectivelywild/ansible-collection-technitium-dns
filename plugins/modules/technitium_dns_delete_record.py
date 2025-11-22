@@ -927,13 +927,7 @@ class DeleteRecordModule(TechnitiumModule):
         except Exception as e:
             self.fail_json(msg=f"Failed to check for existing record: {e}")
 
-        if get_resp.get('status') != 'ok':
-            error_msg = get_resp.get('errorMessage') or 'Unknown'
-            if 'No such node exists' in error_msg:
-                self.fail_json(msg=f"Invalid node parameter: {error_msg}", api_response=get_resp)
-            # The API failed to get a response. This is a critical error.
-            self.fail_json(
-                msg=f"Technitium API error during existence check: {error_msg}", api_response=get_resp)
+        self.validate_api_response(get_resp, context="existence check")
 
         # Filter for an exact match among the returned records.
         found_records = get_resp.get('response', {}).get('records', [])
@@ -1001,12 +995,7 @@ class DeleteRecordModule(TechnitiumModule):
         # Send the DELETE request
         data = self.request('/api/zones/records/delete', params=delete_query, method='POST')
 
-        if data.get('status') != 'ok':
-            error_msg = data.get('errorMessage') or "Unknown error"
-            if 'No such node exists' in error_msg:
-                self.fail_json(msg=f"Invalid node parameter: {error_msg}", api_response=data)
-            self.fail_json(
-                msg=f"Technitium API error during deletion: {error_msg}", api_response=data)
+        self.validate_api_response(data, context="deletion")
 
         self.exit_json(
             changed=True, msg=f"DNS record of type '{record_type}' for '{params['name']}' deleted.", api_response=data)

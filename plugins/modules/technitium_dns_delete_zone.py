@@ -52,11 +52,11 @@ options:
         default: true
     node:
         description:
-            - The name of the cluster node to target for this operation.
-            - Use to target a specific node in a DNS server cluster.
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
         required: false
         type: str
-        version_added: "0.2.0"
     zone:
         description:
             - The domain name of the zone to be deleted.

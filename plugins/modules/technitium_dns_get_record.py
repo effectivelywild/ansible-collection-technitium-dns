@@ -60,11 +60,11 @@ options:
         default: false
     node:
         description:
-            - Cluster node to get records from (cluster environments only)
-            - Specify the FQDN of the target cluster node
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
         required: false
         type: str
-        version_added: "0.2.0"
 '''
 
 EXAMPLES = r'''
@@ -268,11 +268,7 @@ class GetRecordsModule(TechnitiumModule):
 
         # Fetch DNS records from the API
         data = self.request('/api/zones/records/get', params=query)
-        if data.get('status') != 'ok':
-            error_msg = data.get('errorMessage') or "Unknown error"
-            if 'No such node exists' in error_msg:
-                self.fail_json(msg=f"Invalid node parameter: {error_msg}", api_response=data)
-            self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)
+        self.validate_api_response(data)
 
         records = data.get('response', {}).get('records', [])
 

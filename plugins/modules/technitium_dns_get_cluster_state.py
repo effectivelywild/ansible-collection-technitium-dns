@@ -52,7 +52,6 @@ options:
         description:
             - The node domain name for which this API call is intended.
             - When unspecified, the current node is used.
-            - This parameter can be used only when clustering is initialized.
         required: false
         type: str
     include_server_ip_addresses:

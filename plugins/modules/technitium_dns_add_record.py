@@ -1072,12 +1072,7 @@ class AddRecordModule(TechnitiumModule):
             if params.get('node'):
                 get_query['node'] = params['node']
             get_resp = self.request('/api/zones/records/get', params=get_query)
-            if get_resp.get('status') != 'ok':
-                error_msg = get_resp.get('errorMessage') or 'Unknown'
-                if 'No such node exists' in error_msg:
-                    self.fail_json(msg=f"Invalid node parameter: {error_msg}", api_response=get_resp)
-                self.fail_json(
-                    msg=f"Technitium API error (check mode fetch): {error_msg}", api_response=get_resp)
+            self.validate_api_response(get_resp, context="check mode fetch")
             existing_records = get_resp.get('response', {}).get('records', [])
             # Technitium API may return record type with capitalization (e.g. 'Unknown') so compare case-insensitively
             type_exists = any((r.get('type') or '').upper() == record_type for r in existing_records)
@@ -1108,13 +1103,10 @@ class AddRecordModule(TechnitiumModule):
         data = self.request('/api/zones/records/add', params=query, method='POST')
         if data.get('status') != 'ok':
             error_msg = data.get('errorMessage') or "Unknown error"
-            if 'No such node exists' in error_msg:
-                self.fail_json(msg=f"Invalid node parameter: {error_msg}", api_response=data)
             if 'record already exists' in error_msg.lower():
                 self.exit_json(changed=False, msg="Record already exists.", api_response={
                                'status': 'ok', 'msg': "Record already exists."})
-            self.fail_json(
-                msg=f"Technitium API error: {error_msg}", api_response=data)
+            self.validate_api_response(data)
         self.exit_json(changed=True, msg="DNS record added.",
                        api_response=data)
 
