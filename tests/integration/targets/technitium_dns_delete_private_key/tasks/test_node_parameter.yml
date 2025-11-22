@@ -36,7 +36,7 @@
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "dnssecdelete.example.com"
-    keyType: "ZoneSigningKey"
+    key_type: "ZoneSigningKey"
     algorithm: "ECDSA"
     curve: "P256"
     validate_certs: no
@@ -52,7 +52,7 @@
 
 - name: "Find generated ZSK key tag"
   set_fact:
-    generated_key_tag_1: "{{ (dnssec_props_1.dnssecPrivateKeys | selectattr('state', 'equalto', 'Generated') | selectattr('keyType', 'equalto', 'ZoneSigningKey') | first).keyTag }}"
+    generated_key_tag_1: "{{ (dnssec_props_1.dnssecPrivateKeys | selectattr('state', 'equalto', 'Generated') | selectattr('key_type', 'equalto', 'ZoneSigningKey') | first).keyTag }}"
 
 - name: Delete private key without node parameter
   technitium_dns_delete_private_key:
@@ -78,7 +78,7 @@
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "dnssecdelete.example.com"
-    keyType: "ZoneSigningKey"
+    key_type: "ZoneSigningKey"
     algorithm: "ECDSA"
     curve: "P256"
     validate_certs: no
@@ -94,7 +94,7 @@
 
 - name: "Find second generated ZSK key tag"
   set_fact:
-    generated_key_tag_2: "{{ (dnssec_props_2.dnssecPrivateKeys | selectattr('state', 'equalto', 'Generated') | selectattr('keyType', 'equalto', 'ZoneSigningKey') | first).keyTag }}"
+    generated_key_tag_2: "{{ (dnssec_props_2.dnssecPrivateKeys | selectattr('state', 'equalto', 'Generated') | selectattr('key_type', 'equalto', 'ZoneSigningKey') | first).keyTag }}"
 
 - name: Delete private key with node parameter
   technitium_dns_delete_private_key:
@@ -115,24 +115,6 @@
     fail_msg: "Private key deletion with node parameter should succeed"
 
 # Cleanup
-- name: "Unsign the test zone"
-  technitium_dns_unsign_zone:
-    api_url: http://localhost
-    api_token: "{{ token_cluster_primary_01 }}"
-    api_port: "{{ api_port_cluster_primary_01 }}"
-    zone: "dnssecdelete.example.com"
-    validate_certs: no
-  ignore_errors: true
-
-- name: "Delete test zone"
-  technitium_dns_delete_zone:
-    api_url: http://localhost
-    api_token: "{{ token_cluster_primary_01 }}"
-    api_port: "{{ api_port_cluster_primary_01 }}"
-    zone: "dnssecdelete.example.com"
-    validate_certs: no
-  ignore_errors: true
-
 - name: Include setup_cluster_testing_environment for teardown
   ansible.builtin.include_role:
     name: effectivelywild.technitium_dns.setup_cluster_testing_environment

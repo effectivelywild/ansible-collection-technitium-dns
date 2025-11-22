@@ -12,7 +12,6 @@ version_added: "1.0.0"
 description:
     - Remove all cluster configuration from the Primary node.
     - There will be no data loss except for the cluster configuration.
-    - You will need to re-initialize the cluster again to use clustering features.
     - This call can only be made at the Primary node.
     - You can only delete the cluster when there are no Secondary nodes, unless force_delete is used.
 author:

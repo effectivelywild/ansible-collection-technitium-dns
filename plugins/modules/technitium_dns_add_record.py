@@ -210,11 +210,11 @@ options:
         type: str
     node:
         description:
-            - Cluster node to add the record on (cluster environments only)
-            - Specify the FQDN of the target cluster node
+        - The node domain name for which this API call is intended
+        - When unspecified, the current node is used
+        - This parameter can be used only when Clustering is initialized
         required: false
         type: str
-        version_added: "0.2.0"
     overwrite:
         description:
             - Overwrite existing record set for this type

@@ -36,7 +36,7 @@
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "dnssecpublish.example.com"
-    keyType: "ZoneSigningKey"
+    key_type: "ZoneSigningKey"
     algorithm: "ECDSA"
     curve: "P256"
     validate_certs: no
@@ -64,7 +64,7 @@
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     zone: "dnssecpublish.example.com"
-    keyType: "ZoneSigningKey"
+    key_type: "ZoneSigningKey"
     algorithm: "ECDSA"
     curve: "P256"
     validate_certs: no

@@ -18,12 +18,17 @@
     validate_certs: no
   register: apps_default
 
+- name: Debug apps_default
+  ansible.builtin.debug:
+    var: apps_default
+  when: debug | default(false)
+
 - name: Assert default store apps list returned
   assert:
     that:
       - not apps_default.failed
-      - apps_default.storeApps is defined
-      - apps_default.storeApps | length > 0
+      - apps_default.store_apps is defined
+      - apps_default.store_apps | length > 0
     fail_msg: "Store apps list without node parameter should succeed"
 
 # Test 2: List store apps with explicit node parameter (primary node)
@@ -40,15 +45,15 @@
   assert:
     that:
       - not apps_primary.failed
-      - apps_primary.storeApps is defined
-      - apps_primary.storeApps | length > 0
+      - apps_primary.store_apps is defined
+      - apps_primary.store_apps | length > 0
     fail_msg: "Store apps list for primary node should succeed"
 
 # Test 3: Verify consistency between default and explicit node
 - name: Assert results are consistent
   assert:
     that:
-      - apps_default.storeApps | length == apps_primary.storeApps | length
+      - apps_default.store_apps | length == apps_primary.store_apps | length
     fail_msg: "Default and explicit primary node should return same apps"
 
 - name: Include setup_cluster_testing_environment for teardown

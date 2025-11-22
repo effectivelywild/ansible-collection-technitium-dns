@@ -55,11 +55,6 @@ options:
             - The new password to be set for the currently logged in user
         required: true
         type: str
-    totp:
-        description:
-            - The 6-digit code from the authenticator app if the user has 2FA enabled
-        required: false
-        type: str
     iterations:
         description:
             - The number of iterations for PBKDF2 SHA256 password hashing
@@ -74,14 +69,6 @@ EXAMPLES = r'''
     api_token: "myapitoken"
     pass: "OldPassword123"
     newPass: "NewSecurePassword123!"
-
-- name: Change password with 2FA
-  technitium_dns_change_password:
-    api_url: "http://localhost"
-    api_token: "myapitoken"
-    pass: "OldPassword123"
-    newPass: "NewSecurePassword123!"
-    totp: "123456"
 
 - name: Change password with custom iterations
   technitium_dns_change_password:
@@ -137,7 +124,6 @@ class ChangePasswordModule(TechnitiumModule):
         **{
             'pass': dict(type='str', required=True, no_log=True),
             'newPass': dict(type='str', required=True, no_log=True),
-            'totp': dict(type='str', required=False, no_log=True),
             'iterations': dict(type='int', required=False)
         }
     )
@@ -149,7 +135,6 @@ class ChangePasswordModule(TechnitiumModule):
         params = self.params
         current_password = params['pass']
         new_password = params['newPass']
-        totp = params.get('totp')
         iterations = params.get('iterations')
 
         # Handle check mode - report what would be done without making changes
@@ -165,9 +150,6 @@ class ChangePasswordModule(TechnitiumModule):
             'pass': current_password,
             'newPass': new_password
         }
-
-        if totp is not None:
-            request_params['totp'] = totp
 
         if iterations is not None:
             request_params['iterations'] = iterations

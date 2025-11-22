@@ -9,14 +9,30 @@
     action: "setup"
     initialize_cluster: true
 
-# Install a test app on the primary node
-- name: "Install Advanced Blocking app on primary for testing"
+- name: "List store apps to get Advanced Blocking URL"
+  technitium_dns_list_store_apps:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+  register: store_apps_list
+
+- name: "Debug store_apps_list"
+  ansible.builtin.debug:
+    var: store_apps_list
+  when: debug | default(false)
+
+- name: "Download and install Advanced Blocking app"
   technitium_dns_download_and_install_app:
     api_url: http://localhost
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     name: "Advanced Blocking"
-    validate_certs: no
+    url: "{{ (store_apps_list.store_apps | selectattr('name', 'equalto', 'Advanced Blocking') | first).url }}"
+  register: install_result
+  when: store_apps_list.store_apps | selectattr('name', 'equalto', 'Advanced Blocking') | list | length > 0
+  retries: 3
+  delay: 30
+  until: install_result is success
 
 # Test 1: Get app config without node parameter (default behavior)
 - name: Get app config without node parameter
@@ -54,15 +70,6 @@
     fail_msg: "App config retrieval for primary node should succeed"
 
 # Cleanup
-- name: "Uninstall Advanced Blocking app"
-  technitium_dns_uninstall_app:
-    api_url: http://localhost
-    api_token: "{{ token_cluster_primary_01 }}"
-    api_port: "{{ api_port_cluster_primary_01 }}"
-    name: "Advanced Blocking"
-    validate_certs: no
-  ignore_errors: true
-
 - name: Include setup_cluster_testing_environment for teardown
   ansible.builtin.include_role:
     name: effectivelywild.technitium_dns.setup_cluster_testing_environment
