@@ -61,4 +61,3 @@
       - not stats_after_delete.failed
       - stats_after_delete.stats is defined
     fail_msg: "Should be able to retrieve stats after deletion"
-

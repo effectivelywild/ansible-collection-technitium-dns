@@ -90,4 +90,3 @@
       - top_blocked_cluster.topBlockedDomains is defined
       - top_blocked_cluster.topBlockedDomains is sequence
     fail_msg: "Cluster-wide top blocked domains retrieval should succeed"
-

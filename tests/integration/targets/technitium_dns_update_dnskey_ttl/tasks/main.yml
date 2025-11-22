@@ -239,4 +239,3 @@
   loop_control:
     loop_var: zone_item
     label: "cleanup: {{ zone_item.zone }}"
-

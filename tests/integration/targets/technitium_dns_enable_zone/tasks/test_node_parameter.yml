@@ -122,4 +122,3 @@
       - not enable_zone_idempotent.changed
       - "'already enabled' in enable_zone_idempotent.msg | lower"
     fail_msg: "Enabling already enabled zone should be idempotent"
-
