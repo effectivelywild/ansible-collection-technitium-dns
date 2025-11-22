@@ -6,7 +6,7 @@ __metaclass__ = type
 
 DOCUMENTATION = r'''
 ---
-module: technitium_dns_promote_secondary
+module: technitium_dns_promote_secondary_node
 short_description: Promote a Secondary node to Primary
 version_added: "1.0.0"
 description:
@@ -72,7 +72,7 @@ options:
 
 EXAMPLES = r'''
 - name: Promote this Secondary node to Primary
-  effectivelywild.technitium_dns.technitium_dns_promote_secondary:
+  effectivelywild.technitium_dns.technitium_dns_promote_secondary_node:
     api_url: "http://localhost"
     api_token: "myapitoken"
   register: result
@@ -82,7 +82,7 @@ EXAMPLES = r'''
     var: result.cluster_state
 
 - name: Force promote when current Primary is unreachable
-  effectivelywild.technitium_dns.technitium_dns_promote_secondary:
+  effectivelywild.technitium_dns.technitium_dns_promote_secondary_node:
     api_url: "http://localhost"
     api_token: "myapitoken"
     force_delete_primary: true

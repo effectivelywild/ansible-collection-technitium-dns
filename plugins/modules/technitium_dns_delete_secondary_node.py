@@ -19,7 +19,7 @@ author:
 requirements:
     - Technitium DNS Server v14.0 or later
 seealso:
-  - module: effectivelywild.technitium_dns.technitium_dns_remove_secondary
+  - module: effectivelywild.technitium_dns.technitium_dns_remove_secondary_node
     description: Gracefully remove a Secondary node (asks it to leave)
   - module: effectivelywild.technitium_dns.technitium_dns_get_cluster_state
     description: Get cluster state information

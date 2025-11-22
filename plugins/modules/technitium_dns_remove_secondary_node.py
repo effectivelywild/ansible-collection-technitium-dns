@@ -6,7 +6,7 @@ __metaclass__ = type
 
 DOCUMENTATION = r'''
 ---
-module: technitium_dns_remove_secondary
+module: technitium_dns_remove_secondary_node
 short_description: Remove a Secondary node from the cluster
 version_added: "1.0.0"
 description:
@@ -68,7 +68,7 @@ EXAMPLES = r'''
   register: cluster_state
 
 - name: Remove Secondary node gracefully
-  effectivelywild.technitium_dns.technitium_dns_remove_secondary:
+  effectivelywild.technitium_dns.technitium_dns_remove_secondary_node:
     api_url: "http://localhost"
     api_token: "myapitoken"
     secondary_node_id: 811905692

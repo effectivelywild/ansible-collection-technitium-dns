@@ -67,7 +67,7 @@
 
 # Test 1: Promote Secondary to Primary
 - name: "Test 1: Promote secondary01 to Primary"
-  effectivelywild.technitium_dns.technitium_dns_promote_secondary:
+  effectivelywild.technitium_dns.technitium_dns_promote_secondary_node:
     api_url: "http://localhost"
     api_token: "{{ token_cluster_secondary_01 }}"
     api_port: "{{ api_port_cluster_secondary_01 }}"
@@ -204,7 +204,7 @@
     seconds: 5
 
 - name: "Test 4.8: Promote Secondary in check mode"
-  effectivelywild.technitium_dns.technitium_dns_promote_secondary:
+  effectivelywild.technitium_dns.technitium_dns_promote_secondary_node:
     api_url: "http://localhost"
     api_token: "{{ token_cluster_secondary_01 }}"
     api_port: "{{ api_port_cluster_secondary_01 }}"
@@ -234,7 +234,7 @@
 
 # Test 5: Negative test - Try to promote from Primary node
 - name: "Test 5: Try to promote from Primary node (idempotent)"
-  effectivelywild.technitium_dns.technitium_dns_promote_secondary:
+  effectivelywild.technitium_dns.technitium_dns_promote_secondary_node:
     api_url: "http://localhost"
     api_token: "{{ old_primary_login.token }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
@@ -255,7 +255,7 @@
     api_port: "{{ api_port_cluster_secondary_01 }}"
 
 - name: "Test 6.1: Try to promote when not in cluster (should fail)"
-  effectivelywild.technitium_dns.technitium_dns_promote_secondary:
+  effectivelywild.technitium_dns.technitium_dns_promote_secondary_node:
     api_url: "http://localhost"
     api_token: "{{ token_cluster_secondary_01 }}"
     api_port: "{{ api_port_cluster_secondary_01 }}"
@@ -327,7 +327,7 @@
     seconds: 5
 
 - name: "Test 7.8: Promote Secondary with force_delete_primary"
-  effectivelywild.technitium_dns.technitium_dns_promote_secondary:
+  effectivelywild.technitium_dns.technitium_dns_promote_secondary_node:
     api_url: "http://localhost"
     api_token: "{{ token_cluster_secondary_01 }}"
     api_port: "{{ api_port_cluster_secondary_01 }}"

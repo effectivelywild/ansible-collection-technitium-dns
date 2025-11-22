@@ -73,7 +73,7 @@
 
 # Test 1: Remove secondary01 node gracefully
 - name: "Test 1: Remove secondary01 node gracefully"
-  effectivelywild.technitium_dns.technitium_dns_remove_secondary:
+  effectivelywild.technitium_dns.technitium_dns_remove_secondary_node:
     api_url: "http://localhost"
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
@@ -117,7 +117,7 @@
 
 # Test 3: Idempotency - Try to remove already removed node
 - name: "Test 3: Idempotent - Try to remove secondary01 again"
-  effectivelywild.technitium_dns.technitium_dns_remove_secondary:
+  effectivelywild.technitium_dns.technitium_dns_remove_secondary_node:
     api_url: "http://localhost"
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
@@ -133,7 +133,7 @@
 
 # Test 4: Check mode
 - name: "Test 4: Remove secondary02 in check mode"
-  effectivelywild.technitium_dns.technitium_dns_remove_secondary:
+  effectivelywild.technitium_dns.technitium_dns_remove_secondary_node:
     api_url: "http://localhost"
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
@@ -162,7 +162,7 @@
 
 # Test 5: Actually remove secondary02
 - name: "Test 5: Remove secondary02 node"
-  effectivelywild.technitium_dns.technitium_dns_remove_secondary:
+  effectivelywild.technitium_dns.technitium_dns_remove_secondary_node:
     api_url: "http://localhost"
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
@@ -203,7 +203,7 @@
   register: secondary_login_test6
 
 - name: "Test 6.2: Try to remove from Secondary node (should fail)"
-  effectivelywild.technitium_dns.technitium_dns_remove_secondary:
+  effectivelywild.technitium_dns.technitium_dns_remove_secondary_node:
     api_url: "http://localhost"
     api_token: "{{ secondary_login_test6.token }}"
     api_port: "{{ api_port_cluster_secondary_01 }}"
@@ -231,7 +231,7 @@
     api_port: "{{ api_port_cluster_primary_01 }}"
 
 - name: "Test 7.2: Try to remove Secondary when cluster not initialized (should fail)"
-  effectivelywild.technitium_dns.technitium_dns_remove_secondary:
+  effectivelywild.technitium_dns.technitium_dns_remove_secondary_node:
     api_url: "http://localhost"
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
