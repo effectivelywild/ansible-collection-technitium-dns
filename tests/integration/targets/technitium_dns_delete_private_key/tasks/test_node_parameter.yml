@@ -50,6 +50,11 @@
     validate_certs: no
   register: dnssec_props_1
 
+- name: Debug dnssec_props_1
+  ansible.builtin.debug:
+    var: dnssec_props_1
+  when: debug | default(false)
+
 - name: "Find generated ZSK key tag"
   set_fact:
     generated_key_tag_1: "{{ (dnssec_props_1.dnssecPrivateKeys | selectattr('state', 'equalto', 'Generated') | selectattr('key_type', 'equalto', 'ZoneSigningKey') | first).keyTag }}"
