@@ -100,7 +100,6 @@
     ttl: 3600
     validate_certs: no
   register: add_a_record_duplicate
-  ignore_errors: yes
 
 - name: Assert duplicate A record is idempotent
   assert:
