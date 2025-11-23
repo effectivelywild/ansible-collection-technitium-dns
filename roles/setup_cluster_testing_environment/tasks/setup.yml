@@ -50,17 +50,6 @@
     label: "{{ container.name }}"
   register: container_cleanup
 
-# Explicitly remove volumes by name since keep_volumes: false doesn't always work
-- name: Remove Technitium DNS volumes explicitly
-  community.docker.docker_volume:
-    name: "{{ container.name }}-config"
-    state: absent
-  loop: "{{ cluster_dns_servers_to_create }}"
-  loop_control:
-    loop_var: container
-    label: "{{ container.name }}-config"
-  ignore_errors: true
-
 # keep_volumes : false doesn't seem to work, so we prune all unused volumes below
 - name: Prune dangling and unused Docker volumes
   community.docker.docker_prune:

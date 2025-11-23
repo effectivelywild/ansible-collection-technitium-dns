@@ -17,7 +17,3 @@
 - name: Include record deletion task
   ansible.builtin.include_tasks: record_deletion.yml
   when: action == "delete_records"
-
-- name: Include cluster cleanup task
-  ansible.builtin.include_tasks: cluster_cleanup.yml
-  when: action == "cleanup_cluster"
