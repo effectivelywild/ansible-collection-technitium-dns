@@ -57,7 +57,7 @@
 
 - name: "Find generated ZSK key tag"
   set_fact:
-    generated_key_tag_1: "{{ (dnssec_props_1.dnssecPrivateKeys | selectattr('state', 'equalto', 'Generated') | selectattr('key_type', 'equalto', 'ZoneSigningKey') | first).keyTag }}"
+    generated_key_tag_1: "{{ (dnssec_props_1.dnssec_properties.dnssecPrivateKeys | selectattr('state', 'equalto', 'Generated') | selectattr('keyType', 'equalto', 'ZoneSigningKey') | first).keyTag }}"
 
 - name: Delete private key without node parameter
   technitium_dns_delete_private_key:
@@ -99,7 +99,7 @@
 
 - name: "Find second generated ZSK key tag"
   set_fact:
-    generated_key_tag_2: "{{ (dnssec_props_2.dnssecPrivateKeys | selectattr('state', 'equalto', 'Generated') | selectattr('key_type', 'equalto', 'ZoneSigningKey') | first).keyTag }}"
+    generated_key_tag_2: "{{ (dnssec_props_2.dnssec_properties.dnssecPrivateKeys | selectattr('state', 'equalto', 'Generated') | selectattr('keyType', 'equalto', 'ZoneSigningKey') | first).keyTag }}"
 
 - name: Delete private key with node parameter
   technitium_dns_delete_private_key:
