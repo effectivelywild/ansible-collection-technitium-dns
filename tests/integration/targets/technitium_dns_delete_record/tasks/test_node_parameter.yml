@@ -111,7 +111,6 @@
     ipAddress: "192.0.2.10"
     validate_certs: no
   register: delete_a_record_again
-  ignore_errors: yes
 
 - name: Assert deleting already deleted record is idempotent
   assert:
@@ -166,7 +165,7 @@
     ipAddress: "192.0.2.99"
     validate_certs: no
   register: delete_record_invalid_node
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Assert deletion with invalid node fails
   assert:

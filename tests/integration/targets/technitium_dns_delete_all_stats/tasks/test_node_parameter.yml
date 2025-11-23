@@ -43,9 +43,6 @@
       - "'statistics deleted successfully' in delete_stats_primary.msg | lower"
     fail_msg: "Delete all stats for primary node should succeed"
 
-# Note: Stats operations with node parameter targeting secondary nodes require
-# direct authentication to those nodes. Only testing primary node operations here.
-
 # Test 3: Verify stats were deleted by checking they are minimal
 - name: Get stats after deletion to verify
   technitium_dns_get_stats:

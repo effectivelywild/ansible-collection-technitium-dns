@@ -9,9 +9,6 @@
     action: "setup"
     initialize_cluster: true
 
-# Note: Log operations with node parameter targeting secondary nodes require
-# direct authentication to those nodes. Only testing primary node operations here.
-
 # Setup: Get list of logs to identify one to delete
 - name: List logs on primary node
   technitium_dns_list_logs:
@@ -53,7 +50,7 @@
     node: "invalid-node-name-xyz"
     validate_certs: no
   register: delete_log_invalid_node
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Assert delete log with invalid node fails
   assert:

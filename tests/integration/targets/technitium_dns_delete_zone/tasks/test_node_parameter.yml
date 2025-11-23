@@ -47,7 +47,7 @@
     node: "cluster-primary01.example.com"
     validate_certs: no
   register: zone_check_after_delete
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Assert zone no longer exists
   assert:
@@ -92,7 +92,7 @@
     node: "invalid-node-name-xyz"
     validate_certs: no
   register: delete_zone_invalid_node
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Debug delete_zone_invalid_node result
   debug:

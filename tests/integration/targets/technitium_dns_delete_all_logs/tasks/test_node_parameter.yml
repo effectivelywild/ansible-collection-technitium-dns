@@ -9,9 +9,6 @@
     action: "setup"
     initialize_cluster: true
 
-# Note: Log operations with node parameter targeting secondary nodes require
-# direct authentication to those nodes. Only testing primary node operations here.
-
 # Test 1: Delete all logs on primary node (explicit node parameter)
 - name: Delete all logs on primary node
   technitium_dns_delete_all_logs:
@@ -39,7 +36,7 @@
     node: "invalid-node-name-xyz"
     validate_certs: no
   register: delete_all_invalid_node
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Assert delete all logs with invalid node fails
   assert:

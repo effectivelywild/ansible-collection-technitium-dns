@@ -9,11 +9,6 @@
     action: "setup"
     initialize_cluster: true
 
-# Note: This test creates a primary zone on cluster_primary_01, then creates a
-# secondary zone on cluster_primary_01 that pulls from itself to test resync.
-# We only test on cluster_primary_01 since operations on secondary nodes require
-# direct authentication to those nodes.
-
 # Setup: Create a primary zone on cluster_primary_01
 - name: Create primary zone on cluster_primary_01
   technitium_dns_create_zone:

@@ -15,7 +15,6 @@
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
     stats_type: "TopDomains"
-    validate_certs: no
   register: top_stats_default
 
 - name: Debug top stats default
@@ -39,7 +38,6 @@
     api_port: "{{ api_port_cluster_primary_01 }}"
     stats_type: "TopDomains"
     node: "cluster"
-    validate_certs: no
   register: top_stats_cluster
 
 - name: Assert cluster top stats returned
@@ -61,7 +59,6 @@
     api_port: "{{ api_port_cluster_primary_01 }}"
     stats_type: "TopDomains"
     node: "cluster-primary01.example.com"
-    validate_certs: no
   register: top_stats_primary
 
 - name: Assert primary node top stats returned
@@ -80,7 +77,6 @@
     api_port: "{{ api_port_cluster_primary_01 }}"
     stats_type: "TopBlockedDomains"
     node: "cluster"
-    validate_certs: no
   register: top_blocked_cluster
 
 - name: Assert cluster top blocked stats returned
