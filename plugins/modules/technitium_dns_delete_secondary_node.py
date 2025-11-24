@@ -27,7 +27,7 @@ notes:
     - This operation requires Administration Delete permission.
     - This can only be run on the Primary node.
     - The Secondary node will NOT be notified and will become orphaned.
-    - Use remove_secondary for graceful removal when possible.
+    - Use remove_secondary_node for graceful removal when possible.
 options:
     api_port:
         description:
