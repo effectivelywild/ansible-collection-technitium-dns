@@ -59,6 +59,13 @@ options:
             - The name of the catalog zone to become its member zone
         required: false
         type: str
+    node:
+        description:
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
     dnssec:
         description:
             - Enable DNSSEC for the zone
@@ -262,6 +269,7 @@ class ZoneModule(TechnitiumModule):
         **TechnitiumModule.get_common_argument_spec(),
         state=dict(type='str', required=False, default='present', choices=['present', 'absent']),
         zone=dict(type='str', required=True),
+        node=dict(type='str', required=False),
         type=dict(type='str', required=False, choices=[
                   "Primary", "Secondary", "Stub", "Forwarder", "SecondaryForwarder", "Catalog", "SecondaryCatalog"]),
         catalog=dict(type='str', required=False),
@@ -357,13 +365,16 @@ class ZoneModule(TechnitiumModule):
 
             self._delete_zone()
 
-    def _zone_exists(self, zone):
+    def _zone_exists(self, zone, node=None):
         """Check if a zone exists.
 
         Returns:
             tuple: (exists: bool, zone_data: dict or None)
         """
+        node = node or self.params.get('node')
         zone_check_query = {'zone': zone}
+        if node:
+            zone_check_query['node'] = node
         zone_check_data = self.request('/api/zones/options/get', params=zone_check_query)
 
         if zone_check_data.get('status') == 'ok':
@@ -372,6 +383,11 @@ class ZoneModule(TechnitiumModule):
             error_msg = zone_check_data.get('errorMessage', '')
             if 'No such zone was found' in error_msg:
                 return False, None
+            if 'No such node exists' in error_msg:
+                self.fail_json(
+                    msg=f"Invalid node parameter: {error_msg}",
+                    api_response=zone_check_data
+                )
             else:
                 # Unexpected API error
                 self.fail_json(
@@ -397,7 +413,7 @@ class ZoneModule(TechnitiumModule):
         if data.get('status') == 'ok':
             # Check if DNSSEC should be enabled
             if params.get('dnssec'):
-                self._sign_zone(zone)
+                self._sign_zone(zone, node=params.get('node'))
 
             self.exit_json(
                 changed=True,
@@ -413,8 +429,13 @@ class ZoneModule(TechnitiumModule):
     def _delete_zone(self):
         """Delete a zone."""
         zone = self.params['zone']
+        node = self.params.get('node')
 
-        data = self.request('/api/zones/delete', params={'zone': zone}, method='POST')
+        delete_params = {'zone': zone}
+        if node:
+            delete_params['node'] = node
+
+        data = self.request('/api/zones/delete', params=delete_params, method='POST')
 
         if data.get('status') == 'ok':
             self.exit_json(
@@ -428,7 +449,7 @@ class ZoneModule(TechnitiumModule):
                 api_response=data
             )
 
-    def _sign_zone(self, zone):
+    def _sign_zone(self, zone, node=None):
         """Sign a zone with DNSSEC using default settings."""
         sign_params = {
             'zone': zone,
@@ -438,6 +459,8 @@ class ZoneModule(TechnitiumModule):
             'zskKeySize': 1024,
             'dnsKeyTtl': 86400
         }
+        if node:
+            sign_params['node'] = node
         sign_data = self.request('/api/zones/dnssec/sign', params=sign_params, method='POST')
 
         if sign_data.get('status') != 'ok':
@@ -452,7 +475,7 @@ class ZoneModule(TechnitiumModule):
 
         # Define allowed parameters for each zone type
         common_params = {
-            'api_url', 'api_port', 'api_token', 'validate_certs', 'zone', 'type', 'state', 'dnssec'
+            'api_url', 'api_port', 'api_token', 'validate_certs', 'zone', 'node', 'type', 'state', 'dnssec'
         }
 
         allowed_params = {
@@ -487,6 +510,9 @@ class ZoneModule(TechnitiumModule):
             'zone': params['zone'],
             'type': params['type']
         }
+
+        if params.get('node'):
+            query['node'] = params['node']
 
         # Add optional parameters if provided
         optional_params = [

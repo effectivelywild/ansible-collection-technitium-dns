@@ -216,12 +216,19 @@ options:
             - Services (NAPTR only)
         required: false
         type: str
+    node:
+        description:
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
     overwrite:
         description:
             - Overwrite existing record set for this type (only applies to state=present)
         required: false
         type: bool
-        default: false
+        default: True
     preference:
         description:
             - MX preference (MX only)
@@ -886,6 +893,7 @@ class RecordModule(TechnitiumModule):
         **TechnitiumModule.get_common_argument_spec(),
         name=dict(type='str', required=True, aliases=['domain']),
         zone=dict(type='str', required=False),
+        node=dict(type='str', required=False),
         type=dict(type='str', required=True, choices=[
             'A', 'AAAA', 'NS', 'CNAME', 'PTR', 'MX', 'TXT', 'SRV', 'NAPTR', 'DNAME', 'DS', 'SSHFP', 'TLSA', 'SVCB',
             'HTTPS', 'URI', 'CAA', 'ANAME', 'FWD', 'APP', 'UNKNOWN'
@@ -1204,8 +1212,8 @@ class RecordModule(TechnitiumModule):
         # Check for unsupported parameters (skip internal params and normalized data)
         if record_type in allowed_params:
             for param in params:
-                if param in ['api_url', 'api_port', 'api_token', 'domain', 'name', 'zone', 'type',
-                           'validate_certs', 'state', '_normalized_records', '_set_params']:
+                if param in ['api_url', 'api_port', 'api_token', 'domain', 'name', 'zone', 'node', 'type',
+                             'validate_certs', 'state', '_normalized_records', '_set_params']:
                     continue
                 if params[param] is not None and param not in allowed_params[record_type]:
                     self.fail_json(
@@ -1309,6 +1317,8 @@ class RecordModule(TechnitiumModule):
         }
         if params.get('zone'):
             get_query['zone'] = params['zone']
+        if params.get('node'):
+            get_query['node'] = params['node']
 
         try:
             get_resp = self.request('/api/zones/records/get', params=get_query)
@@ -1319,8 +1329,7 @@ class RecordModule(TechnitiumModule):
         # Filter to records of the correct type
         matching_records = [
             rec for rec in all_records
-            if rec.get('type', '').upper() == record_type and
-               rec.get('name', '').lower() == params['name'].lower()
+            if rec.get('type', '').upper() == record_type and rec.get('name', '').lower() == params['name'].lower()
         ]
 
         return matching_records
@@ -1477,7 +1486,7 @@ class RecordModule(TechnitiumModule):
         return record
 
     def _compute_record_set_changes(self, existing_records, desired_records, existing_api_records,
-                                     record_type, set_params, overwrite):
+                                    record_type, set_params, overwrite):
         """
         Determine what changes are needed to move from existing to desired state.
 
@@ -1617,6 +1626,8 @@ class RecordModule(TechnitiumModule):
 
         if params.get('zone'):
             query['zone'] = params['zone']
+        if params.get('node'):
+            query['node'] = params['node']
 
         # Add set-level params
         if 'ttl' in set_params:
@@ -1659,6 +1670,8 @@ class RecordModule(TechnitiumModule):
 
         if params.get('zone'):
             query['zone'] = params['zone']
+        if params.get('node'):
+            query['node'] = params['node']
 
         # Add identifying parameters from the API record
         rdata = api_record.get('rData', {})

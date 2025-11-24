@@ -559,3 +559,7 @@
     that:
       - test8_6_result.failed
     fail_msg: "Invalid API credentials should have failed"
+
+# Test node parameter (cluster support)
+- name: "Include node parameter tests"
+  ansible.builtin.include_tasks: test_node_parameter.yml

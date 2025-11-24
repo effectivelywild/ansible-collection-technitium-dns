@@ -1,0 +1,104 @@
+---
+# Integration tests for technitium_dns_zone node parameter (cluster support)
+
+# Setup testing environment with cluster initialization
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+    initialize_cluster: true
+
+- name: Create Primary zone on specific node
+  effectivelywild.technitium_dns.technitium_dns_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "node-zones.local"
+    type: "Primary"
+    node: "cluster-primary01.example.com"
+    useSoaSerialDateScheme: true
+    validate_certs: no
+  register: create_zone_node
+
+- name: Assert zone created on node
+  ansible.builtin.assert:
+    that:
+      - create_zone_node.changed
+      - not create_zone_node.failed
+
+- name: Re-run creation to verify idempotency on node
+  effectivelywild.technitium_dns.technitium_dns_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "node-zones.local"
+    type: "Primary"
+    node: "cluster-primary01.example.com"
+    useSoaSerialDateScheme: true
+    validate_certs: no
+  register: create_zone_node_idempotent
+
+- name: Assert zone creation is idempotent
+  ansible.builtin.assert:
+    that:
+      - not create_zone_node_idempotent.changed
+      - not create_zone_node_idempotent.failed
+
+- name: Delete zone on specific node
+  effectivelywild.technitium_dns.technitium_dns_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "node-zones.local"
+    node: "cluster-primary01.example.com"
+    state: absent
+    validate_certs: no
+  register: delete_zone_node
+
+- name: Assert zone deleted on node
+  ansible.builtin.assert:
+    that:
+      - delete_zone_node.changed
+      - not delete_zone_node.failed
+
+- name: Delete zone again to verify idempotency
+  effectivelywild.technitium_dns.technitium_dns_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "node-zones.local"
+    node: "cluster-primary01.example.com"
+    state: absent
+    validate_certs: no
+  register: delete_zone_node_idempotent
+
+- name: Assert delete is idempotent on node
+  ansible.builtin.assert:
+    that:
+      - not delete_zone_node_idempotent.changed
+      - not delete_zone_node_idempotent.failed
+
+- name: "Negative: attempt to create zone with invalid node"
+  effectivelywild.technitium_dns.technitium_dns_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "invalid-node-zone.local"
+    type: "Primary"
+    node: "invalid-node.example.com"
+    validate_certs: no
+  register: create_zone_invalid_node
+  ignore_errors: true
+
+- name: Assert invalid node creation fails
+  ansible.builtin.assert:
+    that:
+      - create_zone_invalid_node.failed
+      - "'invalid node' in create_zone_invalid_node.msg | lower or 'no such node exists' in create_zone_invalid_node.msg | lower"
+
+- name: Include setup_cluster_testing_environment for teardown
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

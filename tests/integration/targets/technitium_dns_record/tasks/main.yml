@@ -86,3 +86,7 @@
 
 - name: "Include URI record tests"
   ansible.builtin.include_tasks: test_uri_records.yml
+
+# Test node parameter (cluster support)
+- name: "Include node parameter tests"
+  ansible.builtin.include_tasks: test_node_parameter.yml
