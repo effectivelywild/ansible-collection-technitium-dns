@@ -58,6 +58,11 @@
     limit: 20
   register: top_domains_result
 
+- name: "Debug top domains result"
+  debug:
+    var: top_domains_result
+  when: debug | default(false)
+
 - name: "Assert top domains retrieval succeeded"
   assert:
     that:
@@ -184,3 +189,7 @@
     that:
       - invalid_type_result.failed
     fail_msg: "Invalid stats_type should cause failure"
+
+# Phase: Test node parameter (cluster support)
+- name: "Run node parameter tests"
+  include_tasks: test_node_parameter.yml

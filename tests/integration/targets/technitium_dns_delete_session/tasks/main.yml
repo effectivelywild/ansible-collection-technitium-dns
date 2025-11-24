@@ -291,3 +291,7 @@
     that:
       - not cleanup_user_result.failed
     fail_msg: "Test user cleanup should have succeeded"
+
+# Phase 14: Test node parameter (cluster support)
+- name: "Run node parameter tests"
+  include_tasks: test_node_parameter.yml

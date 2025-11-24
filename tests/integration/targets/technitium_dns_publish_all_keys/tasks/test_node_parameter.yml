@@ -1,0 +1,112 @@
+---
+# Integration tests for technitium_dns_publish_all_keys node parameter (cluster support)
+
+# Setup testing environment with cluster initialization
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+    initialize_cluster: true
+
+# Create and sign a test zone
+- name: "Create test zone for DNSSEC testing"
+  technitium_dns_create_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecpublish.example.com"
+    type: "Primary"
+    validate_certs: no
+
+- name: "Sign the test zone"
+  technitium_dns_sign_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecpublish.example.com"
+    algorithm: "ECDSA"
+    curve: "P256"
+    validate_certs: no
+
+# Add a new private key that needs to be published
+- name: "Add a new ZSK key"
+  technitium_dns_add_private_key:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecpublish.example.com"
+    key_type: "ZoneSigningKey"
+    algorithm: "ECDSA"
+    curve: "P256"
+    validate_certs: no
+
+# Test 1: Publish all keys without node parameter
+- name: Publish all keys without node parameter
+  technitium_dns_publish_all_keys:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecpublish.example.com"
+    validate_certs: no
+  register: publish_default
+
+- name: Assert default key publishing succeeded
+  assert:
+    that:
+      - not publish_default.failed
+    fail_msg: "Key publishing without node parameter should succeed"
+
+# Add another key for node parameter test
+- name: "Add another ZSK key"
+  technitium_dns_add_private_key:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecpublish.example.com"
+    key_type: "ZoneSigningKey"
+    algorithm: "ECDSA"
+    curve: "P256"
+    validate_certs: no
+
+# Test 2: Publish all keys with explicit node parameter
+- name: Publish all keys with node parameter
+  technitium_dns_publish_all_keys:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecpublish.example.com"
+    node: "cluster-primary01.example.com"
+    validate_certs: no
+  register: publish_with_node
+
+- name: Assert key publishing with node parameter succeeded
+  assert:
+    that:
+      - not publish_with_node.failed
+    fail_msg: "Key publishing with node parameter should succeed"
+
+# Cleanup
+- name: "Unsign the test zone"
+  technitium_dns_unsign_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecpublish.example.com"
+    validate_certs: no
+  ignore_errors: true
+
+- name: "Delete test zone"
+  technitium_dns_delete_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "dnssecpublish.example.com"
+    validate_certs: no
+  ignore_errors: true
+
+- name: Include setup_cluster_testing_environment for teardown
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

@@ -77,18 +77,23 @@ class TechnitiumModule(AnsibleModule):
     def run(self):
         raise NotImplementedError("Subclasses must implement run()")
 
-    def validate_zone_exists(self, zone):
+    def validate_zone_exists(self, zone, node=None):
         """Validate that a zone exists, fail gracefully if not"""
         get_query = {'zone': zone}
+        if node:
+            get_query['node'] = node
         get_data = self.request('/api/zones/options/get', params=get_query)
         error_msg = get_data.get('errorMessage')
         if error_msg and 'No such zone was found' in error_msg:
             self.fail_json(msg=f"Zone '{zone}' does not exist: {error_msg}")
         return get_data
 
-    def get_dnssec_status(self, zone):
+    def get_dnssec_status(self, zone, node=None):
         """Get the DNSSEC status of a zone, with standardized error handling"""
-        zone_options_resp = self.request('/api/zones/options/get', params={'zone': zone})
+        query = {'zone': zone}
+        if node:
+            query['node'] = node
+        zone_options_resp = self.request('/api/zones/options/get', params=query)
         if zone_options_resp.get('status') != 'ok':
             error_msg = zone_options_resp.get('errorMessage') or zone_options_resp.get('error') or zone_options_resp.get('message') or "Unknown error"
             # Remove stackTrace if present for cleaner error responses
@@ -99,9 +104,16 @@ class TechnitiumModule(AnsibleModule):
         dnssec_status = zone_info.get('dnssecStatus', '').lower()
         return dnssec_status, zone_info
 
-    def get_dnssec_properties(self, zone):
-        """Get DNSSEC properties for a zone, with standardized error handling"""
+    def get_dnssec_properties(self, zone, node=None):
+        """Get DNSSEC properties for a zone, with standardized error handling
+
+        Args:
+            zone (str): Zone name
+            node (str): Optional node parameter for cluster operations
+        """
         params = {'zone': zone}
+        if node:
+            params['node'] = node
         data = self.request('/api/zones/dnssec/properties/get', params=params)
 
         if data.get('status') != 'ok':
@@ -266,23 +278,200 @@ class TechnitiumModule(AnsibleModule):
         existing_log = next((log for log in log_files if log.get('fileName') == log_name), None)
         return existing_log is not None, existing_log
 
-    def check_app_exists(self, app_name):
+    def check_app_exists(self, app_name, node=None):
         """Check if an app is installed and return app data if found
 
         Args:
             app_name (str): Name of the app (e.g., "Query Logs (Sqlite)")
+            node (str): Optional node parameter for cluster environments
 
         Returns:
             tuple: (exists: bool, app_data: dict or None)
                 - exists: True if app is installed, False otherwise
                 - app_data: dict containing app details if found, None otherwise
         """
-        list_data = self.request('/api/apps/list')
+        params = {}
+        if node:
+            params['node'] = node
+
+        list_data = self.request('/api/apps/list', params=params)
         self.validate_api_response(list_data)
 
         apps = list_data.get('response', {}).get('apps', [])
         existing_app = next((app for app in apps if app.get('name') == app_name), None)
         return existing_app is not None, existing_app
+
+    # Clustering helper methods
+
+    def get_cluster_state(self, node=None, fail_on_error=True):
+        """Get cluster state with standardized error handling
+
+        Args:
+            node (str): Optional node domain name for the API call
+            fail_on_error (bool): Whether to fail on API errors (default True)
+
+        Returns:
+            tuple: (cluster_initialized: bool, cluster_state: dict)
+                - cluster_initialized: Whether the cluster is initialized
+                - cluster_state: The complete cluster state response
+        """
+        state_params = {}
+        if node:
+            state_params['node'] = node
+
+        state_data = self.request('/api/admin/cluster/state', params=state_params)
+        if fail_on_error and state_data.get('status') != 'ok':
+            error_msg = state_data.get('errorMessage') or "Unknown error"
+            self.fail_json(msg=f"Failed to check cluster state: {error_msg}", api_response=state_data)
+
+        cluster_state = state_data.get('response', {})
+        cluster_initialized = cluster_state.get('clusterInitialized', False)
+
+        return cluster_initialized, cluster_state
+
+    def get_self_node(self, cluster_state):
+        """Get the current node from cluster state
+
+        Args:
+            cluster_state (dict): The cluster state response containing clusterNodes
+
+        Returns:
+            dict or None: The self node data, or None if not found
+        """
+        current_nodes = cluster_state.get('clusterNodes', [])
+        return next((n for n in current_nodes if n.get('state') == 'Self'), None)
+
+    def get_primary_node(self, cluster_state):
+        """Get the Primary node from cluster state
+
+        Args:
+            cluster_state (dict): The cluster state response containing clusterNodes
+
+        Returns:
+            dict or None: The Primary node data, or None if not found
+        """
+        current_nodes = cluster_state.get('clusterNodes', [])
+        return next((n for n in current_nodes if n.get('type') == 'Primary'), None)
+
+    def get_node_by_id(self, cluster_state, node_id, expected_type=None, fail_if_not_found=True):
+        """Get a specific node from cluster state by ID
+
+        Args:
+            cluster_state (dict): The cluster state response containing clusterNodes
+            node_id (int): The node ID to find
+            expected_type (str): Optional expected node type ('Primary' or 'Secondary')
+            fail_if_not_found (bool): Whether to fail if node is not found (default True)
+
+        Returns:
+            dict or None: The node data if found, None if not found and fail_if_not_found=False
+
+        Raises:
+            AnsibleFailJson if node is not found and fail_if_not_found=True
+            AnsibleFailJson if expected_type is set and doesn't match
+        """
+        current_nodes = cluster_state.get('clusterNodes', [])
+        node = next((n for n in current_nodes if n.get('id') == node_id), None)
+
+        if not node:
+            if fail_if_not_found:
+                self.fail_json(
+                    changed=False,
+                    cluster_state=cluster_state,
+                    msg=f"Node with ID {node_id} not found in cluster"
+                )
+            return None
+
+        if expected_type:
+            actual_type = node.get('type')
+            if actual_type != expected_type:
+                self.fail_json(
+                    msg=f"Node {node_id} is type '{actual_type}', not '{expected_type}'",
+                    cluster_state=cluster_state
+                )
+
+        return node
+
+    def validate_cluster_node_type(self, cluster_state, expected_type, custom_error_msg=None):
+        """Validate that the current node is of the expected type
+
+        Args:
+            cluster_state (dict): The cluster state response containing clusterNodes
+            expected_type (str): Expected node type ('Primary' or 'Secondary')
+            custom_error_msg (str): Optional custom error message
+
+        Returns:
+            dict: The self node data if validation passes
+
+        Raises:
+            AnsibleFailJson if node type doesn't match expected_type
+        """
+        self_node = self.get_self_node(cluster_state)
+
+        if not self_node:
+            self.fail_json(
+                msg="Could not identify current node in cluster",
+                cluster_state=cluster_state
+            )
+
+        actual_type = self_node.get('type')
+        if actual_type != expected_type:
+            if custom_error_msg:
+                error_msg = custom_error_msg
+            else:
+                error_msg = f"This is not a {expected_type} node. Current node type is '{actual_type}'."
+
+            self.fail_json(msg=error_msg, cluster_state=cluster_state)
+
+        return self_node
+
+    def require_cluster_initialized(self, cluster_initialized, cluster_state, fail_message=None):
+        """Ensure cluster is initialized, fail if not
+
+        Args:
+            cluster_initialized (bool): Whether cluster is initialized
+            cluster_state (dict): The cluster state response
+            fail_message (str): Optional custom failure message
+
+        Raises:
+            AnsibleFailJson if cluster is not initialized
+        """
+        if not cluster_initialized:
+            msg = fail_message or "Cluster is not initialized"
+            self.fail_json(msg=msg, cluster_state=cluster_state)
+
+    def require_cluster_not_initialized(self, cluster_initialized, cluster_state, exit_message=None):
+        """Ensure cluster is not initialized (for idempotent cleanup operations)
+
+        Args:
+            cluster_initialized (bool): Whether cluster is initialized
+            cluster_state (dict): The cluster state response
+            exit_message (str): Optional custom success message
+
+        Returns:
+            None if cluster is not initialized (allows continuing execution)
+
+        Side Effects:
+            Calls exit_json if cluster is not initialized
+        """
+        if not cluster_initialized:
+            msg = exit_message or "Cluster is not initialized"
+            self.exit_json(changed=False, cluster_state=cluster_state, msg=msg)
+
+    def build_cluster_params(self, node=None, **additional_params):
+        """Build request parameters with optional node parameter
+
+        Args:
+            node (str): Optional node domain name
+            **additional_params: Additional parameters to include
+
+        Returns:
+            dict: Parameters dictionary with node added if provided
+        """
+        params = {}
+        if node:
+            params['node'] = node
+        params.update(additional_params)
+        return params
 
     def __call__(self):
         self.run()

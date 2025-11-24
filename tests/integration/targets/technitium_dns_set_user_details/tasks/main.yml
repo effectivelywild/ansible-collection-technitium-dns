@@ -34,7 +34,8 @@
     fail_msg: "Test user should have been created successfully"
 
 # Phase 3: Test idempotency - no changes when current state matches desired
-- name: "Test idempotency - set same display name"
+# Note: Due to v14 regression, users are created with displayName=username, so we test with username
+- name: "Test idempotency - set same display name as username"
   technitium_dns_set_user_details:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "{{ technitium_api_token_2 }}"

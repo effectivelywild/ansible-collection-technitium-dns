@@ -1,0 +1,129 @@
+---
+# Integration tests for technitium_dns_set_zone_options node parameter (cluster support)
+
+# Setup testing environment with cluster initialization
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+    initialize_cluster: true
+
+# Setup: Create a test zone on primary
+- name: Create test zone on primary node
+  technitium_dns_create_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-setoptions.local"
+    type: "Primary"
+    validate_certs: no
+
+# Test 1: Set zone options on specific node (primary explicitly)
+- name: Set zone options on primary node explicitly
+  technitium_dns_set_zone_options:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-setoptions.local"
+    node: "cluster-primary01.example.com"
+    disabled: false
+    zoneTransfer: "Allow"
+    notify: "ZoneNameServers"
+    validate_certs: no
+  register: set_options_primary
+
+- name: Assert primary node set zone options succeeded
+  assert:
+    that:
+      - not set_options_primary.failed
+      - set_options_primary.changed
+    fail_msg: "Set zone options for primary node should succeed"
+
+- name: Verify zone options on primary node
+  technitium_dns_get_zone_options:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-setoptions.local"
+    node: "cluster-primary01.example.com"
+    validate_certs: no
+  register: verify_options_primary
+
+- name: Assert zone options on primary node match
+  assert:
+    that:
+      - not verify_options_primary.failed
+      - verify_options_primary.options.disabled == false
+      - verify_options_primary.options.zoneTransfer == "Allow"
+      - verify_options_primary.options.notify == "ZoneNameServers"
+    fail_msg: "Zone options on primary node should match set values"
+
+# Test 2: Test idempotency with node parameter
+- name: Set zone options again with same values (idempotency test)
+  technitium_dns_set_zone_options:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-setoptions.local"
+    node: "cluster-primary01.example.com"
+    disabled: false
+    zoneTransfer: "Allow"
+    notify: "ZoneNameServers"
+    validate_certs: no
+  register: set_options_idempotent
+
+- name: Assert idempotency - no change when values match
+  assert:
+    that:
+      - not set_options_idempotent.failed
+      - not set_options_idempotent.changed
+    fail_msg: "Setting same zone options should be idempotent"
+
+# Test 3: Update options with network ACLs using node parameter
+- name: Set zone options with ACLs on primary node
+  technitium_dns_set_zone_options:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-setoptions.local"
+    node: "cluster-primary01.example.com"
+    queryAccess: "UseSpecifiedNetworkACL"
+    queryAccessNetworkACL:
+      - "192.168.1.0/24"
+      - "10.0.0.0/8"
+    validate_certs: no
+  register: set_options_acl
+
+- name: Assert ACL options set successfully
+  assert:
+    that:
+      - not set_options_acl.failed
+      - set_options_acl.changed
+    fail_msg: "Setting zone options with ACL should succeed"
+
+- name: Verify ACL options were set correctly on primary node
+  technitium_dns_get_zone_options:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-setoptions.local"
+    node: "cluster-primary01.example.com"
+    validate_certs: no
+  register: verify_options_acl
+
+- name: Assert ACL values match on primary node
+  assert:
+    that:
+      - not verify_options_acl.failed
+      - verify_options_acl.options.queryAccess == "UseSpecifiedNetworkACL"
+      - verify_options_acl.options.queryAccessNetworkACL | length == 2
+      - "'192.168.1.0/24' in verify_options_acl.options.queryAccessNetworkACL"
+      - "'10.0.0.0/8' in verify_options_acl.options.queryAccessNetworkACL"
+    fail_msg: "ACL options should match set values"
+
+- name: Include setup_cluster_testing_environment for teardown
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

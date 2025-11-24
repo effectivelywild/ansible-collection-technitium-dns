@@ -1,0 +1,97 @@
+---
+# Integration tests for technitium_dns_get_zone_options node parameter (cluster support)
+
+# Setup testing environment with cluster initialization
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+    initialize_cluster: true
+
+# Setup: Create a test zone on primary
+- name: Create test zone on primary node
+  technitium_dns_create_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-zoneoptions.local"
+    type: "Primary"
+    validate_certs: no
+
+# Test 1: Get zone options without node parameter (default behavior - current node)
+- name: Get zone options without node parameter
+  technitium_dns_get_zone_options:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-zoneoptions.local"
+    validate_certs: no
+  register: zone_options_default
+
+- name: Assert default zone options returned
+  assert:
+    that:
+      - not zone_options_default.failed
+      - zone_options_default.options is defined
+      - zone_options_default.options.disabled is defined
+      - zone_options_default.options.zoneTransfer is defined
+    fail_msg: "Zone options retrieval without node parameter should succeed"
+
+# Test 2: Get zone options for specific node (primary)
+- name: Get zone options for primary node
+  technitium_dns_get_zone_options:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-zoneoptions.local"
+    node: "cluster-primary01.example.com"
+    validate_certs: no
+  register: zone_options_primary
+
+- name: Assert primary node zone options returned
+  assert:
+    that:
+      - not zone_options_primary.failed
+      - zone_options_primary.options is defined
+      - zone_options_primary.options.disabled is defined
+      - zone_options_primary.options.zoneTransfer is defined
+    fail_msg: "Zone options retrieval for primary node should succeed"
+
+# Test 3: Set zone options and verify they are retrieved correctly with node parameter
+- name: Set zone options on primary node
+  technitium_dns_set_zone_options:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-zoneoptions.local"
+    node: "cluster-primary01.example.com"
+    disabled: false
+    zoneTransfer: "Allow"
+    notify: "ZoneNameServers"
+    validate_certs: no
+
+- name: Get zone options after setting them
+  technitium_dns_get_zone_options:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-zoneoptions.local"
+    node: "cluster-primary01.example.com"
+    validate_certs: no
+  register: zone_options_after_set
+
+- name: Assert zone options match set values
+  assert:
+    that:
+      - not zone_options_after_set.failed
+      - zone_options_after_set.options.disabled == false
+      - zone_options_after_set.options.zoneTransfer == "Allow"
+      - zone_options_after_set.options.notify == "ZoneNameServers"
+    fail_msg: "Retrieved zone options should match set values"
+
+- name: Include setup_cluster_testing_environment for teardown
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

@@ -1,0 +1,92 @@
+---
+# Integration tests for technitium_dns_convert_to_nsec node parameter (cluster support)
+
+# Setup testing environment with cluster initialization
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+    initialize_cluster: true
+
+# Setup: Create and sign a test zone with NSEC3 on primary
+- name: Create test zone on primary node
+  technitium_dns_create_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-convertnsec.local"
+    type: "Primary"
+    validate_certs: no
+
+- name: Sign test zone with NSEC3 on primary node
+  technitium_dns_sign_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-convertnsec.local"
+    node: "cluster-primary01.example.com"
+    algorithm: "ECDSA"
+    curve: "P256"
+    nxProof: "NSEC3"
+    validate_certs: no
+
+# Test 1: Convert zone to NSEC on specific node
+- name: Convert zone to NSEC on primary node
+  technitium_dns_convert_to_nsec:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-convertnsec.local"
+    node: "cluster-primary01.example.com"
+    validate_certs: no
+  register: convert_to_nsec_primary
+
+- name: Assert convert to NSEC on primary succeeded
+  assert:
+    that:
+      - not convert_to_nsec_primary.failed
+      - convert_to_nsec_primary.changed
+    fail_msg: "Convert to NSEC on primary node should succeed"
+
+# Test 2: Verify zone is using NSEC using get_dnssec_properties with node parameter
+- name: Get DNSSEC properties on primary node
+  technitium_dns_get_dnssec_properties:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-convertnsec.local"
+    node: "cluster-primary01.example.com"
+    validate_certs: no
+  register: dnssec_props_primary
+
+- name: Assert zone is using NSEC
+  assert:
+    that:
+      - not dnssec_props_primary.failed
+      - dnssec_props_primary.dnssec_properties.dnssecStatus == "SignedWithNSEC"
+    fail_msg: "Zone should be using NSEC after conversion"
+
+# Test 3: Idempotency - try to convert already NSEC zone
+- name: Try to convert already NSEC zone (idempotency test)
+  technitium_dns_convert_to_nsec:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-convertnsec.local"
+    node: "cluster-primary01.example.com"
+    validate_certs: no
+  register: convert_to_nsec_idempotent
+
+- name: Assert converting already NSEC zone is idempotent
+  assert:
+    that:
+      - not convert_to_nsec_idempotent.failed
+      - not convert_to_nsec_idempotent.changed
+    fail_msg: "Converting already NSEC zone should be idempotent"
+
+- name: Include setup_cluster_testing_environment for teardown
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

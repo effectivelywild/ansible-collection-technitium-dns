@@ -199,3 +199,7 @@
       - not invalid_log_name_result.changed
       - "'does not exist' in invalid_log_name_result.msg"
     fail_msg: "Deleting invalid log name should return changed=false"
+
+# Test node parameter (cluster support)
+- name: "Test node parameter support"
+  include_tasks: test_node_parameter.yml

@@ -1,0 +1,75 @@
+---
+# Integration tests for technitium_dns_get_zone_info node parameter (cluster support)
+
+# Setup testing environment with cluster initialization
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+    initialize_cluster: true
+
+# Setup: Create a test zone on primary
+- name: Create test zone on primary node
+  technitium_dns_create_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-zoneinfo.local"
+    type: "Primary"
+    validate_certs: no
+
+# Test 1: Get zone info without node parameter (default behavior - current node)
+- name: Get zone info without node parameter
+  technitium_dns_get_zone_info:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-zoneinfo.local"
+    validate_certs: no
+  register: zone_info_default
+
+- name: Assert default zone info returned
+  assert:
+    that:
+      - not zone_info_default.failed
+      - zone_info_default.zones is defined
+      - zone_info_default.zones | length == 1
+      - zone_info_default.zones[0].name == "test-zoneinfo.local"
+      - zone_info_default.zones[0].type is defined
+    fail_msg: "Zone info retrieval without node parameter should succeed"
+
+# Test 2: Get zone info for specific node (primary)
+- name: Get zone info for primary node
+  technitium_dns_get_zone_info:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-zoneinfo.local"
+    node: "cluster-primary01.example.com"
+    validate_certs: no
+  register: zone_info_primary
+
+- name: Assert primary node zone info returned
+  assert:
+    that:
+      - not zone_info_primary.failed
+      - zone_info_primary.zones is defined
+      - zone_info_primary.zones | length == 1
+      - zone_info_primary.zones[0].name == "test-zoneinfo.local"
+      - zone_info_primary.zones[0].type is defined
+    fail_msg: "Zone info retrieval for primary node should succeed"
+
+# Test 3: Verify zone info matches between default and explicit node
+- name: Assert zone info matches between calls
+  assert:
+    that:
+      - zone_info_default.zones[0].name == zone_info_primary.zones[0].name
+      - zone_info_default.zones[0].type == zone_info_primary.zones[0].type
+    fail_msg: "Zone info should match between default and explicit node calls"
+
+- name: Include setup_cluster_testing_environment for teardown
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

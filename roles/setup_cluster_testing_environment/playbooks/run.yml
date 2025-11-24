@@ -1,0 +1,12 @@
+---
+- name: Setup testing cluster
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Include setup_cluster_testing_environment for setup
+      ansible.builtin.include_role:
+        name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+      vars:
+        action: "{{ setup_action }}"
+        create_var_file: false
+        debug: true

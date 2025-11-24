@@ -1,0 +1,108 @@
+---
+# Integration tests for technitium_dns_update_nsec3_parameters node parameter (cluster support)
+
+# Setup testing environment with cluster initialization
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+    initialize_cluster: true
+
+# Setup: Create and sign zone with NSEC3
+- name: Create test zone on primary node
+  technitium_dns_create_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-nsec3-params.local"
+    type: "Primary"
+    validate_certs: no
+
+- name: Sign zone with NSEC3
+  technitium_dns_sign_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-nsec3-params.local"
+    algorithm: "RSA"
+    hashAlgorithm: "SHA256"
+    kskKeySize: 2048
+    zskKeySize: 1024
+    dnsKeyTtl: 86400
+    zskRolloverDays: 30
+    nxProof: "NSEC3"
+    iterations: 0
+    saltLength: 0
+    validate_certs: no
+
+- name: Wait for DNSSEC keys to become active
+  pause:
+    seconds: 5
+
+# Test 1: Update NSEC3 parameters on specific node
+- name: Update NSEC3 parameters on primary node
+  technitium_dns_update_nsec3_parameters:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-nsec3-params.local"
+    iterations: 5
+    salt_length: 8
+    node: "cluster-primary01.example.com"
+    validate_certs: no
+  register: update_nsec3_primary
+
+- name: Assert NSEC3 parameters update on primary node succeeded
+  assert:
+    that:
+      - not update_nsec3_primary.failed
+      - update_nsec3_primary.changed
+    fail_msg: "Update NSEC3 parameters on primary node should succeed"
+
+# Test 2: Idempotency - update to same parameters
+- name: Update NSEC3 parameters to same values
+  technitium_dns_update_nsec3_parameters:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-nsec3-params.local"
+    iterations: 5
+    salt_length: 8
+    node: "cluster-primary01.example.com"
+    validate_certs: no
+  register: update_nsec3_idempotent
+
+- name: Assert idempotency
+  assert:
+    that:
+      - not update_nsec3_idempotent.failed
+      - not update_nsec3_idempotent.changed
+    fail_msg: "Update NSEC3 parameters with same values should be idempotent"
+
+# Test 3: Negative test - invalid node name
+- name: Try to update NSEC3 parameters with invalid node name
+  technitium_dns_update_nsec3_parameters:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-nsec3-params.local"
+    iterations: 10
+    salt_length: 16
+    node: "invalid-node-name-xyz"
+    validate_certs: no
+  register: update_nsec3_invalid_node
+  ignore_errors: true
+
+- name: Assert update with invalid node fails
+  assert:
+    that:
+      - update_nsec3_invalid_node.failed
+      - "'No such node exists' in update_nsec3_invalid_node.msg"
+    fail_msg: "Update NSEC3 parameters with invalid node name should fail with appropriate error"
+
+- name: Include setup_cluster_testing_environment for teardown
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

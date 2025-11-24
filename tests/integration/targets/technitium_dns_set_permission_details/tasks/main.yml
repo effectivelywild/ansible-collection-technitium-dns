@@ -522,3 +522,7 @@
       - not cleanup_user_result.failed
       - not cleanup_group_result.failed
     fail_msg: "Cleanup should have succeeded"
+
+# Test node parameter (cluster support)
+- name: "Test node parameter support"
+  include_tasks: test_node_parameter.yml

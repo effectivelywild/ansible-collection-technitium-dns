@@ -1,0 +1,156 @@
+---
+# Integration tests for technitium_dns_delete_session node parameter (cluster support)
+
+# Setup testing environment with cluster initialization
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+    initialize_cluster: true
+
+# Phase 1: Create test user on primary node
+- name: "Cleanup - Delete test user on primary"
+  technitium_dns_delete_user:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    validate_certs: no
+    username: "nodetestsession"
+  ignore_errors: true
+
+- name: "Create test user for node parameter session testing"
+  technitium_dns_create_user:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    validate_certs: no
+    username: "nodetestsession"
+    password: "testpassword123"
+    displayName: "Node Test Session User"
+
+- name: "Add test user to Administrators group"
+  technitium_dns_set_user_details:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    validate_certs: no
+    username: "nodetestsession"
+    memberOfGroups:
+      - "Administrators"
+
+# Phase 2: Create API token for the test user
+- name: "Create API token for test user"
+  technitium_dns_create_token:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    validate_certs: no
+    user: "nodetestsession"
+    tokenName: "NodeTestToken"
+    return_token: true
+  register: node_test_token_result
+
+# Phase 3: List sessions to get the partialToken
+- name: "List sessions to get partialToken"
+  technitium_dns_list_sessions:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    validate_certs: no
+  register: sessions_list
+
+- name: "Extract partialToken for NodeTestToken"
+  set_fact:
+    node_test_partial_token: "{{ (sessions_list.sessions | selectattr('tokenName', 'equalto', 'NodeTestToken') | first).partialToken }}"
+
+# Test 1: Delete session without node parameter (default behavior)
+- name: "Create another token for default test"
+  technitium_dns_create_token:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    validate_certs: no
+    user: "nodetestsession"
+    tokenName: "DefaultTestToken"
+    return_token: true
+  register: default_token_result
+
+- name: "Get partialToken for default test"
+  technitium_dns_list_sessions:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    validate_certs: no
+  register: sessions_default
+
+- name: "Extract partialToken for DefaultTestToken"
+  set_fact:
+    default_partial_token: "{{ (sessions_default.sessions | selectattr('tokenName', 'equalto', 'DefaultTestToken') | first).partialToken }}"
+
+- name: "Delete session without node parameter"
+  technitium_dns_delete_session:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    validate_certs: no
+    partialToken: "{{ default_partial_token }}"
+  register: delete_default
+
+- name: "Assert default session deletion succeeded"
+  assert:
+    that:
+      - not delete_default.failed
+      - delete_default.changed
+      - "'deleted' in delete_default.msg"
+    fail_msg: "Session deletion without node parameter should succeed"
+
+# Test 2: Delete session with explicit node parameter (primary node)
+- name: "Delete session with node parameter for primary node"
+  technitium_dns_delete_session:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    validate_certs: no
+    partialToken: "{{ node_test_partial_token }}"
+    node: "cluster-primary01.example.com"
+  register: delete_with_node
+
+- name: "Assert session deletion with node parameter succeeded"
+  assert:
+    that:
+      - not delete_with_node.failed
+      - delete_with_node.changed
+      - "'deleted' in delete_with_node.msg"
+    fail_msg: "Session deletion with node parameter should succeed"
+
+# Test 3: Verify sessions were deleted
+- name: "List sessions to verify deletions"
+  technitium_dns_list_sessions:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    validate_certs: no
+  register: sessions_after_delete
+
+- name: "Assert sessions were deleted"
+  assert:
+    that:
+      - sessions_after_delete.sessions | selectattr('partialToken', 'equalto', default_partial_token) | list | length == 0
+      - sessions_after_delete.sessions | selectattr('partialToken', 'equalto', node_test_partial_token) | list | length == 0
+    fail_msg: "Deleted sessions should no longer exist"
+
+# Cleanup
+- name: "Delete test user"
+  technitium_dns_delete_user:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    validate_certs: no
+    username: "nodetestsession"
+
+- name: Include setup_cluster_testing_environment for teardown
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

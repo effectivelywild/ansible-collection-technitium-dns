@@ -43,6 +43,13 @@ options:
     required: false
     type: bool
     default: true
+  node:
+    description:
+      - The node domain name for which this API call is intended
+      - When unspecified, the current node is used
+      - This parameter can be used only when Clustering is initialized
+    required: false
+    type: str
   zone:
     description:
       - The name of the primary zone to rollover DNSKEY for
@@ -70,6 +77,14 @@ EXAMPLES = r'''
     api_token: "myapitoken"
     zone: "example.com"
     key_tag: 67890
+
+- name: Rollover DNSKEY on a specific cluster node
+  technitium_dns_rollover_dnskey:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    zone: "example.com"
+    key_tag: 12345
+    node: "node1.cluster.example.com"
 '''
 
 RETURN = r'''
@@ -113,6 +128,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 class RolloverDnskeyModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
+        node=dict(type='str', required=False),
         zone=dict(type='str', required=True),
         key_tag=dict(type='int', required=True, no_log=False),
     )
@@ -179,6 +195,8 @@ class RolloverDnskeyModule(TechnitiumModule):
             'zone': zone,
             'keyTag': key_tag
         }
+        if self.params.get('node'):
+            query['node'] = self.params['node']
 
         data = self.request('/api/zones/dnssec/properties/rolloverDnsKey', params=query, method='POST')
         status = data.get('status')

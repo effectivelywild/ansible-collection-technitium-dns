@@ -347,4 +347,6 @@
   loop:
     - "unsigned999.{{ testing_suffix }}"
     - "nsec999.{{ testing_suffix }}"
-  ignore_errors: true
+  ignore_errors: true # Test node parameter (cluster support)
+- name: "Test node parameter support"
+  include_tasks: test_node_parameter.yml

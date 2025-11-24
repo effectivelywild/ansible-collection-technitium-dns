@@ -64,6 +64,13 @@ options:
     required: false
     type: str
     choices: [MD5, SHA1, SHA256, SHA512]
+  node:
+    description:
+      - The node domain name for which this API call is intended
+      - When unspecified, the current node is used
+      - This parameter can be used only when Clustering is initialized
+    required: false
+    type: str
   iterations:
     description:
       - NSEC3 iterations
@@ -200,6 +207,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 class SignZoneModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
+        node=dict(type='str', required=False),
         zone=dict(type='str', required=True),
         algorithm=dict(type='str', required=True, choices=['RSA', 'ECDSA', 'EDDSA']),
         pemKskPrivateKey=dict(type='str', required=False, default=None, no_log=True),
@@ -221,9 +229,12 @@ class SignZoneModule(TechnitiumModule):
 
     def run(self):
         zone = self.params['zone']
+        node = self.params.get('node')
         algorithm = self.params['algorithm']
         # Build query params for API
         query = {'zone': zone, 'algorithm': algorithm}
+        if node:
+            query['node'] = node
 
         # Build query with optional parameters
         for key in [
@@ -235,7 +246,7 @@ class SignZoneModule(TechnitiumModule):
                 query[key] = value
 
         # Fetch current zone DNSSEC status (this also validates zone exists)
-        dnssec_status, zone_info = self.get_dnssec_status(zone)
+        dnssec_status, zone_info = self.get_dnssec_status(zone, node=node)
 
         if dnssec_status != 'unsigned':
             self.exit_json(

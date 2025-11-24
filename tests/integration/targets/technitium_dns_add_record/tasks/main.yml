@@ -86,3 +86,7 @@
 
 - name: "Include guideline URI record integration test"
   ansible.builtin.include_tasks: test_add_uri_records.yml
+
+# Test node parameter (cluster support)
+- name: "Test node parameter support"
+  include_tasks: test_node_parameter.yml

@@ -209,6 +209,13 @@ options:
             - Services (NAPTR only)
         required: false
         type: str
+    node:
+        description:
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
     overwrite:
         description:
             - Overwrite existing record set for this type
@@ -733,6 +740,7 @@ class DeleteRecordModule(TechnitiumModule):
         **TechnitiumModule.get_common_argument_spec(),
         name=dict(type='str', required=True, aliases=['domain']),
         zone=dict(type='str', required=False),
+        node=dict(type='str', required=False),
         type=dict(type='str', required=True, choices=[
             'A', 'AAAA', 'NS', 'CNAME', 'PTR', 'MX', 'TXT', 'SRV', 'NAPTR', 'DNAME', 'DS', 'SSHFP', 'TLSA', 'SVCB',
             'HTTPS', 'URI', 'CAA', 'ANAME', 'FWD', 'APP', 'UNKNOWN'
@@ -882,7 +890,7 @@ class DeleteRecordModule(TechnitiumModule):
         # Validate required parameters for the specific record type
         if record_type in allowed_params:
             for param in params:
-                if param in ['api_url', 'api_port', 'api_token', 'domain', 'name', 'zone', 'type', 'validate_certs']:
+                if param in ['api_url', 'api_port', 'api_token', 'domain', 'name', 'zone', 'type', 'validate_certs', 'node']:
                     continue
                 if params[param] is not None and param not in allowed_params[record_type]:
                     self.fail_json(
@@ -910,6 +918,8 @@ class DeleteRecordModule(TechnitiumModule):
                     get_query[key] = val
             if key == 'zone' and val:
                 get_query['zone'] = val
+            if key == 'node' and val:
+                get_query['node'] = val
 
         # --- Check Phase: Determine if the record exists ---
         try:
@@ -917,10 +927,7 @@ class DeleteRecordModule(TechnitiumModule):
         except Exception as e:
             self.fail_json(msg=f"Failed to check for existing record: {e}")
 
-        if get_resp.get('status') != 'ok':
-            # The API failed to get a response. This is a critical error.
-            self.fail_json(
-                msg=f"Technitium API error during existence check: {get_resp.get('errorMessage') or 'Unknown'}", api_response=get_resp)
+        self.validate_api_response(get_resp, context="existence check")
 
         # Filter for an exact match among the returned records.
         found_records = get_resp.get('response', {}).get('records', [])
@@ -982,14 +989,13 @@ class DeleteRecordModule(TechnitiumModule):
                 delete_query[req] = params[req]
         if params.get('zone'):
             delete_query['zone'] = params['zone']
+        if params.get('node'):
+            delete_query['node'] = params['node']
 
         # Send the DELETE request
         data = self.request('/api/zones/records/delete', params=delete_query, method='POST')
 
-        if data.get('status') != 'ok':
-            error_msg = data.get('errorMessage') or "Unknown error"
-            self.fail_json(
-                msg=f"Technitium API error during deletion: {error_msg}", api_response=data)
+        self.validate_api_response(data, context="deletion")
 
         self.exit_json(
             changed=True, msg=f"DNS record of type '{record_type}' for '{params['name']}' deleted.", api_response=data)

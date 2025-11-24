@@ -416,3 +416,7 @@
 #     api_port: "{{ technitium_api_port_2 | default(5380) | int }}"
 #     validate_certs: "{{ validate_certs | default(true) }}"
 #     zone: "unsigned-test.{{ testing_suffix }}"
+
+# Test node parameter (cluster support)
+- name: "Run node parameter tests"
+  include_tasks: test_node_parameter.yml

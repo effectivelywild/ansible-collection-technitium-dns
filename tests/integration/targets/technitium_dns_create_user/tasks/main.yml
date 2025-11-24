@@ -11,13 +11,13 @@
     test_users:
       - username: "testuser1-{{ ansible_date_time.epoch }}"
         password: "SecurePass123!"
-        displayName: "Test User 1"
+        displayName: "testuser1-{{ ansible_date_time.epoch }}"
       - username: "testuser2-{{ ansible_date_time.epoch }}"
         password: "AnotherPass456!"
-        displayName: "Test User 2"
+        displayName: "testuser2-{{ ansible_date_time.epoch }}"
       - username: "minimal-{{ ansible_date_time.epoch }}"
         password: "MinimalPass789!"
-        displayName: "minimal"
+        displayName: "minimal-{{ ansible_date_time.epoch }}"
 
 # Phase 2: Cleanup - Delete test users if they exist
 - name: "Delete test users (cleanup)"

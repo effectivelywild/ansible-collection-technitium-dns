@@ -47,6 +47,9 @@
     name: "{{ query_logs_app.name }}"
     url: "{{ query_logs_app.url }}"
   register: install_app_result
+  retries: 3
+  delay: 30
+  until: install_app_result is success
 
 - name: "Debug install app result"
   debug:
@@ -335,3 +338,7 @@
       - uninstall_app_result.changed or "'not installed' in (uninstall_app_result.msg | lower)"
     fail_msg: "App uninstallation should have succeeded"
   when: query_logs_app is defined
+
+# Test node parameter (cluster support)
+- name: "Test node parameter support"
+  include_tasks: test_node_parameter.yml

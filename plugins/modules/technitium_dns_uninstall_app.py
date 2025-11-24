@@ -38,6 +38,13 @@ options:
             - Base URL for the Technitium DNS API
         required: true
         type: str
+    node:
+        description:
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
     validate_certs:
         description:
             - Whether to validate SSL certificates when making API requests.
@@ -58,6 +65,13 @@ EXAMPLES = r'''
     api_token: "myapitoken"
     name: "Wild IP"
   register: result
+
+- name: Uninstall app on a specific cluster node
+  technitium_dns_uninstall_app:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    name: "Geo Continent"
+    node: "node1.cluster.example.com"
 '''
 
 RETURN = r'''
@@ -83,17 +97,32 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 
 class UninstallAppModule(TechnitiumModule):
     argument_spec = dict(
+        node=dict(type='str', required=False),
         name=dict(type='str', required=True),
         **TechnitiumModule.get_common_argument_spec()
     )
 
     def run(self):
         name = self.params['name']
+        node = self.params.get('node')
+
+        # Check if app exists first (this also validates the node parameter)
+        app_exists, existing_app = self.check_app_exists(name, node=node)
+
+        if not app_exists:
+            # App not installed, return success with changed=False (idempotent)
+            self.exit_json(
+                changed=False,
+                msg=f"App '{name}' is not installed"
+            )
 
         # Uninstall the app
         params = {
             'name': name
         }
+        if node:
+            params['node'] = node
+
         data = self.request('/api/apps/uninstall', params=params)
         self.validate_api_response(data)
 

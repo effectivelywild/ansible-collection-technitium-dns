@@ -46,6 +46,13 @@ options:
             - The fileName of the log file to delete (as returned by technitium_dns_list_logs)
         required: true
         type: str
+    node:
+        description:
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
 '''
 
 EXAMPLES = r'''
@@ -65,6 +72,13 @@ EXAMPLES = r'''
     - "2020-09-10"
     - "2020-09-11"
     - "2020-09-12"
+
+- name: Delete a log file on a specific cluster node
+  technitium_dns_delete_log:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    log: "2020-09-19"
+    node: "node1.cluster.example.com"
 '''
 
 RETURN = r'''
@@ -91,6 +105,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 class DeleteLogModule(TechnitiumModule):
     argument_spec = dict(
         log=dict(type='str', required=True),
+        node=dict(type='str', required=False),
         **TechnitiumModule.get_common_argument_spec()
     )
 
@@ -104,6 +119,9 @@ class DeleteLogModule(TechnitiumModule):
         params = {
             'log': log
         }
+        if self.params.get('node'):
+            params['node'] = self.params['node']
+
         data = self.request('/api/logs/delete', params=params)
         self.validate_api_response(data)
 

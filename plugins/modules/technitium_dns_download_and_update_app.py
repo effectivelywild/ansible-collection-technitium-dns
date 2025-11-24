@@ -42,6 +42,13 @@ options:
             - Base URL for the Technitium DNS API
         required: true
         type: str
+    node:
+        description:
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
     validate_certs:
         description:
             - Whether to validate SSL certificates when making API requests.
@@ -94,6 +101,14 @@ EXAMPLES = r'''
         api_token: "myapitoken"
         name: "Query Logs (Sqlite)"
         url: "{{ (store_apps_list.store_apps | selectattr('name', 'equalto', 'Query Logs (Sqlite)') | first).url }}"
+
+- name: Update app on a specific cluster node
+  technitium_dns_download_and_update_app:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    name: "Wild IP"
+    url: "https://download.technitium.com/dns/apps/WildIpApp.zip"
+    node: "node1.cluster.example.com"
 '''
 
 RETURN = r'''
@@ -180,6 +195,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 
 class DownloadAndUpdateAppModule(TechnitiumModule):
     argument_spec = dict(
+        node=dict(type='str', required=False),
         name=dict(type='str', required=True),
         url=dict(type='str', required=True),
         **TechnitiumModule.get_common_argument_spec()
@@ -194,38 +210,42 @@ class DownloadAndUpdateAppModule(TechnitiumModule):
             self.fail_json(msg="URL must start with 'https://'")
 
         # Check if app exists first (can't update non-existent app)
-        app_exists, existing_app = self.check_app_exists(name)
+        node = self.params.get('node')
+        app_exists, existing_app = self.check_app_exists(name, node=node)
 
         if not app_exists:
             self.fail_json(msg=f"App '{name}' is not installed. Use download_and_install_app module to install it first.")
 
-        # Check if update is needed based on updateAvailable flag and URL comparison
-        # The updateUrl field shows the latest available version, not the currently installed version
-        update_available = existing_app.get('updateAvailable', False)
-        existing_update_url = existing_app.get('updateUrl', '')
-
-        # If no update is available and user is trying to update to the "latest" version (updateUrl),
-        # then the app is already up-to-date
-        if not update_available and existing_update_url == url:
-            self.exit_json(
-                changed=False,
-                updated_app=existing_app,
-                msg=f"App '{name}' is already at the latest version (version {existing_app.get('version', 'unknown')})"
-            )
+        # Store the current version before updating
+        current_version = existing_app.get('version', '')
 
         # Download and update the app
         params = {
             'name': name,
             'url': url
         }
+        if self.params.get('node'):
+            params['node'] = self.params['node']
+
         data = self.request('/api/apps/downloadAndUpdate', params=params)
         self.validate_api_response(data)
 
         updated_app = data.get('response', {}).get('updatedApp', {})
+        new_version = updated_app.get('version', '')
+
+        # Check if the version actually changed to determine idempotency
+        # If the version is the same, no actual update occurred
+        if current_version and new_version and current_version == new_version:
+            self.exit_json(
+                changed=False,
+                updated_app=updated_app,
+                msg=f"App '{name}' is already at version {new_version}"
+            )
+
         self.exit_json(
             changed=True,
             updated_app=updated_app,
-            msg=f"App '{name}' updated successfully"
+            msg=f"App '{name}' updated successfully from version {current_version} to {new_version}"
         )
 
 

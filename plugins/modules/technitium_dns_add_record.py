@@ -208,6 +208,13 @@ options:
             - Services (NAPTR only)
         required: false
         type: str
+    node:
+        description:
+        - The node domain name for which this API call is intended
+        - When unspecified, the current node is used
+        - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
     overwrite:
         description:
             - Overwrite existing record set for this type
@@ -884,6 +891,7 @@ class AddRecordModule(TechnitiumModule):
         **TechnitiumModule.get_common_argument_spec(),
         name=dict(type='str', required=True, aliases=['domain']),
         zone=dict(type='str', required=False),
+        node=dict(type='str', required=False),
         type=dict(type='str', required=True, choices=[
             'A', 'AAAA', 'NS', 'CNAME', 'PTR', 'MX', 'TXT', 'SRV', 'NAPTR', 'DNAME', 'DS', 'SSHFP', 'TLSA', 'SVCB',
             'HTTPS', 'URI', 'CAA', 'ANAME', 'FWD', 'APP', 'UNKNOWN'
@@ -1037,7 +1045,7 @@ class AddRecordModule(TechnitiumModule):
         if record_type in allowed_params:
             for param in params:
                 # Skip core connection/control params and the canonical name param (domain) plus its alias (name)
-                if param in ['api_url', 'api_port', 'api_token', 'domain', 'name', 'zone', 'type', 'validate_certs']:
+                if param in ['api_url', 'api_port', 'api_token', 'domain', 'name', 'zone', 'type', 'validate_certs', 'node']:
                     continue
                 if params[param] is not None and param not in allowed_params[record_type]:
                     self.fail_json(
@@ -1061,10 +1069,10 @@ class AddRecordModule(TechnitiumModule):
             }
             if params.get('zone'):
                 get_query['zone'] = params['zone']
+            if params.get('node'):
+                get_query['node'] = params['node']
             get_resp = self.request('/api/zones/records/get', params=get_query)
-            if get_resp.get('status') != 'ok':
-                self.fail_json(
-                    msg=f"Technitium API error (check mode fetch): {get_resp.get('errorMessage') or 'Unknown'}", api_response=get_resp)
+            self.validate_api_response(get_resp, context="check mode fetch")
             existing_records = get_resp.get('response', {}).get('records', [])
             # Technitium API may return record type with capitalization (e.g. 'Unknown') so compare case-insensitively
             type_exists = any((r.get('type') or '').upper() == record_type for r in existing_records)
@@ -1098,8 +1106,7 @@ class AddRecordModule(TechnitiumModule):
             if 'record already exists' in error_msg.lower():
                 self.exit_json(changed=False, msg="Record already exists.", api_response={
                                'status': 'ok', 'msg': "Record already exists."})
-            self.fail_json(
-                msg=f"Technitium API error: {error_msg}", api_response=data)
+            self.validate_api_response(data)
         self.exit_json(changed=True, msg="DNS record added.",
                        api_response=data)
 

@@ -1,0 +1,138 @@
+---
+# Integration tests for technitium_dns_add_record node parameter (cluster support)
+
+# Setup testing environment with cluster initialization
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+    initialize_cluster: true
+
+# Setup: Create a test zone on primary
+- name: Create test zone on primary node
+  technitium_dns_create_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-addrecord.local"
+    type: "Primary"
+    validate_certs: no
+
+# Test 1: Add A record on specific node
+- name: Add A record on primary node
+  technitium_dns_add_record:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    name: "www.test-addrecord.local"
+    zone: "test-addrecord.local"
+    node: "cluster-primary01.example.com"
+    type: "A"
+    ipAddress: "192.0.2.10"
+    ttl: 3600
+    validate_certs: no
+  register: add_a_record
+
+- name: Assert A record added successfully
+  assert:
+    that:
+      - not add_a_record.failed
+      - add_a_record.changed
+    fail_msg: "Add A record on primary node should succeed"
+
+# Test 2: Add TXT record on specific node
+- name: Add TXT record on primary node
+  technitium_dns_add_record:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    name: "test-addrecord.local"
+    zone: "test-addrecord.local"
+    node: "cluster-primary01.example.com"
+    type: "TXT"
+    text: "v=spf1 include:_spf.example.com ~all"
+    ttl: 3600
+    validate_certs: no
+  register: add_txt_record
+
+- name: Assert TXT record added successfully
+  assert:
+    that:
+      - not add_txt_record.failed
+      - add_txt_record.changed
+    fail_msg: "Add TXT record on primary node should succeed"
+
+# Test 3: Add MX record on specific node
+- name: Add MX record on primary node
+  technitium_dns_add_record:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    name: "test-addrecord.local"
+    zone: "test-addrecord.local"
+    node: "cluster-primary01.example.com"
+    type: "MX"
+    exchange: "mail.test-addrecord.local"
+    preference: 10
+    ttl: 3600
+    validate_certs: no
+  register: add_mx_record
+
+- name: Assert MX record added successfully
+  assert:
+    that:
+      - not add_mx_record.failed
+      - add_mx_record.changed
+    fail_msg: "Add MX record on primary node should succeed"
+
+# Test 4: Idempotency - try to add same A record again (should fail/not change)
+- name: Try to add same A record again
+  technitium_dns_add_record:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    name: "www.test-addrecord.local"
+    zone: "test-addrecord.local"
+    node: "cluster-primary01.example.com"
+    type: "A"
+    ipAddress: "192.0.2.10"
+    ttl: 3600
+    validate_certs: no
+  register: add_a_record_duplicate
+
+- name: Assert duplicate A record is idempotent
+  assert:
+    that:
+      - not add_a_record_duplicate.failed
+      - not add_a_record_duplicate.changed
+    fail_msg: "Adding duplicate record should be idempotent"
+
+# Test 5: Add record with overwrite parameter
+- name: Add A record with overwrite
+  technitium_dns_add_record:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    name: "www.test-addrecord.local"
+    zone: "test-addrecord.local"
+    node: "cluster-primary01.example.com"
+    type: "A"
+    ipAddress: "192.0.2.20"
+    ttl: 7200
+    overwrite: true
+    validate_certs: no
+  register: add_a_record_overwrite
+
+- name: Assert A record overwritten successfully
+  assert:
+    that:
+      - not add_a_record_overwrite.failed
+      - add_a_record_overwrite.changed
+    fail_msg: "Overwriting A record should succeed"
+
+- name: Include setup_cluster_testing_environment for teardown
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

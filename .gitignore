@@ -3,7 +3,7 @@ out
 tests/output/
 
 # Python virtual environments
-.venv/
+.venv*/
 
 # sphinx doc builds
 build/
@@ -16,11 +16,13 @@ changelogs/.plugin-cache.yaml
 
 # Local Testing
 tests/integration/integration_config.yml
+tests/integration/inventory
 
 # Python cache
 __pycache__/
 *.py[cod]
 *.pyo
 
-# Local claude files
+# Local agent files
 .claude/
+.codex/
