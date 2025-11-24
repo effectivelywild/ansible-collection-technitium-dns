@@ -50,6 +50,13 @@ options:
         required: false
         type: bool
         default: true
+    node:
+        description:
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
     zone:
         description:
             - The domain name of the zone to be deleted.
@@ -109,6 +116,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 class DeleteZoneModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
+        node=dict(type='str', required=False),
         zone=dict(type='str', required=True)
     )
     module_kwargs = dict(
@@ -117,10 +125,13 @@ class DeleteZoneModule(TechnitiumModule):
 
     def run(self):
         zone = self.params['zone']
+        node = self.params.get('node')
 
         # Check if the zone exists to ensure idempotent behavior
         # Idempotent delete: if zone doesn't exist, report no changes made
         zone_check_query = {'zone': zone}
+        if node:
+            zone_check_query['node'] = node
         zone_check_data = self.request('/api/zones/options/get', params=zone_check_query)
         zone_exists = True
 
@@ -130,6 +141,9 @@ class DeleteZoneModule(TechnitiumModule):
             if 'No such zone was found' in error_msg:
                 # Zone doesn't exist - this is expected for idempotent delete
                 zone_exists = False
+            elif 'No such node exists' in error_msg:
+                # Invalid node name provided - fail with clear error
+                self.fail_json(msg=f"Invalid node parameter: {error_msg}", api_response=zone_check_data)
             else:
                 # Unexpected API error occurred during zone existence check
                 self.fail_json(msg=f"Technitium API error checking zone: {error_msg}", api_response=zone_check_data)
@@ -147,7 +161,10 @@ class DeleteZoneModule(TechnitiumModule):
             self.exit_json(changed=False, msg=f"Zone '{zone}' does not exist.", api_response={'status': 'ok', 'msg': f"Zone '{zone}' does not exist."})
 
         # Delete the zone via the Technitium API
-        data = self.request('/api/zones/delete', params={'zone': zone}, method='POST')
+        delete_query = {'zone': zone}
+        if node:
+            delete_query['node'] = node
+        data = self.request('/api/zones/delete', params=delete_query, method='POST')
         if data.get('status') != 'ok':
             error_msg = data.get('errorMessage') or "Unknown error"
             self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)

@@ -1,0 +1,89 @@
+---
+# Integration tests for technitium_dns_sign_zone node parameter (cluster support)
+
+# Setup testing environment with cluster initialization
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+    initialize_cluster: true
+
+# Setup: Create a test zone on primary
+- name: Create test zone on primary node
+  technitium_dns_create_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-signzone.local"
+    type: "Primary"
+    validate_certs: no
+
+# Test 1: Sign zone on specific node with ECDSA
+- name: Sign zone on primary node with ECDSA
+  technitium_dns_sign_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-signzone.local"
+    node: "cluster-primary01.example.com"
+    algorithm: "ECDSA"
+    curve: "P256"
+    dnsKeyTtl: 86400
+    zskRolloverDays: 30
+    nxProof: "NSEC"
+    validate_certs: no
+  register: sign_zone_primary
+
+- name: Assert sign zone on primary succeeded
+  assert:
+    that:
+      - not sign_zone_primary.failed
+      - sign_zone_primary.changed
+    fail_msg: "Sign zone on primary node should succeed"
+
+# Test 2: Verify zone is signed using get_dnssec_properties with node parameter
+- name: Get DNSSEC properties on primary node
+  technitium_dns_get_dnssec_properties:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-signzone.local"
+    node: "cluster-primary01.example.com"
+    validate_certs: no
+  register: dnssec_props_primary
+
+- name: Assert zone is signed with expected properties
+  assert:
+    that:
+      - not dnssec_props_primary.failed
+      - dnssec_props_primary.dnssec_properties.dnssecStatus is defined
+      - dnssec_props_primary.dnssec_properties.dnssecStatus in ['SignedWithNSEC', 'SignedWithNSEC3']
+      - dnssec_props_primary.dnssec_properties.dnsKeyTtl == 86400
+    fail_msg: "Zone should be signed with expected DNSSEC properties"
+
+# Test 3: Idempotency - try to sign already signed zone
+- name: Try to sign already signed zone (idempotency test)
+  technitium_dns_sign_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "test-signzone.local"
+    node: "cluster-primary01.example.com"
+    algorithm: "ECDSA"
+    curve: "P256"
+    validate_certs: no
+  register: sign_zone_idempotent
+
+- name: Assert signing already signed zone is idempotent
+  assert:
+    that:
+      - not sign_zone_idempotent.failed
+      - not sign_zone_idempotent.changed
+    fail_msg: "Signing already signed zone should be idempotent"
+
+- name: Include setup_cluster_testing_environment for teardown
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

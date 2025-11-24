@@ -1,0 +1,58 @@
+---
+# Integration tests for technitium_dns_list_sessions node parameter (cluster support)
+
+# Setup testing environment with cluster initialization
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+    initialize_cluster: true
+
+# Test 1: List sessions without node parameter (default behavior - current node)
+- name: List sessions without node parameter
+  technitium_dns_list_sessions:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    validate_certs: no
+  register: sessions_default
+
+- name: Assert default sessions list returned
+  assert:
+    that:
+      - not sessions_default.failed
+      - sessions_default.sessions is defined
+      - sessions_default.sessions is iterable
+    fail_msg: "Sessions list without node parameter should succeed"
+
+# Test 2: List sessions with explicit node parameter (primary node)
+- name: List sessions for primary node
+  technitium_dns_list_sessions:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    node: "cluster-primary01.example.com"
+    validate_certs: no
+  register: sessions_primary
+
+- name: Assert primary node sessions list returned
+  assert:
+    that:
+      - not sessions_primary.failed
+      - sessions_primary.sessions is defined
+      - sessions_primary.sessions is iterable
+    fail_msg: "Sessions list for primary node should succeed"
+
+# Test 3: Verify consistency between default and explicit node
+- name: Assert results are consistent
+  assert:
+    that:
+      - sessions_default.sessions | length == sessions_primary.sessions | length
+    fail_msg: "Default and explicit primary node should return same sessions"
+
+- name: Include setup_cluster_testing_environment for teardown
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

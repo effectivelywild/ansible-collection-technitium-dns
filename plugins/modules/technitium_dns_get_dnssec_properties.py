@@ -38,6 +38,13 @@ options:
             - Base URL for the Technitium DNS API
         required: true
         type: str
+    node:
+        description:
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
     validate_certs:
         description:
             - Whether to validate SSL certificates when making API requests.
@@ -168,6 +175,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 class GetDnssecPropertiesModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
+        node=dict(type='str', required=False),
         zone=dict(type='str', required=True)
     )
     module_kwargs = dict(
@@ -176,13 +184,16 @@ class GetDnssecPropertiesModule(TechnitiumModule):
 
     def run(self):
         zone = self.params['zone']
+        node = self.params.get('node')
 
         # Validate that the zone exists before attempting to get DNSSEC properties
         # This will fail with a clear error message if the zone doesn't exist
-        self.validate_zone_exists(zone)
+        self.validate_zone_exists(zone, node=node)
 
         # Build API parameters for DNSSEC properties request
         params = {'zone': zone}
+        if node:
+            params['node'] = node
 
         # Fetch DNSSEC properties from the Technitium API
         # This endpoint returns DNSSEC keys, signing information, and configuration

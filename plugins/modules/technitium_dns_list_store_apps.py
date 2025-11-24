@@ -44,6 +44,13 @@ options:
         required: false
         type: bool
         default: true
+    node:
+        description:
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
 '''
 
 EXAMPLES = r'''
@@ -67,6 +74,13 @@ EXAMPLES = r'''
     msg: "App {{ item.name }} has update from {{ item.installedVersion }} to {{ item.version }}"
   loop: "{{ store_apps_result.store_apps | selectattr('updateAvailable', 'equalto', true) | list }}"
   when: store_apps_result.store_apps | selectattr('updateAvailable', 'equalto', true) | list | length > 0
+
+- name: List store apps on a specific cluster node
+  technitium_dns_list_store_apps:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    node: "node1.cluster.example.com"
+  register: result
 '''
 
 RETURN = r'''
@@ -133,12 +147,18 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 
 class ListStoreAppsModule(TechnitiumModule):
     argument_spec = dict(
+        node=dict(type='str', required=False),
         **TechnitiumModule.get_common_argument_spec()
     )
 
     def run(self):
+        # Build request parameters
+        params = {}
+        if self.params.get('node'):
+            params['node'] = self.params['node']
+
         # Fetch all store apps from the API
-        data = self.request('/api/apps/listStoreApps')
+        data = self.request('/api/apps/listStoreApps', params=params)
         self.validate_api_response(data)
 
         store_apps = data.get('response', {}).get('storeApps', [])

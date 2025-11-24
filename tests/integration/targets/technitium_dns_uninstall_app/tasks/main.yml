@@ -98,7 +98,8 @@
 - name: "Assert second uninstall fails gracefully or succeeds"
   assert:
     that:
-      - uninstall_again_result.failed or uninstall_again_result.changed
+      - not uninstall_again_result.failed 
+      - not uninstall_again_result.changed
     fail_msg: "Uninstalling non-existent app should fail or succeed gracefully"
 
 # Phase 7: Test failure cases
@@ -117,3 +118,7 @@
     that:
       - invalid_token_result.failed
     fail_msg: "Invalid token should cause failure"
+
+# Test node parameter (cluster support)
+- name: "Test node parameter support"
+  include_tasks: test_node_parameter.yml

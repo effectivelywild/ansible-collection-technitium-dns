@@ -79,7 +79,8 @@
     api_token: "{{ login_result.json.token }}"
     api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
-    pass: "newtestpassword456"
+    pass: "testpassword123"
+    newPass: "newtestpassword456"
   register: change_password_result
 
 - name: "Debug change password result"
@@ -146,7 +147,8 @@
     api_token: "{{ new_password_login_result.json.token }}"
     api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
-    pass: "checkmodetestpassword789"
+    pass: "newtestpassword456"
+    newPass: "checkmodetestpassword789"
   check_mode: true
   register: check_mode_result
 
@@ -185,6 +187,7 @@
     api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     pass: "newtestpassword456"
+    newPass: "newtestpassword456"
   register: same_password_result
 
 - name: "Assert module is not idempotent (always reports changed)"
@@ -217,7 +220,8 @@
     api_token: "invalid_token_12345"
     api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
-    pass: "newpassword789"
+    pass: "newtestpassword456"
+    newPass: "newpassword789"
   register: invalid_token_result
   ignore_errors: true
 
@@ -228,7 +232,51 @@
       - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
     fail_msg: "Invalid token should cause failure"
 
-# Phase 14: Cleanup - Delete test user
+# Phase 14: Test optional parameters (iterations)
+- name: "Login to get fresh token for optional parameter tests"
+  uri:
+    url: "{{ technitium_api_url_2 }}:{{ technitium_api_port_2 }}/api/user/login?user=testuser&pass=newtestpassword456&includeInfo=true"
+    method: GET
+    validate_certs: "{{ validate_certs }}"
+    return_content: yes
+  register: fresh_login_result
+
+- name: "Change password with custom iterations parameter"
+  technitium_dns_change_password:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ fresh_login_result.json.token }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    pass: "newtestpassword456"
+    newPass: "finalpassword789"
+    iterations: 100000
+  register: iterations_result
+
+- name: "Assert password change with iterations succeeded"
+  assert:
+    that:
+      - not iterations_result.failed
+      - iterations_result.changed
+      - iterations_result.api_response.status == "ok"
+    fail_msg: "Password change with iterations should have succeeded"
+
+- name: "Verify new password with iterations works"
+  uri:
+    url: "{{ technitium_api_url_2 }}:{{ technitium_api_port_2 }}/api/user/login?user=testuser&pass=finalpassword789&includeInfo=true"
+    method: GET
+    validate_certs: "{{ validate_certs }}"
+    return_content: yes
+  register: final_login_result
+
+- name: "Assert login with new password works"
+  assert:
+    that:
+      - final_login_result.status == 200
+      - final_login_result.json.status == "ok"
+      - final_login_result.json.token is defined
+    fail_msg: "Login with password set using iterations should work"
+
+# Phase 15: Cleanup - Delete test user
 - name: "Cleanup - Delete test user"
   technitium_dns_delete_user:
     api_url: "{{ technitium_api_url_2 }}"

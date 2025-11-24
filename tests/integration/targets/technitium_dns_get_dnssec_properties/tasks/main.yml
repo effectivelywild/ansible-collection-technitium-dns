@@ -204,3 +204,7 @@
       - nonexistent_zone_result is failed
       - "'No such zone was found' in (nonexistent_zone_result.msg)"
     quiet: true
+
+# Test node parameter (cluster support)
+- name: "Test node parameter support"
+  include_tasks: test_node_parameter.yml

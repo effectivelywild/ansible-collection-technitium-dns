@@ -43,6 +43,13 @@ options:
     required: false
     type: bool
     default: true
+  node:
+    description:
+      - The node domain name for which this API call is intended
+      - When unspecified, the current node is used
+      - This parameter can be used only when Clustering is initialized
+    required: false
+    type: str
   zone:
     description:
       - The name of the primary zone to update NSEC3 parameters for
@@ -87,6 +94,15 @@ EXAMPLES = r'''
     api_token: "myapitoken"
     zone: "example.com"
     iterations: 5
+
+- name: Update NSEC3 parameters on a specific cluster node
+  technitium_dns_update_nsec3_parameters:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    zone: "example.com"
+    iterations: 10
+    salt_length: 8
+    node: "node1.cluster.example.com"
 '''
 
 RETURN = r'''
@@ -120,6 +136,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 class UpdateNSEC3ParametersModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
+        node=dict(type='str', required=False),
         zone=dict(type='str', required=True),
         iterations=dict(type='int', required=False, default=0),
         salt_length=dict(type='int', required=False, default=0),
@@ -171,6 +188,8 @@ class UpdateNSEC3ParametersModule(TechnitiumModule):
             'iterations': iterations,
             'saltLength': salt_length
         }
+        if self.params.get('node'):
+            query['node'] = self.params['node']
 
         data = self.request('/api/zones/dnssec/properties/updateNSEC3Params', params=query, method='POST')
         status = data.get('status')

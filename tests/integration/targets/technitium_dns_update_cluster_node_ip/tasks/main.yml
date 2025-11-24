@@ -1,0 +1,222 @@
+---
+# Setup testing environment
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+    
+# Setup - Initialize cluster and join Secondary
+- name: "Setup: Initialize cluster on Primary node (04)"
+  effectivelywild.technitium_dns.technitium_dns_init_cluster:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    cluster_domain: "example.com"
+    primary_node_ip_addresses:
+      - "{{ primary_node_ip_address }}"
+  register: init_primary_result
+
+- name: "Setup: Wait for cluster to initialize"
+  ansible.builtin.pause:
+    seconds: 10
+
+- name: "Setup: Join secondary01 node to cluster"
+  effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_secondary_01 }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+    secondary_node_ip_addresses:
+      - "{{ secondary_node_ip_address_01 }}"
+    primary_node_ip_address: "{{ primary_node_ip_address }}"
+    primary_node_url: "https://cluster_primary01{{ container_suffix }}:{{ https_port_cluster_primary_01 }}/"
+    primary_node_username: "{{ admin_username }}"
+    primary_node_password: "{{ admin_password }}"
+    ignore_certificate_errors: true
+  register: join_result
+
+- name: "Setup: Wait for cluster to stabalize"
+  ansible.builtin.pause:
+    seconds: 10
+
+- name: "Setup: Login to Secondary node to get valid token"
+  effectivelywild.technitium_dns.technitium_dns_login:
+    api_url: "http://localhost"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+    username: "{{ admin_username }}"
+    password: "{{ admin_password }}"
+  register: secondary_login
+
+- name: Debug secondary_login
+  ansible.builtin.debug:
+    var: secondary_login
+  when: debug | default(false)
+
+- name: "Setup: Update token fact for Secondary node"
+  ansible.builtin.set_fact:
+    token_cluster_secondary_01: "{{ secondary_login.token }}"
+
+- name: "Setup: Wait for initial sync"
+  ansible.builtin.pause:
+    seconds: 5
+
+- name: "Setup: Get initial cluster state"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+  register: initial_state
+
+- name: "Setup: Assert cluster is correctly initialized"
+  assert:
+    that:
+      - initial_state.cluster_state.clusterNodes | length == 2
+      - initial_state.cluster_state.clusterNodes | selectattr('type', 'equalto', 'Primary') | list | length == 1
+      - initial_state.cluster_state.clusterNodes | selectattr('type', 'equalto', 'Secondary') | list | length == 1
+
+# Test 1: Update Primary node IP address
+- name: "Test 1: Update Primary node IP address"
+  effectivelywild.technitium_dns.technitium_dns_update_cluster_node_ip:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    ip_address: "172.17.0.10"
+  register: update_primary_result
+
+- name: "Test 1.1: Assert Primary IP was updated"
+  assert:
+    that:
+      - update_primary_result is not failed
+      - update_primary_result.changed == true
+      - update_primary_result.cluster_state is defined
+      - update_primary_result.msg == "Node IP address updated successfully"
+
+- name: "Test 1.2: Verify Primary IP was updated in cluster state"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+  register: after_primary_update
+
+- name: "Test 1.3: Assert Primary node has new IP"
+  assert:
+    that:
+      - '"172.17.0.10" in (after_primary_update.cluster_state.clusterNodes | selectattr(''type'', ''equalto'', ''Primary'') | map(attribute=''ipAddresses'') | list | first)'
+
+# Test 2: Idempotency - Update to same IP address
+- name: "Test 2: Idempotent - Update Primary IP to same value"
+  effectivelywild.technitium_dns.technitium_dns_update_cluster_node_ip:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    ip_address: "172.17.0.10"
+  register: idempotent_result
+
+- name: "Test 2.1: Assert no changes made (idempotent)"
+  assert:
+    that:
+      - idempotent_result is not failed
+      - idempotent_result.changed == false
+      - "'already' in idempotent_result.msg"
+
+# Test 3: Check mode
+- name: "Test 3: Update Primary IP in check mode"
+  effectivelywild.technitium_dns.technitium_dns_update_cluster_node_ip:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    ip_address: "172.17.0.99"
+  check_mode: true
+  register: check_mode_result
+
+- name: "Test 3.1: Assert check mode reports changes but doesn't update"
+  assert:
+    that:
+      - check_mode_result is not failed
+      - check_mode_result.changed == true
+      - "'Would update node IP address' in check_mode_result.msg"
+
+- name: "Test 3.2: Verify IP was not actually updated"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+  register: verify_not_updated
+
+- name: "Test 3.3: Assert Primary IP is still the same"
+  assert:
+    that:
+      - '"172.17.0.10" in (verify_not_updated.cluster_state.clusterNodes | selectattr(''type'', ''equalto'', ''Primary'') | map(attribute=''ipAddresses'') | list | first)'
+
+# Test 4: Negative test - Try to update when cluster not initialized
+- name: "Test 4: Leave cluster on secondary01"
+  effectivelywild.technitium_dns.technitium_dns_leave_cluster:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_secondary_01 }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+    force_leave: true
+
+- name: "Test 4.1: Try to update IP when not in cluster (should fail)"
+  effectivelywild.technitium_dns.technitium_dns_update_cluster_node_ip:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_secondary_01 }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+    ip_address: "172.17.0.99"
+  register: negative_uninit_result
+  ignore_errors: true
+
+- name: "Test 4.2: Assert failure when not in cluster"
+  assert:
+    that:
+      - negative_uninit_result is failed
+      - "'Not part of any cluster' in negative_uninit_result.msg"
+
+# Test 5: Negative test - Invalid IP address
+- name: "Test 5: Try to update with invalid IP address (should fail)"
+  effectivelywild.technitium_dns.technitium_dns_update_cluster_node_ip:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    ip_address: "invalid-ip"
+  register: negative_invalid_ip_result
+  ignore_errors: true
+
+- name: "Test 5.1: Assert failure with invalid IP address"
+  assert:
+    that:
+      - negative_invalid_ip_result is failed
+      - "'invalid' in negative_invalid_ip_result.msg or 'Invalid' in negative_invalid_ip_result.msg"
+
+# Test 6: Reset to original IP addresses for cleanup
+- name: "Test 6: Reset Primary IP to original"
+  effectivelywild.technitium_dns.technitium_dns_update_cluster_node_ip:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    ip_address: "{{ primary_node_ip_address }}"
+  register: reset_primary_result
+
+- name: "Test 6.1: Assert Primary IP was reset"
+  assert:
+    that:
+      - reset_primary_result is not failed
+      - reset_primary_result.changed == true
+
+- name: "Test 6.2: Verify Primary IP was reset"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+  register: final_state
+
+- name: "Test 6.3: Assert Primary node has original IP"
+  assert:
+    that:
+      - primary_node_ip_address in (final_state.cluster_state.clusterNodes | selectattr('type', 'equalto', 'Primary') | map(attribute='ipAddresses') | list | first)
+
+# Cleanup
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

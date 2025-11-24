@@ -41,6 +41,13 @@ options:
             - Base URL for the Technitium DNS API
         required: true
         type: str
+    node:
+        description:
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
     validate_certs:
         description:
             - Whether to validate SSL certificates when making API requests
@@ -74,6 +81,14 @@ EXAMPLES = r'''
 
 - debug:
     var: result.group_details
+
+- name: Get group details on a specific cluster node
+  technitium_dns_get_group_details:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    group: "Administrators"
+    node: "node1.cluster.example.com"
+  register: result
 '''
 
 RETURN = r'''
@@ -121,6 +136,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 
 class GetGroupDetailsModule(TechnitiumModule):
     argument_spec = dict(
+        node=dict(type='str', required=False),
         **TechnitiumModule.get_common_argument_spec(),
         group=dict(type='str', required=True)
     )
@@ -141,6 +157,8 @@ class GetGroupDetailsModule(TechnitiumModule):
             'group': group_name,
             'includeUsers': 'true'
         }
+        if self.params.get('node'):
+            params['node'] = self.params['node']
 
         # Fetch group details from the Technitium API
         data = self.request('/api/admin/groups/get', params=params)

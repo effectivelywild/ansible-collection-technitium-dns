@@ -41,6 +41,13 @@ options:
         required: false
         type: bool
         default: true
+    node:
+        description:
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
     partialToken:
         description:
             - The partial token of the session to delete that was returned by the list of sessions
@@ -54,6 +61,13 @@ EXAMPLES = r'''
     api_url: "http://localhost"
     api_token: "myapitoken"
     partialToken: "ddfaecb8e9325e77"
+
+- name: Delete a session on a specific cluster node
+  technitium_dns_delete_session:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    partialToken: "ddfaecb8e9325e77"
+    node: "node1.cluster.example.com"
 '''
 
 RETURN = r'''
@@ -94,6 +108,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 
 class DeleteSessionModule(TechnitiumModule):
     argument_spec = dict(
+        node=dict(type='str', required=False),
         **TechnitiumModule.get_common_argument_spec(),
         partialToken=dict(type='str', required=True, no_log=False)
     )
@@ -103,6 +118,7 @@ class DeleteSessionModule(TechnitiumModule):
 
     def run(self):
         partial_token = self.params['partialToken']
+        node = self.params.get('node')
 
         # Check if the session exists to ensure idempotent behavior
         # Idempotent delete: if session doesn't exist, report no changes made
@@ -135,7 +151,11 @@ class DeleteSessionModule(TechnitiumModule):
             )
 
         # Delete the session via the Technitium API
-        data = self.request('/api/admin/sessions/delete', params={'partialToken': partial_token}, method='POST')
+        params = {'partialToken': partial_token}
+        if node:
+            params['node'] = node
+
+        data = self.request('/api/admin/sessions/delete', params=params, method='POST')
         self.validate_api_response(data)
 
         # Extract session info for better messaging

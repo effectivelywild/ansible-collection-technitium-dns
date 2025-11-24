@@ -183,3 +183,7 @@
     that:
       - get_bad_token.failed
       - "'Invalid token' in (get_bad_token.msg)"
+
+# Test node parameter (cluster support)
+- name: "Test node parameter support"
+  include_tasks: test_node_parameter.yml

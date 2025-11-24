@@ -42,6 +42,14 @@ options:
         required: false
         type: bool
         default: true
+    node:
+        description:
+            - The node domain name for which the stats data is needed
+            - When unspecified, the current node is used
+            - Set node name as 'cluster' to get aggregate stats for the entire cluster
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
     type:
         description:
             - The duration type for statistics.
@@ -117,6 +125,14 @@ EXAMPLES = r'''
     api_token: "myapitoken"
     stats_type: "TopClients"
     only_rate_limited_clients: true
+  register: result
+
+- name: Get cluster-wide top domains
+  technitium_dns_get_top_stats:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    stats_type: "TopDomains"
+    node: "cluster"
   register: result
 
 - debug:
@@ -209,6 +225,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 
 class GetTopStatsModule(TechnitiumModule):
     argument_spec = dict(
+        node=dict(type='str', required=False),
         type=dict(type='str', required=False, default='LastHour',
                   choices=['LastHour', 'LastDay', 'LastWeek', 'LastMonth', 'LastYear', 'Custom']),
         start=dict(type='str', required=False),
@@ -226,6 +243,10 @@ class GetTopStatsModule(TechnitiumModule):
             'statsType': self.params['stats_type'],
             'limit': self.params['limit']
         }
+
+        # Add node parameter if specified
+        if self.params.get('node'):
+            params['node'] = self.params['node']
 
         # Add custom date range parameters if type is Custom
         if self.params['type'] == 'Custom':

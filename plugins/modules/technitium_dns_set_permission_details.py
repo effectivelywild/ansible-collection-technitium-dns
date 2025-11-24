@@ -41,6 +41,13 @@ options:
             - Base URL for the Technitium DNS API
         required: true
         type: str
+    node:
+        description:
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
     validate_certs:
         description:
             - Whether to validate SSL certificates when making API requests
@@ -159,6 +166,18 @@ EXAMPLES = r'''
     api_token: "myapitoken"
     section: "Dashboard"
     groupPermissions: []  # Built-in groups like Administrators will be preserved
+
+- name: Set permissions on a specific cluster node
+  technitium_dns_set_permission_details:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    section: "Dashboard"
+    node: "node1.cluster.example.com"
+    userPermissions:
+      - username: "testuser"
+        canView: true
+        canModify: true
+        canDelete: false
 '''
 
 RETURN = r'''
@@ -223,6 +242,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 
 class SetPermissionsDetailsModule(TechnitiumModule):
     argument_spec = dict(
+        node=dict(type='str', required=False),
         **TechnitiumModule.get_common_argument_spec(),
         section=dict(type='str', required=True),
         userPermissions=dict(
@@ -319,8 +339,13 @@ class SetPermissionsDetailsModule(TechnitiumModule):
         if not section_exists:
             self.fail_json(msg=f"Permission section '{section}' does not exist")
 
+        # Build API request parameters for getting current permissions
+        get_params = {'section': section, 'includeUsersAndGroups': 'false'}
+        if self.params.get('node'):
+            get_params['node'] = self.params['node']
+
         # Get current permissions for the section
-        current_data = self.request('/api/admin/permissions/get', params={'section': section, 'includeUsersAndGroups': 'false'})
+        current_data = self.request('/api/admin/permissions/get', params=get_params)
         self.validate_api_response(current_data, f"Failed to get current permissions for section '{section}'")
 
         current = current_data.get('response', {})
@@ -368,6 +393,8 @@ class SetPermissionsDetailsModule(TechnitiumModule):
 
         # Build API parameters
         set_query = {'section': section}
+        if self.params.get('node'):
+            set_query['node'] = self.params['node']
 
         if desired_user_permissions is not None:
             user_perms_str = self._format_permissions_for_api(desired_user_permissions, 'user')

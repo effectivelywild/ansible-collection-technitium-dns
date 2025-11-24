@@ -258,3 +258,7 @@
       - unsigned_zone_convert_result is failed
       - "'is not signed with DNSSEC' in (unsigned_zone_convert_result.msg)"
     quiet: true
+
+# Test node parameter (cluster support)
+- name: "Test node parameter support"
+  include_tasks: test_node_parameter.yml

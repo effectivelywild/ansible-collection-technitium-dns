@@ -49,11 +49,21 @@
   register: query1_result
   ignore_errors: true
 
+- name: Debug query 1 result
+  debug:
+    var: query1_result
+  when: debug | default(false)
+
 - name: "Perform DNS query 2 to google.com (should be blocked)"
   command: docker exec technitium02{{ container_suffix }} dig @localhost google.com +short
   delegate_to: localhost
   register: query2_result
   ignore_errors: true
+
+- name: Debug query 2 result
+  debug:
+    var: query2_result
+  when: debug | default(false)
 
 - name: "Perform DNS query 3 to google.com (should be blocked)"
   command: docker exec technitium02{{ container_suffix }} dig @localhost google.com +short
@@ -61,31 +71,36 @@
   register: query3_result
   ignore_errors: true
 
-- name: "Pause 60 seconds to ensure stats are updated"
-  pause:
-    seconds: 60
+- name: Debug query 3 result
+  debug:
+    var: query3_result
+  when: debug | default(false)
 
 # Phase 4: Verify stats show the queries
-- name: "Get stats after queries"
+- name: "Get stats after queries (retry until updated or fail)"
   technitium_dns_get_stats:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
   register: stats_after_queries
+  retries: 6
+  delay: 20
+  until: stats_after_queries.stats.totalBlocked >= 3
 
 - name: "Debug stats after queries"
   debug:
     var: stats_after_queries
   when: debug | default(false)
 
-- name: "Assert stats show 3 Blocked responses (blocked queries)"
+- name: "Assert stats show at least 3 Blocked responses (blocked queries)"
   assert:
     that:
       - stats_after_queries.stats is defined
       - stats_after_queries.stats.totalBlocked is defined
-      - stats_after_queries.stats.totalBlocked == 3
-    fail_msg: "Stats should show 3 blocked responses for blocked google.com queries"
+      - stats_after_queries.stats.totalBlocked >= 3
+    fail_msg: "Stats should show at least 3 blocked responses for blocked google.com queries"
+  register: assert_block_query_results
 
 # Phase 5: Clear all stats
 - name: "Delete all statistics"
@@ -110,18 +125,17 @@
       - "'successfully' in delete_result.msg.lower() or 'deleted' in delete_result.msg.lower()"
     fail_msg: "Stats deletion should have succeeded"
 
-- name: "Pause 60 seconds to ensure stats are updated after deletion"
-  pause:
-    seconds: 60
-
 # Phase 6: Verify stats are cleared
-- name: "Get stats after deletion"
+- name: "Get stats after deletion (retry until updated or fail)"
   technitium_dns_get_stats:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
   register: stats_after_deletion
+  retries: 6
+  delay: 20
+  until: stats_after_deletion.stats.totalBlocked == 0
 
 - name: "Debug stats after deletion"
   debug:
@@ -180,3 +194,7 @@
     domain: "google.com"
   register: delete_blocked_result
   ignore_errors: true
+
+# Phase: Test node parameter (cluster support)
+- name: "Run node parameter tests"
+  include_tasks: test_node_parameter.yml

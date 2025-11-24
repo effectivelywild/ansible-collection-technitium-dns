@@ -50,6 +50,24 @@ jobs:
       run: pip install -r ./tests/requirements.txt
       working-directory: ansible_collections/effectivelywild/technitium_dns
 
+    - name: Setup ignore file for devel
+      if: matrix.ansible == 'devel'
+      run: |
+        # Get the actual ansible-core version
+        ANSIBLE_CORE_VERSION=$(ansible --version | head -n1 | grep -oP '\[core \K[0-9]+\.[0-9]+')
+
+        if [[ -n "$ANSIBLE_CORE_VERSION" ]]; then
+          IGNORE_FILE="tests/sanity/ignore-$ANSIBLE_CORE_VERSION.txt"
+          DEVEL_IGNORE_FILE="tests/sanity/ignore-devel.txt"
+
+          # If ignore-devel.txt exists but version-specific file doesn't, create it
+          if [[ -f "$DEVEL_IGNORE_FILE" ]] && [[ ! -f "$IGNORE_FILE" ]]; then
+            echo "Creating ignore-$ANSIBLE_CORE_VERSION.txt from ignore-devel.txt"
+            cp "$DEVEL_IGNORE_FILE" "$IGNORE_FILE"
+          fi
+        fi
+      working-directory: ansible_collections/effectivelywild/technitium_dns
+
     - name: Run sanity tests
       run: |
         ansible-test sanity --docker -v --color --coverage --exclude .github/
@@ -82,6 +100,7 @@ jobs:
           - '3.11'
           - '3.12'
           - '3.13'
+          - '3.14'
         # exclude not supported combinations
         exclude:
           - ansible: devel
@@ -96,6 +115,12 @@ jobs:
             python: '3.10'
           - ansible: stable-2.17
             python: '3.13'
+          - ansible: stable-2.17
+            python: '3.14'
+          - ansible: stable-2.18
+            python: '3.14'
+          - ansible: stable-2.19
+            python: '3.14'
     steps:
       - name: Check out code
         uses: actions/checkout@v5
@@ -131,17 +156,21 @@ jobs:
           SAFE_JOB_ID=$(echo "$JOB_ID" | sed 's/[^a-zA-Z0-9]//g')
           RUN_ID="${{ github.run_id }}"
           
+          # Export unique identifiers as GitHub Environment variables
           echo "JOB_ID=${SAFE_JOB_ID}" >> $GITHUB_ENV
           echo "TESTING_SUFFIX=${SAFE_JOB_ID}-${RUN_ID}.test" >> $GITHUB_ENV
           echo "CONTAINER_SUFFIX=-${SAFE_JOB_ID}-${RUN_ID}" >> $GITHUB_ENV
+          
+          # Export Token file paths as GitHub Environment variables
           echo "TOKEN_FILE_1=/tmp/technitium01_token_${SAFE_JOB_ID}_${RUN_ID}" >> $GITHUB_ENV
           echo "TOKEN_FILE_2=/tmp/technitium02_token_${SAFE_JOB_ID}_${RUN_ID}" >> $GITHUB_ENV
           echo "TOKEN_FILE_3=/tmp/technitium03_token_${SAFE_JOB_ID}_${RUN_ID}" >> $GITHUB_ENV
-          
+
           # Calculate unique ports using hash of job ID (guaranteed unique)
           JOB_HASH=$(echo "${SAFE_JOB_ID}" | shasum | cut -c1-4)
           PORT_OFFSET=$((0x${JOB_HASH} % 500 + 1))
           
+          # Export port numbers as GitHub Environment variables
           echo "PORT_OFFSET=${PORT_OFFSET}" >> $GITHUB_ENV
           echo "HTTP_PORT_1=$((6000 + PORT_OFFSET * 10 + 1))" >> $GITHUB_ENV
           echo "HTTP_PORT_2=$((6000 + PORT_OFFSET * 10 + 2))" >> $GITHUB_ENV
@@ -150,11 +179,9 @@ jobs:
           echo "HTTPS_PORT_2=$((50000 + PORT_OFFSET * 10 + 2))" >> $GITHUB_ENV
           echo "HTTPS_PORT_3=$((50000 + PORT_OFFSET * 10 + 3))" >> $GITHUB_ENV
 
-
       - name: Setup testing environment
         run: ansible-playbook roles/test_utils/playbooks/run_setup_testing_env.yml
         working-directory: ./ansible_collections/effectivelywild/technitium_dns
-
 
       - name: Get Technitium server values
         id: get_server_values
@@ -167,26 +194,31 @@ jobs:
           API_TOKEN_3=$(cat "${TOKEN_FILE_3}")
           echo "api_token_3=$API_TOKEN_3" >> $GITHUB_OUTPUT
 
-          # Get container IP for notify_name_server using dynamic container name
-          CONTAINER_NAME="technitium01${CONTAINER_SUFFIX}"
-          CONTAINER_IP=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "$CONTAINER_NAME")
-          echo "technitium01_ip=$CONTAINER_IP" >> $GITHUB_OUTPUT
+          # Get the necessary container IPs
+          TECHNITIUM01_IP_ADDRESS=$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' "technitium01${CONTAINER_SUFFIX}")
+
+          # Export the IP as a GitHub Output variable
+          echo "technitium01_ip=$TECHNITIUM01_IP_ADDRESS" >> $GITHUB_OUTPUT
 
       - name: Create integration config
         run: |
           cat > tests/integration/integration_config.yml << EOF
+          # Standard nodes
           technitium_api_url_1: http://localhost
           technitium_api_token_1: ${{ steps.get_server_values.outputs.api_token_1 }}
           technitium_api_port_1: ${HTTP_PORT_1}
+          technitium_https_port_1: ${HTTPS_PORT_1}
 
           technitium_api_url_2: http://localhost
           technitium_api_token_2: ${{ steps.get_server_values.outputs.api_token_2 }}
           technitium_api_port_2: ${HTTP_PORT_2}
+          technitium_https_port_2: ${HTTPS_PORT_2}
 
           technitium_api_url_3: http://localhost
           technitium_api_token_3: ${{ steps.get_server_values.outputs.api_token_3 }}
           technitium_api_port_3: ${HTTP_PORT_3}
-    
+          technitium_https_port_3: ${HTTPS_PORT_3}
+
           validate_certs: false
 
           # Notify Name Server (technitium01), used for Zone testing
@@ -194,6 +226,10 @@ jobs:
 
           # Debugging options
           debug: true
+
+          # Login Info
+          admin_username: admin
+          admin_password: topsecret
 
           # Testing domain - unique per job to avoid conflicts
           testing_suffix: ${TESTING_SUFFIX}

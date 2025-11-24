@@ -216,3 +216,7 @@
     validate_certs: "{{ validate_certs }}"
     group: "{{ test_group.name }}"
   ignore_errors: true
+
+# Test node parameter (cluster support)
+- name: "Test node parameter support"
+  include_tasks: test_node_parameter.yml

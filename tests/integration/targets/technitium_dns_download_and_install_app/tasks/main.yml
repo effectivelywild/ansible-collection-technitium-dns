@@ -159,3 +159,7 @@
     that:
       - cleanup_result.changed or cleanup_result.failed
     fail_msg: "Cleanup should have completed"
+
+# Test node parameter (cluster support)
+- name: "Test node parameter support"
+  include_tasks: test_node_parameter.yml

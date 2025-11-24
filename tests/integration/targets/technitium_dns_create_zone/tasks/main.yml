@@ -403,3 +403,7 @@
       - invalid_parameter_result.failed
       - "'is not supported' in invalid_parameter_result.msg"
     fail_msg: "Invalid parameter should have failed validation"
+
+# Test node parameter (cluster support)
+- name: "Test node parameter support"
+  include_tasks: test_node_parameter.yml

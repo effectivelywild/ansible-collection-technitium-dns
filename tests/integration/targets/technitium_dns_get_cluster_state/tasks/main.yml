@@ -1,0 +1,190 @@
+---
+# Setup testing environment
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+
+# Test 1: Get cluster state when not initialized
+- name: "Test 1: Get cluster state when not initialized"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+  register: uninit_state
+
+- name: "Test 1.1: Assert cluster is not initialized"
+  assert:
+    that:
+      - uninit_state is not failed
+      - uninit_state.changed == false
+      - uninit_state.cluster_state is defined
+      - uninit_state.cluster_state.clusterInitialized == false
+      - uninit_state.cluster_state.dnsServerDomain is defined
+      - uninit_state.cluster_state.version is defined
+
+# Test 2: Get cluster state with server IP addresses (not initialized)
+- name: "Test 2: Get cluster state with server IP addresses (not initialized)"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    include_server_ip_addresses: true
+  register: uninit_state_ips
+
+- name: "Test 2.1: Assert server IP addresses are included"
+  assert:
+    that:
+      - uninit_state_ips is not failed
+      - uninit_state_ips.cluster_state.serverIpAddresses is defined
+      - uninit_state_ips.cluster_state.serverIpAddresses | length > 0
+
+# Setup - Initialize cluster for remaining tests
+- name: "Setup: Initialize cluster on Primary node (04)"
+  effectivelywild.technitium_dns.technitium_dns_init_cluster:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    cluster_domain: "example.com"
+    primary_node_ip_addresses:
+      - "{{ primary_node_ip_address }}"
+  register: init_result
+
+- name: "Setup: Wait for cluster to initialize"
+  ansible.builtin.pause:
+    seconds: 10
+
+# Test 3: Get cluster state when initialized (Primary only)
+- name: "Test 3: Get cluster state when initialized (Primary only)"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+  register: init_state
+
+- name: "Test 3.1: Assert cluster is initialized with correct values"
+  assert:
+    that:
+      - init_state is not failed
+      - init_state.changed == false
+      - init_state.cluster_state.clusterInitialized == true
+      - init_state.cluster_state.clusterDomain == "example.com"
+      - init_state.cluster_state.heartbeatRefreshIntervalSeconds is defined
+      - init_state.cluster_state.heartbeatRetryIntervalSeconds is defined
+      - init_state.cluster_state.configRefreshIntervalSeconds is defined
+      - init_state.cluster_state.configRetryIntervalSeconds is defined
+      - init_state.cluster_state.clusterNodes is defined
+      - init_state.cluster_state.clusterNodes | length == 1
+      - init_state.cluster_state.clusterNodes[0].type == "Primary"
+      - init_state.cluster_state.clusterNodes[0].state == "Self"
+      - primary_node_ip_address in init_state.cluster_state.clusterNodes[0].ipAddresses
+
+# Test 4: Join Secondary node to cluster
+- name: "Test 4: Join secondary01 node to cluster"
+  effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_secondary_01 }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+    secondary_node_ip_addresses:
+      - "{{ secondary_node_ip_address_01 }}"
+    primary_node_ip_address: "{{ primary_node_ip_address }}"
+    primary_node_url: "https://cluster_primary01{{ container_suffix }}:{{ https_port_cluster_primary_01 }}/"
+    primary_node_username: "{{ admin_username }}"
+    primary_node_password: "{{ admin_password }}"
+    ignore_certificate_errors: true
+  register: join_result
+
+- name: "Test 4.1: Login to Secondary node to get valid token"
+  effectivelywild.technitium_dns.technitium_dns_login:
+    api_url: "http://localhost"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+    username: "{{ admin_username }}"
+    password: "{{ admin_password }}"
+  register: secondary_login
+
+- name: "Test 4.2: Update token fact for Secondary node"
+  ansible.builtin.set_fact:
+    token_cluster_secondary_01: "{{ secondary_login.token }}"
+
+# Test 5: Get cluster state from Primary with Secondary node
+- name: "Test 5: Get cluster state from Primary with Secondary node"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+  register: primary_state_with_secondary
+  retries: 3        
+  delay: 20          
+  until: primary_state_with_secondary is success
+
+- name: "Test 5.1: Assert Primary sees Secondary node"
+  assert:
+    that:
+      - primary_state_with_secondary.cluster_state.clusterNodes | length == 2
+      - primary_state_with_secondary.cluster_state.clusterNodes | selectattr('type', 'equalto', 'Primary') | list | length == 1
+      - primary_state_with_secondary.cluster_state.clusterNodes | selectattr('type', 'equalto', 'Secondary') | list | length == 1
+      - primary_state_with_secondary.cluster_state.clusterNodes | map(attribute='ipAddresses') | select('contains', secondary_node_ip_address_01) | list | length == 1
+
+# Test 6: Get cluster state from Secondary node
+- name: "Test 6: Get cluster state from Secondary node"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_secondary_01 }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+  register: secondary_state
+  retries: 3        
+  delay: 20          
+  until: secondary_state is success
+
+- name: Debug secondary state
+  ansible.builtin.debug:
+    var: secondary_state
+  when: debug | default(false)
+
+- name: "Test 6.1: Assert Secondary sees cluster correctly"
+  assert:
+    that:
+      - secondary_state.cluster_state.clusterInitialized == true
+      - secondary_state.cluster_state.clusterDomain == "example.com"
+      - secondary_state.cluster_state.clusterNodes | length == 2
+      - secondary_state.cluster_state.clusterNodes | selectattr('type', 'equalto', 'Secondary') | selectattr('state', 'equalto', 'Self') | map(attribute='configLastSynced') | list | length == 1
+
+# Test 7: Get cluster state with server IP addresses (initialized)
+- name: "Test 7: Get cluster state with server IP addresses (initialized)"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    include_server_ip_addresses: true
+  register: init_state_with_ips
+
+- name: "Test 7.1: Assert server IP addresses are included"
+  assert:
+    that:
+      - init_state_with_ips.cluster_state.serverIpAddresses is defined
+      - init_state_with_ips.cluster_state.serverIpAddresses | length > 0
+      - primary_node_ip_address in init_state_with_ips.cluster_state.serverIpAddresses
+
+# Test 8: Check mode (should always work the same)
+- name: "Test 8: Get cluster state in check mode"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+  check_mode: true
+  register: check_mode_result
+
+- name: "Test 8.1: Assert check mode returns same data"
+  assert:
+    that:
+      - check_mode_result is not failed
+      - check_mode_result.changed == false
+      - check_mode_result.cluster_state.clusterInitialized == true
+
+# Cleanup
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

@@ -1,0 +1,78 @@
+---
+# Integration tests for technitium_dns_download_and_install_app node parameter (cluster support)
+
+# Setup testing environment with cluster initialization
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+    initialize_cluster: true
+
+# Test 1: Download and install app on primary node with explicit node parameter
+- name: Download and install What Is My Dns app on primary node
+  technitium_dns_download_and_install_app:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    name: "What Is My Dns"
+    url: "https://download.technitium.com/dns/apps/WhatIsMyDnsApp.zip"
+    node: "cluster-primary01.example.com"
+    validate_certs: no
+  register: install_app_primary
+
+- name: Assert install app on primary node succeeded
+  assert:
+    that:
+      - not install_app_primary.failed
+      - install_app_primary.changed
+      - install_app_primary.installed_app is defined
+      - install_app_primary.installed_app.name == "What Is My Dns"
+      - install_app_primary.installed_app.version is defined
+    fail_msg: "Install app on primary node should succeed"
+
+# Test 2: Test idempotency - install again with node parameter
+- name: Try to install What Is My Dns app again (idempotency test)
+  technitium_dns_download_and_install_app:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    name: "What Is My Dns"
+    url: "https://download.technitium.com/dns/apps/WhatIsMyDnsApp.zip"
+    node: "cluster-primary01.example.com"
+    validate_certs: no
+  register: install_app_idempotent
+
+- name: Assert idempotency
+  assert:
+    that:
+      - not install_app_idempotent.failed
+      - not install_app_idempotent.changed
+      - "'already installed' in install_app_idempotent.msg | lower"
+    fail_msg: "Second installation should be idempotent"
+
+# Test 3: Negative test - invalid node name
+- name: Try to install app with invalid node name
+  technitium_dns_download_and_install_app:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    name: "Test App"
+    url: "https://download.technitium.com/dns/apps/WhatIsMyDnsApp.zip"
+    node: "invalid-node-name-xyz"
+    validate_certs: no
+  register: install_app_invalid_node
+  ignore_errors: true
+
+- name: Assert install app with invalid node fails
+  assert:
+    that:
+      - install_app_invalid_node.failed
+      - "'No such node exists' in install_app_invalid_node.msg"
+    fail_msg: "Install app with invalid node name should fail with appropriate error"
+
+- name: Include setup_cluster_testing_environment for teardown
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

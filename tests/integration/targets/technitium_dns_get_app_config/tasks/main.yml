@@ -31,6 +31,9 @@
     url: "{{ (store_apps_list.store_apps | selectattr('name', 'equalto', 'Query Logs (Sqlite)') | first).url }}"
   register: install_result
   when: store_apps_list.store_apps | selectattr('name', 'equalto', 'Query Logs (Sqlite)') | list | length > 0
+  retries: 3
+  delay: 30
+  until: install_result is success
 
 - name: "Pause after install"
   pause:
@@ -144,3 +147,7 @@
     name: "Query Logs (Sqlite)"
   register: cleanup_result
   ignore_errors: true
+
+# Phase 8: Test node parameter (cluster support)
+- name: "Run node parameter tests"
+  include_tasks: test_node_parameter.yml

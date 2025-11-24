@@ -39,6 +39,13 @@ options:
           - Base URL for the Technitium DNS API
       required: true
       type: str
+  node:
+      description:
+          - The node domain name for which this API call is intended
+          - When unspecified, the current node is used
+          - This parameter can be used only when Clustering is initialized
+      required: false
+      type: str
   validate_certs:
     description:
       - Whether to validate SSL certificates when making API requests.
@@ -102,6 +109,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 class ConvertToNsecModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
+        node=dict(type='str', required=False),
         zone=dict(type='str', required=True),
     )
 
@@ -111,9 +119,10 @@ class ConvertToNsecModule(TechnitiumModule):
 
     def run(self):
         zone = self.params['zone']
+        node = self.params.get('node')
 
         # Fetch current zone DNSSEC status (this also validates zone exists)
-        dnssec_status, zone_info = self.get_dnssec_status(zone)
+        dnssec_status, zone_info = self.get_dnssec_status(zone, node=node)
 
         # Check if zone is signed with DNSSEC
         if dnssec_status == 'unsigned':
@@ -139,6 +148,8 @@ class ConvertToNsecModule(TechnitiumModule):
 
         # Convert the zone from NSEC3 to NSEC
         query = {'zone': zone}
+        if node:
+            query['node'] = node
         data = self.request('/api/zones/dnssec/properties/convertToNSEC', params=query, method='POST')
         status = data.get('status')
         error_msg = data.get('errorMessage') or data.get('error') or data.get('message') or "Unknown error"

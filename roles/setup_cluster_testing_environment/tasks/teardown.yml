@@ -1,0 +1,18 @@
+---
+- name: Stop and remove cluster_dns_servers_to_create Technitium DNS container
+  community.docker.docker_container:
+    name: "{{ container.name }}"
+    state: absent
+    keep_volumes: false
+  loop: "{{ cluster_dns_servers_to_create }}"
+  loop_control:
+    loop_var: container
+    label: "{{ container.name }}"
+
+# keep_volumes : false doesn't seem to work, so we prune all unused volumes below
+- name: Prune dangling and unused Docker volumes
+  community.docker.docker_prune:
+    volumes: true
+    volumes_filters:
+      all: true
+    networks: true
