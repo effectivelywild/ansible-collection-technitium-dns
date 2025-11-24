@@ -25,10 +25,10 @@ This collection is tested against the following Ansible and Python versions:
 
 | Ansible Version | Python 3.10 | Python 3.11 | Python 3.12 | Python 3.13 | Python 3.14 |
 |----------------|--------------|--------------|--------------|--------------|--------------|
-| 2.17           | ✅           | ✅           | ✅           | ❌           | ✅
-| 2.18           | ❌           | ✅           | ✅           | ✅           | ✅
-| 2.19           | ❌           | ✅           | ✅           | ✅           | ✅
-| devel          | ❌           | ❌           | ❌           | ✅           | ❌
+| 2.17           | ✅           | ✅           | ✅           | ❌           | ❌
+| 2.18           | ❌           | ✅           | ✅           | ✅           | ❌
+| 2.19           | ❌           | ✅           | ✅           | ✅           | ❌
+| devel          | ❌           | ❌           | ❌           | ✅           | ✅
 
 **Note:** This matrix reflects our current CI testing coverage. Other combinations may work but are not regularly tested.
 
