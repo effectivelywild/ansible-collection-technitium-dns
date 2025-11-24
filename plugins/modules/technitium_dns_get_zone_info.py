@@ -52,6 +52,13 @@ options:
         required: false
         type: bool
         default: true
+    node:
+        description:
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
     zone:
         description:
             - The DNS zone to retrieve information for. If not specified, all zones are returned.
@@ -172,6 +179,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 class GetZoneInfoModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
+        node=dict(type='str', required=False),
         zone=dict(type='str', required=False),
         zone_type=dict(type='str', required=False, choices=[
             'Primary', 'Forwarder', 'SecondaryForwarder', 'Stub', 'Secondary', 'Catalog', 'SecondaryCatalog', 'SecondaryROOT'])
@@ -185,8 +193,13 @@ class GetZoneInfoModule(TechnitiumModule):
         zone_name = params.get('zone')
         zone_type = params.get('zone_type')
 
+        # Build API request parameters
+        api_params = {}
+        if params.get('node'):
+            api_params['node'] = params['node']
+
         # Fetch all zones from the API
-        data = self.request('/api/zones/list')
+        data = self.request('/api/zones/list', params=api_params)
         if data.get('status') != 'ok':
             error_msg = data.get('errorMessage') or "Unknown error"
             self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)

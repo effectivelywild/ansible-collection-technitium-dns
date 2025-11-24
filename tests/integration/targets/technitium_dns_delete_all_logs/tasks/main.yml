@@ -178,3 +178,7 @@
       - invalid_token_result.failed
       - "'Invalid token' in (invalid_token_result.msg) or 'Technitium API error' in (invalid_token_result.msg)"
     fail_msg: "Invalid token should cause failure"
+
+# Test node parameter (cluster support)
+- name: "Test node parameter support"
+  include_tasks: test_node_parameter.yml

@@ -45,6 +45,13 @@ options:
         required: false
         type: bool
         default: true
+    node:
+        description:
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
     domain:
         description:
             - The domain name to list records. If not passed, the domain is set to empty string which corresponds to the zone root.
@@ -83,6 +90,13 @@ EXAMPLES = r'''
     api_token: "myapitoken"
     domain: "tracker.ads.example.com"
     direction: "up"
+  register: result
+
+- name: List blocked zones on a specific cluster node
+  technitium_dns_list_blocked_zones:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    node: "node1.cluster.example.com"
   register: result
 '''
 
@@ -140,6 +154,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 
 class ListBlockedZonesModule(TechnitiumModule):
     argument_spec = dict(
+        node=dict(type='str', required=False),
         **TechnitiumModule.get_common_argument_spec(),
         domain=dict(type='str', required=False),
         direction=dict(type='str', required=False, choices=['up', 'down'], default='down')
@@ -148,6 +163,8 @@ class ListBlockedZonesModule(TechnitiumModule):
     def run(self):
         # Build query parameters
         params = {}
+        if self.params.get('node'):
+            params['node'] = self.params['node']
         if self.params.get('domain'):
             params['domain'] = self.params['domain']
         if self.params.get('direction'):

@@ -124,7 +124,7 @@
       - not test_user_details.failed
       - not test_user_details.changed
       - test_user_details.user_details.username == test_user_creation.api_response.response.username
-      - test_user_details.user_details.displayName == "Details Test User"
+      - test_user_details.user_details.displayName == test_user_creation.api_response.response.displayName
       - test_user_details.user_details.disabled == false
     fail_msg: "Test user details should match creation parameters"
 
@@ -137,3 +137,7 @@
     validate_certs: "{{ validate_certs }}"
     username: "{{ test_user_creation.api_response.response.username }}"
   ignore_errors: true
+
+# Test node parameter (cluster support)
+- name: "Test node parameter support"
+  include_tasks: test_node_parameter.yml

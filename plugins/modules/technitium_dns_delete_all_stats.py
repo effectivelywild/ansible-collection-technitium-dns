@@ -43,6 +43,13 @@ options:
         required: false
         type: bool
         default: true
+    node:
+        description:
+            - The node domain name for which the stats data needs to be deleted
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
 '''
 
 EXAMPLES = r'''
@@ -50,6 +57,13 @@ EXAMPLES = r'''
   technitium_dns_delete_all_stats:
     api_url: "http://localhost"
     api_token: "myapitoken"
+  register: result
+
+- name: Delete all statistics from specific cluster node
+  technitium_dns_delete_all_stats:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    node: "node1.example.com"
   register: result
 '''
 
@@ -76,12 +90,19 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 
 class DeleteAllStatsModule(TechnitiumModule):
     argument_spec = dict(
+        node=dict(type='str', required=False),
         **TechnitiumModule.get_common_argument_spec()
     )
 
     def run(self):
+        params = {}
+
+        # Add node parameter if specified
+        if self.params.get('node'):
+            params['node'] = self.params['node']
+
         # Delete all stats from the API
-        data = self.request('/api/dashboard/stats/deleteAll')
+        data = self.request('/api/dashboard/stats/deleteAll', params=params)
         self.validate_api_response(data)
 
         self.exit_json(

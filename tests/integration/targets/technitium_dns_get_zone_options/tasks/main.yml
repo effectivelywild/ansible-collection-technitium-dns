@@ -511,7 +511,7 @@
       - get_secondary_forwarder_zone_options_results.options.name == expected_secondary_forwarder_zone_name
       - get_secondary_forwarder_zone_options_results.options.queryAccess == "UseSpecifiedNetworkACL"
       - get_secondary_forwarder_zone_options_results.options.queryAccessNetworkACL == ["192.168.88.13", "!10.1.0.0/16"]
-      - get_secondary_forwarder_zone_options_results.options.primaryNameServerAddresses == ["192.168.28.5"]
+      - get_secondary_forwarder_zone_options_results.options.primaryNameServerAddresses == ["192.168.28.5:853"]
       - get_secondary_forwarder_zone_options_results.options.primaryZoneTransferProtocol == "Tls"
       - get_secondary_forwarder_zone_options_results.options.primaryZoneTransferTsigKeyName == "sec_key"
       - get_secondary_forwarder_zone_options_results.options.disabled == false
@@ -559,7 +559,7 @@
   ansible.builtin.assert:
     that:
       - get_secondary_catalog_zone_options_results.options.name == expected_secondary_catalog_zone_name
-      - get_secondary_catalog_zone_options_results.options.primaryNameServerAddresses == ["192.168.29.5"]
+      - get_secondary_catalog_zone_options_results.options.primaryNameServerAddresses == ["192.168.29.5:853"]
       - get_secondary_catalog_zone_options_results.options.primaryZoneTransferProtocol == "Quic"
       - get_secondary_catalog_zone_options_results.options.primaryZoneTransferTsigKeyName == "sec_key_1"
       - get_secondary_catalog_zone_options_results.options.disabled == false
@@ -629,3 +629,7 @@
   ansible.builtin.assert:
     that:
       - invalid_param_2.failed
+
+# Test node parameter (cluster support)
+- name: "Test node parameter support"
+  include_tasks: test_node_parameter.yml

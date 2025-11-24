@@ -1,0 +1,63 @@
+---
+# Integration tests for technitium_dns_list_store_apps node parameter (cluster support)
+
+# Setup testing environment with cluster initialization
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+    initialize_cluster: true
+
+# Test 1: List store apps without node parameter (default behavior)
+- name: List store apps without node parameter
+  technitium_dns_list_store_apps:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    validate_certs: no
+  register: apps_default
+
+- name: Debug apps_default
+  ansible.builtin.debug:
+    var: apps_default
+  when: debug | default(false)
+
+- name: Assert default store apps list returned
+  assert:
+    that:
+      - not apps_default.failed
+      - apps_default.store_apps is defined
+      - apps_default.store_apps | length > 0
+    fail_msg: "Store apps list without node parameter should succeed"
+
+# Test 2: List store apps with explicit node parameter (primary node)
+- name: List store apps for primary node
+  technitium_dns_list_store_apps:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    node: "cluster-primary01.example.com"
+    validate_certs: no
+  register: apps_primary
+
+- name: Assert primary node store apps list returned
+  assert:
+    that:
+      - not apps_primary.failed
+      - apps_primary.store_apps is defined
+      - apps_primary.store_apps | length > 0
+    fail_msg: "Store apps list for primary node should succeed"
+
+# Test 3: Verify consistency between default and explicit node
+- name: Assert results are consistent
+  assert:
+    that:
+      - apps_default.store_apps | length == apps_primary.store_apps | length
+    fail_msg: "Default and explicit primary node should return same apps"
+
+- name: Include setup_cluster_testing_environment for teardown
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

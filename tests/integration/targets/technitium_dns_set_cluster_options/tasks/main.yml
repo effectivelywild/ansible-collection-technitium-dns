@@ -1,0 +1,291 @@
+---
+# Setup testing environment
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+    initialize_cluster: true
+
+# Setup - Initialize cluster
+- name: "Setup: Initialize cluster on Primary node (04)"
+  effectivelywild.technitium_dns.technitium_dns_init_cluster:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    cluster_domain: "example.com"
+    primary_node_ip_addresses: 
+      - "{{ primary_node_ip_address }}"
+  register: init_primary_result
+
+- name: "Setup: Get initial cluster state to check default values"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+  register: initial_state
+
+- name: "Setup: Display default cluster options"
+  ansible.builtin.debug:
+    msg:
+      - "Heartbeat Refresh: {{ initial_state.cluster_state.heartbeatRefreshIntervalSeconds }}"
+      - "Heartbeat Retry: {{ initial_state.cluster_state.heartbeatRetryIntervalSeconds }}"
+      - "Config Refresh: {{ initial_state.cluster_state.configRefreshIntervalSeconds }}"
+      - "Config Retry: {{ initial_state.cluster_state.configRetryIntervalSeconds }}"
+
+# Test 1: Set heartbeat_refresh_interval_seconds only
+- name: "Test 1: Set heartbeat_refresh_interval_seconds to 60"
+  effectivelywild.technitium_dns.technitium_dns_set_cluster_options:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    heartbeat_refresh_interval_seconds: 60
+  register: set_heartbeat_refresh
+  retries: 3        
+  delay: 20          
+  until: set_heartbeat_refresh is success
+
+
+- name: "Test 1.1: Assert heartbeat_refresh_interval_seconds was set"
+  assert:
+    that:
+      - set_heartbeat_refresh is not failed
+      - set_heartbeat_refresh.changed == true
+      - set_heartbeat_refresh.cluster_state.heartbeatRefreshIntervalSeconds == 60
+      - set_heartbeat_refresh.msg == "Cluster options updated successfully"
+
+# Test 2: Set heartbeat_retry_interval_seconds only
+- name: "Test 2: Set heartbeat_retry_interval_seconds to 15"
+  effectivelywild.technitium_dns.technitium_dns_set_cluster_options:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    heartbeat_retry_interval_seconds: 15
+  register: set_heartbeat_retry
+  retries: 3        
+  delay: 20          
+  until: set_heartbeat_retry is success
+
+
+- name: "Test 2.1: Assert heartbeat_retry_interval_seconds was set"
+  assert:
+    that:
+      - set_heartbeat_retry is not failed
+      - set_heartbeat_retry.changed == true
+      - set_heartbeat_retry.cluster_state.heartbeatRetryIntervalSeconds == 15
+      - set_heartbeat_retry.cluster_state.heartbeatRefreshIntervalSeconds == 60
+
+# Test 3: Set config_refresh_interval_seconds only
+- name: "Test 3: Set config_refresh_interval_seconds to 1800"
+  effectivelywild.technitium_dns.technitium_dns_set_cluster_options:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    config_refresh_interval_seconds: 1800
+  register: set_config_refresh
+  retries: 3        
+  delay: 20          
+  until: set_config_refresh is success
+
+- name: "Test 3.1: Assert config_refresh_interval_seconds was set"
+  assert:
+    that:
+      - set_config_refresh is not failed
+      - set_config_refresh.changed == true
+      - set_config_refresh.cluster_state.configRefreshIntervalSeconds == 1800
+      - set_config_refresh.cluster_state.heartbeatRefreshIntervalSeconds == 60
+      - set_config_refresh.cluster_state.heartbeatRetryIntervalSeconds == 15
+
+# Test 4: Set config_retry_interval_seconds only
+- name: "Test 4: Set config_retry_interval_seconds to 90"
+  effectivelywild.technitium_dns.technitium_dns_set_cluster_options:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    config_retry_interval_seconds: 90
+  register: set_config_retry
+  retries: 3        
+  delay: 20          
+  until: set_config_retry is success
+
+- name: "Test 4.1: Assert config_retry_interval_seconds was set"
+  assert:
+    that:
+      - set_config_retry is not failed
+      - set_config_retry.changed == true
+      - set_config_retry.cluster_state.configRetryIntervalSeconds == 90
+      - set_config_retry.cluster_state.configRefreshIntervalSeconds == 1800
+      - set_config_retry.cluster_state.heartbeatRefreshIntervalSeconds == 60
+      - set_config_retry.cluster_state.heartbeatRetryIntervalSeconds == 15
+
+# Test 5: Set multiple options at once
+- name: "Test 5: Set multiple cluster options at once"
+  effectivelywild.technitium_dns.technitium_dns_set_cluster_options:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    heartbeat_refresh_interval_seconds: 45
+    heartbeat_retry_interval_seconds: 20
+    config_refresh_interval_seconds: 600
+    config_retry_interval_seconds: 120
+  register: set_multiple
+  retries: 3        
+  delay: 20          
+  until: set_multiple is success
+
+- name: "Test 5.1: Assert all options were set"
+  assert:
+    that:
+      - set_multiple is not failed
+      - set_multiple.changed == true
+      - set_multiple.cluster_state.heartbeatRefreshIntervalSeconds == 45
+      - set_multiple.cluster_state.heartbeatRetryIntervalSeconds == 20
+      - set_multiple.cluster_state.configRefreshIntervalSeconds == 600
+      - set_multiple.cluster_state.configRetryIntervalSeconds == 120
+
+# Test 6: Idempotency - Set same values
+- name: "Test 6: Idempotent - Set same values"
+  effectivelywild.technitium_dns.technitium_dns_set_cluster_options:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    heartbeat_refresh_interval_seconds: 45
+    heartbeat_retry_interval_seconds: 20
+    config_refresh_interval_seconds: 600
+    config_retry_interval_seconds: 120
+  register: idempotent_result
+
+- name: "Test 6.1: Assert no changes made (idempotent)"
+  assert:
+    that:
+      - idempotent_result is not failed
+      - idempotent_result.changed == false
+      - "'already match desired state' in idempotent_result.msg"
+
+# Test 7: Check mode
+- name: "Test 7: Set options in check mode"
+  effectivelywild.technitium_dns.technitium_dns_set_cluster_options:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    heartbeat_refresh_interval_seconds: 50
+  check_mode: true
+  register: check_mode_result
+
+- name: "Test 7.1: Assert check mode reports changes but doesn't update"
+  assert:
+    that:
+      - check_mode_result is not failed
+      - check_mode_result.changed == true
+      - "'Would update cluster options' in check_mode_result.msg"
+
+- name: "Test 7.2: Verify options were not actually changed"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+  register: verify_not_changed
+
+- name: "Test 7.3: Assert options still have old values"
+  assert:
+    that:
+      - verify_not_changed.cluster_state.heartbeatRefreshIntervalSeconds == 45
+
+# Test 8: Negative test - Invalid heartbeat_refresh_interval_seconds (too low)
+- name: "Test 8: Try to set heartbeat_refresh_interval_seconds below minimum (should fail)"
+  effectivelywild.technitium_dns.technitium_dns_set_cluster_options:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    heartbeat_refresh_interval_seconds: 5
+  register: negative_heartbeat_low
+  ignore_errors: true
+
+- name: "Test 8.1: Assert failure with invalid value"
+  assert:
+    that:
+      - negative_heartbeat_low is failed
+      - "'heartbeat_refresh_interval_seconds must be between 10 and 300' in negative_heartbeat_low.msg"
+
+# Test 9: Negative test - Invalid heartbeat_refresh_interval_seconds (too high)
+- name: "Test 9: Try to set heartbeat_refresh_interval_seconds above maximum (should fail)"
+  effectivelywild.technitium_dns.technitium_dns_set_cluster_options:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    heartbeat_refresh_interval_seconds: 500
+  register: negative_heartbeat_high
+  ignore_errors: true
+
+- name: "Test 9.1: Assert failure with invalid value"
+  assert:
+    that:
+      - negative_heartbeat_high is failed
+      - "'heartbeat_refresh_interval_seconds must be between 10 and 300' in negative_heartbeat_high.msg"
+
+# Test 10: Negative test - Invalid config_refresh_interval_seconds (too low)
+- name: "Test 10: Try to set config_refresh_interval_seconds below minimum (should fail)"
+  effectivelywild.technitium_dns.technitium_dns_set_cluster_options:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    config_refresh_interval_seconds: 10
+  register: negative_config_low
+  ignore_errors: true
+
+- name: "Test 10.1: Assert failure with invalid value"
+  assert:
+    that:
+      - negative_config_low is failed
+      - "'config_refresh_interval_seconds must be between 30 and 3600' in negative_config_low.msg"
+
+# Test 11: Negative test - Invalid config_refresh_interval_seconds (too high)
+- name: "Test 11: Try to set config_refresh_interval_seconds above maximum (should fail)"
+  effectivelywild.technitium_dns.technitium_dns_set_cluster_options:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    config_refresh_interval_seconds: 5000
+  register: negative_config_high
+  ignore_errors: true
+
+- name: "Test 11.1: Assert failure with invalid value"
+  assert:
+    that:
+      - negative_config_high is failed
+      - "'config_refresh_interval_seconds must be between 30 and 3600' in negative_config_high.msg"
+
+# Test 12: Negative test - Try to set from Secondary node
+- name: "Test 12: Wait for cluster to stabilize"
+  ansible.builtin.pause:
+    seconds: 10
+
+- name: "Test 12.2: Login to Secondary node"
+  effectivelywild.technitium_dns.technitium_dns_login:
+    api_url: "http://localhost"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+    username: "{{ admin_username }}"
+    password: "{{ admin_password }}"
+  register: secondary_login
+
+- name: "Test 12.3: Try to set options from Secondary node (should fail)"
+  effectivelywild.technitium_dns.technitium_dns_set_cluster_options:
+    api_url: "http://localhost"
+    api_token: "{{ secondary_login.token }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+    heartbeat_refresh_interval_seconds: 50
+  register: negative_secondary_result
+  ignore_errors: true
+
+- name: "Test 12.4: Assert failure when trying to set from Secondary"
+  assert:
+    that:
+      - negative_secondary_result is failed
+      - "'not a Primary node' in negative_secondary_result.msg"
+
+# Cleanup
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

@@ -424,3 +424,7 @@
   ansible.builtin.assert:
     that:
       - dnssec999_zone_signing_result is failed
+
+# Phase: Test node parameter (cluster support)
+- name: "Run node parameter tests"
+  include_tasks: test_node_parameter.yml

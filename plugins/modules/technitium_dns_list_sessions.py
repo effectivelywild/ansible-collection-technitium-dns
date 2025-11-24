@@ -43,6 +43,13 @@ options:
         required: false
         type: bool
         default: true
+    node:
+        description:
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
 '''
 
 EXAMPLES = r'''
@@ -54,6 +61,13 @@ EXAMPLES = r'''
 
 - debug:
     var: result.sessions
+
+- name: List sessions on a specific cluster node
+  technitium_dns_list_sessions:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    node: "node1.cluster.example.com"
+  register: result
 '''
 
 RETURN = r'''
@@ -120,12 +134,18 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 
 class ListSessionsModule(TechnitiumModule):
     argument_spec = dict(
+        node=dict(type='str', required=False),
         **TechnitiumModule.get_common_argument_spec()
     )
 
     def run(self):
+        # Build request parameters
+        params = {}
+        if self.params.get('node'):
+            params['node'] = self.params['node']
+
         # Fetch all sessions from the API
-        data = self.request('/api/admin/sessions/list')
+        data = self.request('/api/admin/sessions/list', params=params)
         self.validate_api_response(data)
 
         sessions = data.get('response', {}).get('sessions', [])

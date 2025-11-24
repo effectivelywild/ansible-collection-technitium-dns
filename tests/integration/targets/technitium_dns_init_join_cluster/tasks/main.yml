@@ -1,0 +1,267 @@
+---
+# Setup testing environment
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+
+# Setup - Initialize Primary node
+- name: "Setup: Initialize cluster on Primary node (04)"
+  effectivelywild.technitium_dns.technitium_dns_init_cluster:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    cluster_domain: "example.com"
+    primary_node_ip_addresses:
+      - "{{ primary_node_ip_address }}"
+  register: init_primary_result
+
+- name: "Setup: Wait for cluster to initialize"
+  ansible.builtin.pause:
+    seconds: 10
+
+# Test 1: Join cluster with required parameters
+- name: "Test 1: Join secondary01 node to cluster"
+  effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_secondary_01 }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+    secondary_node_ip_addresses:
+      - "{{ secondary_node_ip_address_01 }}"
+    primary_node_ip_address: "{{ primary_node_ip_address }}"
+    primary_node_url: "https://cluster_primary01{{ container_suffix }}:{{ https_port_cluster_primary_01 }}/"
+    primary_node_username: "{{ admin_username }}"
+    primary_node_password: "{{ admin_password }}"
+    ignore_certificate_errors: true
+  register: join_result
+
+- name: "Test 1.1: Assert Secondary node joined successfully"
+  assert:
+    that:
+      - join_result is not failed
+      - join_result.changed == true
+      - join_result.cluster_state is defined
+      - join_result.cluster_state.clusterInitialized == true
+      - join_result.cluster_state.clusterDomain == "example.com"
+      - join_result.msg == "Successfully joined cluster"
+
+# Test 2: Verify cluster state from Primary shows Secondary node
+- name: "Test 2: Get cluster state from Primary node"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+  register: primary_state
+
+- name: "Test 2.1: Assert Primary sees Secondary node"
+  assert:
+    that:
+      - primary_state.cluster_state.clusterNodes | length == 2
+      - primary_state.cluster_state.clusterNodes | selectattr('type', 'equalto', 'Secondary') | list | length == 1
+      - primary_state.cluster_state.clusterNodes | map(attribute='ipAddresses') | select('contains', secondary_node_ip_address_01) | list | length == 1
+
+# Test 3: Login to Secondary to get new token (joining invalidates token)
+- name: "Test 3: Login to Secondary node to get valid token"
+  effectivelywild.technitium_dns.technitium_dns_login:
+    api_url: "http://localhost"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+    username: "{{ admin_username }}"
+    password: "{{ admin_password }}"
+  register: secondary_login
+
+- name: "Test 3.1: Update token fact for Secondary node"
+  ansible.builtin.set_fact:
+    token_cluster_secondary_01: "{{ secondary_login.token }}"
+
+# Test 4: Verify cluster state from Secondary
+- name: "Test 4: Get cluster state from Secondary node"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_secondary_01 }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+  register: secondary_state
+  retries: 3        
+  delay: 20          
+  until: secondary_state is success
+
+- name: "Test 4.1: Assert Secondary node sees correct cluster state"
+  assert:
+    that:
+      - secondary_state.cluster_state.clusterInitialized == true
+      - secondary_state.cluster_state.clusterDomain == "example.com"
+      - secondary_state.cluster_state.clusterNodes | length == 2
+
+# Test 4a: Join second secondary02 node to cluster
+- name: "Test 4a: Join second secondary02 node to cluster"
+  effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_secondary_02 }}"
+    api_port: "{{ api_port_cluster_secondary_02 }}"
+    secondary_node_ip_addresses:
+      - "{{ secondary_node_ip_address_02 }}"
+    primary_node_ip_address: "{{ primary_node_ip_address }}"
+    primary_node_url: "https://cluster_primary01{{ container_suffix }}:{{ https_port_cluster_primary_01 }}/"
+    primary_node_username: "{{ admin_username }}"
+    primary_node_password: "{{ admin_password }}"
+    ignore_certificate_errors: true
+  register: join_result_06
+
+- name: "Test 4a.1: Assert second Secondary node joined successfully"
+  assert:
+    that:
+      - join_result_06 is not failed
+      - join_result_06.changed == true
+      - join_result_06.cluster_state.clusterInitialized == true
+      - join_result_06.msg == "Successfully joined cluster"
+
+- name: "Test 4a.2: Get cluster state from Primary to verify both Secondary nodes"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+  register: primary_state_multi
+
+- name: "Test 4a.3: Assert Primary sees both Secondary nodes"
+  assert:
+    that:
+      - primary_state_multi.cluster_state.clusterNodes | length == 3
+      - primary_state_multi.cluster_state.clusterNodes | selectattr('type', 'equalto', 'Primary') | list | length == 1
+      - primary_state_multi.cluster_state.clusterNodes | selectattr('type', 'equalto', 'Secondary') | list | length == 2
+      - primary_state_multi.cluster_state.clusterNodes | map(attribute='ipAddresses') | select('contains', secondary_node_ip_address_01) | list | length == 1
+      - primary_state_multi.cluster_state.clusterNodes | map(attribute='ipAddresses') | select('contains', secondary_node_ip_address_02) | list | length == 1
+
+- name: "Test 4a.4: Wait for cluster with multiple Secondaries to sync"
+  ansible.builtin.pause:
+    seconds: 5
+
+# Test 5: Idempotency - Try to join again
+- name: "Test 5: Idempotent - Try to join Secondary node again"
+  effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_secondary_01 }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+    secondary_node_ip_addresses:
+      - "{{ secondary_node_ip_address_01 }}"
+    primary_node_ip_address: "{{ primary_node_ip_address }}"
+    primary_node_url: "https://cluster_primary01{{ container_suffix }}:{{ https_port_cluster_primary_01 }}/"
+    primary_node_username: "{{ admin_username }}"
+    primary_node_password: "{{ admin_password }}"
+    ignore_certificate_errors: true
+  register: idempotent_result
+
+- name: "Test 5.1: Assert no changes made (idempotent)"
+  assert:
+    that:
+      - idempotent_result is not failed
+      - idempotent_result.changed == false
+      - "'Already joined to cluster' in idempotent_result.msg"
+
+# Test 6: Check mode - Leave and rejoin in check mode
+- name: "Test 6: Wait additional time for cluster to fully stabilize with multiple Secondaries"
+  ansible.builtin.pause:
+    seconds: 10
+
+- name: "Test 6.1: Login to secondary01 to get fresh token before leave test"
+  effectivelywild.technitium_dns.technitium_dns_login:
+    api_url: "http://localhost"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+    username: "{{ admin_username }}"
+    password: "{{ admin_password }}"
+  register: secondary_login_test6
+
+- name: "Test 6.2: Update token fact for secondary01"
+  ansible.builtin.set_fact:
+    token_cluster_secondary_01: "{{ secondary_login_test6.token }}"
+
+- name: "Test 6.3: Leave cluster to test check mode"
+  effectivelywild.technitium_dns.technitium_dns_leave_cluster:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_secondary_01 }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+  register: leave_result
+
+- name: "Test 6.4: Join cluster in check mode"
+  effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_secondary_01 }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+    secondary_node_ip_addresses:
+      - "{{ secondary_node_ip_address_01 }}"
+    primary_node_ip_address: "{{ primary_node_ip_address }}"
+    primary_node_url: "https://cluster_primary01{{ container_suffix }}:{{ https_port_cluster_primary_01 }}/"
+    primary_node_username: "{{ admin_username }}"
+    primary_node_password: "{{ admin_password }}"
+    ignore_certificate_errors: true
+  check_mode: true
+  register: check_mode_result
+
+- name: "Test 6.4: Assert check mode reports changes but doesn't join"
+  assert:
+    that:
+      - check_mode_result is not failed
+      - check_mode_result.changed == true
+      - "'Would join cluster' in check_mode_result.msg"
+
+- name: "Test 6.5: Verify cluster was not actually joined"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_secondary_01 }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+  register: verify_not_joined
+
+- name: "Test 6.6: Assert cluster is not initialized on Secondary"
+  assert:
+    that:
+      - verify_not_joined.cluster_state.clusterInitialized == false
+
+# Test 7: Negative test - Try to join Primary node as Secondary
+- name: "Test 7: Try to join Primary node as Secondary (should fail)"
+  effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    secondary_node_ip_addresses:
+      - "{{ primary_node_ip_address }}"
+    primary_node_ip_address: "{{ primary_node_ip_address }}"
+    primary_node_url: "https://cluster_primary01{{ container_suffix }}:{{ https_port_cluster_primary_01 }}/"
+    primary_node_username: "{{ admin_username }}"
+    primary_node_password: "{{ admin_password }}"
+    ignore_certificate_errors: true
+  register: negative_primary_result
+  ignore_errors: true
+
+- name: "Test 7.1: Assert failure when trying to join Primary as Secondary"
+  assert:
+    that:
+      - negative_primary_result is failed
+      - "'This node is a Primary node' in negative_primary_result.msg"
+
+# Test 8: Negative test - Invalid credentials
+- name: "Test 8: Try to join with invalid credentials (should fail)"
+  effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_secondary_01 }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+    secondary_node_ip_addresses:
+      - "{{ secondary_node_ip_address_01 }}"
+    primary_node_ip_address: "{{ primary_node_ip_address }}"
+    primary_node_url: "https://cluster_primary01{{ container_suffix }}:{{ https_port_cluster_primary_01 }}"
+    primary_node_username: "{{ admin_username }}"
+    primary_node_password: "wrongpassword"
+    ignore_certificate_errors: true
+  register: negative_creds_result
+  ignore_errors: true
+
+- name: "Test 8.1: Assert failure with invalid credentials"
+  assert:
+    that:
+      - negative_creds_result is failed
+      - "'Failed to join cluster' in negative_creds_result.msg"
+
+# Cleanup
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

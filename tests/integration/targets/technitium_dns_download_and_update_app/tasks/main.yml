@@ -12,15 +12,15 @@
 - name: "Load test configuration"
   include_vars: ../../integration_config.yml
 
-# Phase 2: Ensure test app is installed
-- name: "Download and install What Is My Dns app"
+# Phase 2: Ensure test app is installed at v6 (so we can test updating to v7)
+- name: "Download and install What Is My Dns app v6"
   technitium_dns_download_and_install_app:
     api_url: "{{ technitium_api_url_2 }}"
     api_token: "{{ technitium_api_token_2 }}"
     api_port: "{{ technitium_api_port_2 | int }}"
     validate_certs: "{{ validate_certs }}"
     name: "What Is My Dns"
-    url: "https://download.technitium.com/dns/apps/WhatIsMyDnsApp.zip"
+    url: "https://download.technitium.com/dns/apps/WhatIsMyDnsApp-v6.zip"
   register: install_result
   ignore_errors: true
 
@@ -78,7 +78,7 @@
       - not update_again_result.failed
       - not update_again_result.changed
       - update_again_result.updated_app is defined
-      - "'already at the latest version' in (update_again_result.msg | lower)"
+      - "'already at version' in (update_again_result.msg | lower)"
     fail_msg: "Second update with same URL should be idempotent with changed=False"
 
 # Phase 4: Test downgrade/custom version - update to v6 after v7
@@ -242,3 +242,7 @@
     name: "What Is My Dns"
   register: cleanup_result
   ignore_errors: true
+
+# Test node parameter (cluster support)
+- name: "Test node parameter support"
+  include_tasks: test_node_parameter.yml

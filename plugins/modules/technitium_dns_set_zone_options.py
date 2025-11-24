@@ -43,6 +43,13 @@ options:
             - Base URL for the Technitium DNS API
         required: true
         type: str
+    node:
+        description:
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
     catalog:
         description:
             - Catalog zone name to register as its member zone (Primary, Stub, Forwarder only)
@@ -325,6 +332,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 class SetZoneOptionsModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
+        node=dict(type='str', required=False),
         zone=dict(type='str', required=True),
         disabled=dict(type='bool', required=False),
         catalog=dict(type='str', required=False),
@@ -370,6 +378,64 @@ class SetZoneOptionsModule(TechnitiumModule):
         supports_check_mode=True
     )
 
+    def _normalize_primary_nameserver_addresses(self, value):
+        """
+        Normalize primaryNameServerAddresses to include default ports.
+
+        In Technitium DNS v14+, the API returns addresses with explicit ports.
+        Default ports depend on primaryZoneTransferProtocol:
+        - Tcp: port 53
+        - Tls: port 853
+        - Quic: port 853
+
+        This method ensures addresses are compared consistently by adding
+        the default port if not specified.
+        """
+        # Get the protocol to determine default port
+        protocol = self.params.get('primaryZoneTransferProtocol')
+        if protocol is None:
+            # If we're normalizing current values, get from current state
+            protocol = getattr(self, '_current_protocol', None)
+
+        # Determine default port based on protocol
+        if protocol == 'Tcp':
+            default_port = '53'
+        elif protocol in ['Tls', 'Quic']:
+            default_port = '853'
+        else:
+            # If no protocol specified, assume port 53 (standard DNS)
+            default_port = '53'
+
+        # Convert value to list
+        if isinstance(value, str):
+            addresses = [x.strip() for x in value.split(",") if x.strip()]
+        elif isinstance(value, list):
+            addresses = [str(x) for x in value]
+        else:
+            addresses = [str(value)]
+
+        # Normalize each address to include port
+        normalized = []
+        for addr in addresses:
+            addr = addr.strip()
+            # Check if port is already specified
+            if ':' in addr and not addr.startswith('['):
+                # IPv4 with port already specified
+                normalized.append(addr)
+            elif addr.startswith('['):
+                # IPv6 address - check for port
+                if ']:' in addr:
+                    # IPv6 with port already specified
+                    normalized.append(addr)
+                else:
+                    # IPv6 without port - add default
+                    normalized.append(f"{addr}:{default_port}")
+            else:
+                # No port specified - add default
+                normalized.append(f"{addr}:{default_port}")
+
+        return sorted(normalized)
+
     def _normalize_value(self, key, value):
         """Normalize a value for comparison purposes."""
         list_like_fields = [
@@ -385,6 +451,10 @@ class SetZoneOptionsModule(TechnitiumModule):
         # Normalize booleans to lowercase strings
         if isinstance(value, bool):
             return str(value).lower()
+
+        # Special handling for primaryNameServerAddresses to normalize ports
+        if key == 'primaryNameServerAddresses':
+            return self._normalize_primary_nameserver_addresses(value)
 
         # Normalize list-like fields
         if key in list_like_fields:
@@ -416,15 +486,20 @@ class SetZoneOptionsModule(TechnitiumModule):
     def run(self):
         params = self.params
         zone = params['zone']
+        node = params.get('node')
 
         # 1. Validate zone exists and fetch current zone options
-        get_data = self.validate_zone_exists(zone)
+        get_data = self.validate_zone_exists(zone, node=node)
         if get_data.get('status') != 'ok':
             error_msg = get_data.get('errorMessage') or 'Unknown error'
             self.fail_json(
                 msg=f"Technitium API error (get options): {error_msg}", api_response=get_data)
         current = get_data.get('response', {})
         zone_type = current.get('type')
+
+        # Store current protocol for normalizing primaryNameServerAddresses
+        # Use user-provided protocol if specified, otherwise use current protocol from API
+        self._current_protocol = params.get('primaryZoneTransferProtocol') or current.get('primaryZoneTransferProtocol')
 
         # 1b. Conditional parameter validation based on zone type
         allowed_params = {
@@ -454,12 +529,12 @@ class SetZoneOptionsModule(TechnitiumModule):
         }
         if zone_type in allowed_params:
             for param in params:
-                if param in ['api_url', 'api_port', 'api_token', 'zone', 'validate_certs']:
+                if param in ['api_url', 'api_port', 'api_token', 'zone', 'validate_certs', 'node']:
                     continue
                 if params[param] is not None and param not in allowed_params[zone_type]:
                     # Show what user attempted to configure for debugging
                     attempted_config = {k: v for k, v in params.items() if v is not None and k not in [
-                        'api_url', 'api_port', 'api_token', 'validate_certs', 'zone']}
+                        'api_url', 'api_port', 'api_token', 'validate_certs', 'zone', 'node']}
                     self.fail_json(
                         msg=f"Parameter '{param}' is not supported for zone type '{zone_type}'.",
                         attempted_changes=attempted_config,
@@ -480,7 +555,8 @@ class SetZoneOptionsModule(TechnitiumModule):
             'disabled', 'catalog', 'overrideCatalogQueryAccess', 'overrideCatalogZoneTransfer', 'overrideCatalogNotify',
             'primaryNameServerAddresses', 'primaryZoneTransferProtocol', 'primaryZoneTransferTsigKeyName', 'validateZone',
             'queryAccess', 'queryAccessNetworkACL', 'zoneTransfer', 'zoneTransferNetworkACL', 'zoneTransferTsigKeyNames',
-                'notify', 'notifyNameServers', 'notifySecondaryCatalogsNameServers', 'update', 'updateNetworkACL', 'updateSecurityPolicies']:
+            'notify', 'notifyNameServers', 'notifySecondaryCatalogsNameServers', 'update', 'updateNetworkACL', 'updateSecurityPolicies'
+        ]:
             value = params.get(key)
             if value is not None:
                 # Validate input types before storing
@@ -521,6 +597,8 @@ class SetZoneOptionsModule(TechnitiumModule):
 
         # 4. Set options if needed
         set_query = {'zone': zone}
+        if node:
+            set_query['node'] = node
         # For API call, convert list-like fields to comma-separated strings as needed
         for k, v in desired.items():
             if k in list_like_fields and isinstance(v, list):

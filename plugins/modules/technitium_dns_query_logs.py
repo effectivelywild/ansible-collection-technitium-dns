@@ -114,6 +114,13 @@ options:
             - The DNS class (QCLASS) in the request question section to filter the logs
         required: false
         type: str
+    node:
+        description:
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
 '''
 
 EXAMPLES = r'''
@@ -150,6 +157,14 @@ EXAMPLES = r'''
     start: "2021-09-10 00:00:00"
     end: "2021-09-11 23:59:59"
     protocol: "Udp"
+
+- name: Query logs on a specific cluster node
+  technitium_dns_query_logs:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    name: "Query Logger"
+    class_path: "QueryLogger.App"
+    node: "node1.cluster.example.com"
 '''
 
 RETURN = r'''
@@ -260,6 +275,7 @@ class QueryLogsModule(TechnitiumModule):
         qname=dict(type='str', required=False),
         qtype=dict(type='str', required=False),
         qclass=dict(type='str', required=False),
+        node=dict(type='str', required=False),
         **TechnitiumModule.get_common_argument_spec()
     )
 
@@ -282,6 +298,10 @@ class QueryLogsModule(TechnitiumModule):
                 # Convert snake_case to camelCase for API
                 api_param = ''.join(word.capitalize() if i > 0 else word for i, word in enumerate(param.split('_')))
                 params[api_param] = self.params[param]
+
+        # Add node parameter if provided
+        if self.params.get('node'):
+            params['node'] = self.params['node']
 
         # Query logs from the API
         data = self.request('/api/logs/query', params=params)

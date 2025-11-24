@@ -42,6 +42,13 @@ options:
     required: false
     type: bool
     default: true
+  node:
+    description:
+      - The node domain name for which this API call is intended
+      - When unspecified, the current node is used
+      - This parameter can be used only when Clustering is initialized
+    required: false
+    type: str
   zone:
     description:
       - The name of the primary zone containing the private key
@@ -76,6 +83,15 @@ EXAMPLES = r'''
     zone: "example.com"
     key_tag: 5678
     rollover_days: 0
+
+- name: Update private key on a specific cluster node
+  technitium_dns_update_private_key:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    zone: "example.com"
+    key_tag: 1234
+    rollover_days: 120
+    node: "node1.cluster.example.com"
 '''
 
 RETURN = r'''
@@ -116,6 +132,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 
 class UpdatePrivateKeyModule(TechnitiumModule):
     argument_spec = dict(
+        node=dict(type='str', required=False),
         **TechnitiumModule.get_common_argument_spec(),
         zone=dict(type='str', required=True),
         key_tag=dict(type='int', required=True, no_log=False),
@@ -132,9 +149,9 @@ class UpdatePrivateKeyModule(TechnitiumModule):
         if not (0 <= rollover_days <= 365):
             self.fail_json(msg=f"rollover_days must be between 0-365, got {rollover_days}")
 
-    def find_key_in_zone(self, zone, key_tag):
+    def find_key_in_zone(self, zone, key_tag, node=None):
         """Find and validate that the specified key exists in the zone"""
-        dnssec_props = self.get_dnssec_properties(zone)
+        dnssec_props = self.get_dnssec_properties(zone, node=node)
 
         # Check if zone has private keys
         private_keys = dnssec_props.get('dnssecPrivateKeys', [])
@@ -152,12 +169,13 @@ class UpdatePrivateKeyModule(TechnitiumModule):
         zone = self.params['zone']
         key_tag = self.params['key_tag']
         rollover_days = self.params['rollover_days']
+        node = self.params.get('node')
 
         # Validate rollover days parameter
         self.validate_rollover_days()
 
         # Get DNSSEC properties to validate zone is signed
-        dnssec_props = self.get_dnssec_properties(zone)
+        dnssec_props = self.get_dnssec_properties(zone, node=node)
         dnssec_status = dnssec_props.get('dnssecStatus', '').lower()
 
         if dnssec_status == 'unsigned':
@@ -167,7 +185,7 @@ class UpdatePrivateKeyModule(TechnitiumModule):
             self.fail_json(msg=f"Zone '{zone}' has unexpected DNSSEC status: {dnssec_status}")
 
         # Find the specified key in the zone
-        key_info = self.find_key_in_zone(zone, key_tag)
+        key_info = self.find_key_in_zone(zone, key_tag, node=node)
         if not key_info:
             self.fail_json(msg=f"Private key with tag {key_tag} not found in zone '{zone}'")
 
@@ -202,6 +220,8 @@ class UpdatePrivateKeyModule(TechnitiumModule):
             'keyTag': key_tag,
             'rolloverDays': rollover_days
         }
+        if node:
+            query['node'] = node
 
         data = self.request('/api/zones/dnssec/properties/updatePrivateKey', params=query, method='POST')
         status = data.get('status')

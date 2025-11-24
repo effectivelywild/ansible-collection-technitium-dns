@@ -1,0 +1,33 @@
+---
+cluster_dns_servers_to_create:
+  - name: "cluster_primary01{{ container_suffix }}"
+    http_port: "{{ api_port_cluster_primary_01 }}"
+    https_port: "{{ https_port_cluster_primary_01 }}"
+    dns_server_domain: "cluster-primary01.local"
+    image_tag: "latest"
+  - name: "cluster_secondary01{{ container_suffix }}"
+    http_port: "{{ api_port_cluster_secondary_01 }}"
+    https_port: "{{ https_port_cluster_secondary_01 }}"
+    dns_server_domain: "cluster-secondary01.local"
+    image_tag: "latest"
+  - name: "cluster_secondary02{{ container_suffix }}"
+    http_port: "{{ api_port_cluster_secondary_02 }}"
+    https_port: "{{ https_port_cluster_secondary_02 }}"
+    dns_server_domain: "cluster-secondary02.local"
+    image_tag: "latest"
+
+# Login Info
+admin_username: admin
+admin_password: topsecret
+
+safe_job_id: thisisverysafe
+container_suffix: .example.com
+
+debug: false
+
+create_var_file: true
+
+# Cluster initialization settings
+initialize_cluster: false  # Set to true to initialize a 3-node cluster after setup
+cluster_name: "test-cluster"  # Name of the cluster to create
+cluster_domain: "example.com"  # Domain name for the cluster

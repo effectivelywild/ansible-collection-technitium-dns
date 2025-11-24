@@ -44,6 +44,13 @@ options:
     required: false
     type: bool
     default: true
+  node:
+    description:
+      - The node domain name for which this API call is intended
+      - When unspecified, the current node is used
+      - This parameter can be used only when Clustering is initialized
+    required: false
+    type: str
   zone:
     description:
       - The name of the primary zone to publish keys for
@@ -64,6 +71,13 @@ EXAMPLES = r'''
     api_port: 5380
     api_token: "myapitoken"
     zone: "example.com"
+
+- name: Publish all generated keys on a specific cluster node
+  technitium_dns_publish_all_keys:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    zone: "example.com"
+    node: "node1.cluster.example.com"
 '''
 
 RETURN = r'''
@@ -112,6 +126,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 
 class PublishAllKeysModule(TechnitiumModule):
     argument_spec = dict(
+        node=dict(type='str', required=False),
         **TechnitiumModule.get_common_argument_spec(),
         zone=dict(type='str', required=True),
     )
@@ -138,9 +153,10 @@ class PublishAllKeysModule(TechnitiumModule):
 
     def run(self):
         zone = self.params['zone']
+        node = self.params.get('node')
 
         # Get DNSSEC properties to validate zone is signed
-        dnssec_props = self.get_dnssec_properties(zone)
+        dnssec_props = self.get_dnssec_properties(zone, node=node)
         dnssec_status = dnssec_props.get('dnssecStatus', '').lower()
 
         if dnssec_status == 'unsigned':
@@ -174,6 +190,8 @@ class PublishAllKeysModule(TechnitiumModule):
         query = {
             'zone': zone
         }
+        if node:
+            query['node'] = node
 
         data = self.request('/api/zones/dnssec/properties/publishAllPrivateKeys', params=query, method='POST')
         status = data.get('status')

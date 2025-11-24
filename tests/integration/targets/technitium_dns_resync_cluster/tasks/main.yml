@@ -1,0 +1,209 @@
+---
+# Setup testing environment
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+
+# Setup - Initialize cluster and join Secondary
+- name: "Setup: Initialize cluster on Primary node (04)"
+  effectivelywild.technitium_dns.technitium_dns_init_cluster:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    cluster_domain: "example.com"
+    primary_node_ip_address: "{{ primary_node_ip_address }}"
+  register: init_primary_result
+
+- name: "Setup: Wait for cluster to initialize"
+  ansible.builtin.pause:
+    seconds: 10
+
+- name: "Setup: Join secondary01 node to cluster"
+  effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_secondary_01 }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+    secondary_node_ip_address: "{{ secondary_node_ip_address_01 }}"
+    primary_node_ip_address: "{{ primary_node_ip_address }}"
+    primary_node_url: "https://cluster_primary01{{ container_suffix }}:{{ https_port_cluster_primary_01 }}/"
+    primary_node_username: "{{ admin_username }}"
+    primary_node_password: "{{ admin_password }}"
+    ignore_certificate_errors: true
+  register: join_result
+
+- name: "Setup: Login to Secondary node to get valid token"
+  effectivelywild.technitium_dns.technitium_dns_login:
+    api_url: "http://localhost"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+    username: "{{ admin_username }}"
+    password: "{{ admin_password }}"
+  register: secondary_login
+
+- name: "Setup: Update token fact for Secondary node"
+  ansible.builtin.set_fact:
+    token_cluster_secondary_01: "{{ secondary_login.token }}"
+
+- name: Debug token_cluster_secondary_01
+  ansible.builtin.debug:
+    var: token_cluster_secondary_01
+  when: debug | default(false)
+
+- name: "Setup: Wait for initial sync"
+  ansible.builtin.pause:
+    seconds: 5
+
+# Test 1: Get initial cluster state from Secondary (before resync)
+- name: "Test 1: Get initial cluster state from Secondary"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_secondary_01 }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+  register: initial_secondary_state
+
+- name: "Test 1.1: Capture initial configLastSynced"
+  ansible.builtin.set_fact:
+    initial_config_last_synced: "{{ (initial_secondary_state.cluster_state.clusterNodes | selectattr('state', 'equalto', 'Self') | list | first).configLastSynced }}"
+
+# Test 2: Make a change on Primary (set cluster options)
+- name: "Test 2: Change cluster options on Primary"
+  effectivelywild.technitium_dns.technitium_dns_set_cluster_options:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    heartbeat_refresh_interval_seconds: 45
+    config_refresh_interval_seconds: 1200
+  register: set_options_result
+
+- name: "Test 2.1: Verify options changed on Primary"
+  assert:
+    that:
+      - set_options_result.cluster_state.heartbeatRefreshIntervalSeconds == 45
+      - set_options_result.cluster_state.configRefreshIntervalSeconds == 1200
+
+# Test 3: Trigger resync on Secondary
+- name: "Test 3: Trigger cluster resync on Secondary"
+  effectivelywild.technitium_dns.technitium_dns_resync_cluster:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_secondary_01 }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+    node: "cluster-secondary01.example.com"
+  register: resync_result
+
+- name: "Test 3.1: Assert resync was triggered"
+  assert:
+    that:
+      - resync_result is not failed
+      - resync_result.changed == true
+      - resync_result.msg == "Cluster resync triggered successfully"
+
+# Test 4: Wait for resync to complete and verify changes propagated
+- name: "Test 4: Wait for resync to complete"
+  ansible.builtin.pause:
+    seconds: 45
+
+- name: "Test 4.1: Get cluster state after resync"
+  effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_secondary_01 }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+  register: after_resync_state
+
+- name: "Test 4.1a: Debug cluster state after resync"
+  ansible.builtin.debug:
+    var: after_resync_state
+  when: debug | default(false)
+
+- name: "Test 4.2: Assert Secondary received updated options"
+  assert:
+    that:
+      - after_resync_state.cluster_state.heartbeatRefreshIntervalSeconds == 45
+      - after_resync_state.cluster_state.configRefreshIntervalSeconds == 1200
+
+- name: "Test 4.3: Capture new configLastSynced"
+  ansible.builtin.set_fact:
+    new_config_last_synced: "{{ (after_resync_state.cluster_state.clusterNodes | selectattr('state', 'equalto', 'Self') | list | first).configLastSynced }}"
+
+- name: "Test 4.4: Assert configLastSynced was updated"
+  assert:
+    that:
+      - new_config_last_synced != initial_config_last_synced
+
+# # Test 5: Check mode
+# - name: "Test 5: Trigger resync in check mode"
+#   effectivelywild.technitium_dns.technitium_dns_resync_cluster:
+#     api_url: "http://localhost"
+#     api_token: "{{ token_cluster_secondary_01 }}"
+#     api_port: "{{ api_port_cluster_secondary_01 }}"
+#   check_mode: true
+#   register: check_mode_result
+
+# - name: "Test 5.1: Assert check mode reports changes"
+#   assert:
+#     that:
+#       - check_mode_result is not failed
+#       - check_mode_result.changed == true
+#       - "'Would trigger cluster resync' in check_mode_result.msg"
+
+# Test 6: Multiple resyncs (always reports changed)
+- name: "Test 6: Trigger resync again"
+  effectivelywild.technitium_dns.technitium_dns_resync_cluster:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_secondary_01 }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+    node: "cluster-secondary01.example.com"
+  register: resync_again_result
+  retries: 3        
+  delay: 20          
+  until: resync_again_result is success
+
+- name: "Test 6.1: Assert resync always reports changed"
+  assert:
+    that:
+      - resync_again_result is not failed
+      - resync_again_result.changed == true
+      - resync_again_result.msg == "Cluster resync triggered successfully"
+
+# Test 7: Negative test - Try to resync from Primary node
+- name: "Test 7: Try to resync from Primary node (should fail)"
+  effectivelywild.technitium_dns.technitium_dns_resync_cluster:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+  register: negative_primary_result
+  ignore_errors: true
+
+- name: "Test 7.1: Assert failure when trying to resync from Primary"
+  assert:
+    that:
+      - negative_primary_result is failed
+      - "'not a Secondary node' in negative_primary_result.msg"
+
+# Test 8: Negative test - Try to resync when cluster not initialized
+- name: "Test 8: Leave cluster on secondary01"
+  effectivelywild.technitium_dns.technitium_dns_leave_cluster:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_secondary_01 }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+
+- name: "Test 8.1: Try to resync when not in cluster (should fail)"
+  effectivelywild.technitium_dns.technitium_dns_resync_cluster:
+    api_url: "http://localhost"
+    api_token: "{{ token_cluster_secondary_01 }}"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+  register: negative_uninit_result
+  ignore_errors: true
+
+- name: "Test 8.2: Assert failure when not in cluster"
+  assert:
+    that:
+      - negative_uninit_result is failed
+      - "'Not part of any cluster' in negative_uninit_result.msg"
+
+# Cleanup
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

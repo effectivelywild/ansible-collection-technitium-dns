@@ -44,6 +44,13 @@ options:
     required: false
     type: bool
     default: true
+  node:
+    description:
+      - The node domain name for which this API call is intended
+      - When unspecified, the current node is used
+      - This parameter can be used only when Clustering is initialized
+    required: false
+    type: str
   zone:
     description:
       - The domain name of the zone to resync
@@ -66,6 +73,13 @@ EXAMPLES = r'''
     api_port: 5381
     api_token: "{{ technitium_api_token }}"
     zone: "stub.example.com"
+
+- name: Resync a secondary zone on a specific cluster node
+  technitium_dns_resync_zone:
+    api_url: "http://localhost:5380"
+    api_token: "{{ technitium_api_token }}"
+    zone: "secondary.example.com"
+    node: "node1.cluster.example.com"
 '''
 
 RETURN = r'''
@@ -107,6 +121,7 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 class ResyncZoneModule(TechnitiumModule):
     argument_spec = dict(
         **TechnitiumModule.get_common_argument_spec(),
+        node=dict(type='str', required=False),
         zone=dict(type='str', required=True)
     )
 
@@ -125,6 +140,8 @@ class ResyncZoneModule(TechnitiumModule):
 
         # Perform the resync operation
         query = {'zone': zone}
+        if self.params.get('node'):
+            query['node'] = self.params['node']
         data = self.request('/api/zones/resync', params=query, method='POST')
 
         status = data.get('status')

@@ -43,6 +43,13 @@ options:
         required: false
         type: bool
         default: true
+    node:
+        description:
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
 '''
 
 EXAMPLES = r'''
@@ -65,6 +72,13 @@ EXAMPLES = r'''
   debug:
     msg: "Log: {{ item.fileName }} ({{ item.size }})"
   loop: "{{ logs_result.log_files | selectattr('fileName', 'match', '2020-09-19') | list }}"
+
+- name: List log files on a specific cluster node
+  technitium_dns_list_logs:
+    api_url: "http://localhost"
+    api_token: "myapitoken"
+    node: "node1.cluster.example.com"
+  register: node_logs
 '''
 
 RETURN = r'''
@@ -101,12 +115,17 @@ from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.tec
 
 class ListLogsModule(TechnitiumModule):
     argument_spec = dict(
+        node=dict(type='str', required=False),
         **TechnitiumModule.get_common_argument_spec()
     )
 
     def run(self):
         # Fetch all log files from the API
-        data = self.request('/api/logs/list')
+        params = {}
+        if self.params.get('node'):
+            params['node'] = self.params['node']
+
+        data = self.request('/api/logs/list', params=params)
         self.validate_api_response(data)
 
         log_files = data.get('response', {}).get('logFiles', [])

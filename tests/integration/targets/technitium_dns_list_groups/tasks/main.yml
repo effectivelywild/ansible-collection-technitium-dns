@@ -105,3 +105,7 @@
       - list_groups_second_result.groups | length == list_groups_result.groups | length
       - list_groups_second_result.groups | length >= 3
     fail_msg: "Multiple calls should return consistent results"
+
+# Test node parameter (cluster support)
+- name: "Test node parameter support"
+  include_tasks: test_node_parameter.yml

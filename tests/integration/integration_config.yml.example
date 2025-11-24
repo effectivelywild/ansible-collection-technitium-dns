@@ -1,17 +1,31 @@
-# Zone names for authoritative tests (must exist on authoritative_nameservers)
-technitium_api_1_url: http://localhost
-technitium_api_1_token: a1263596c6172419f6c9d2e62d7cad7b4bbf0ab21fc4fa3cb29806f60e978579
-technitium_api_1_port: 5381
-technitium_api_2_url: http://localhost
-technitium_api_2_token: a1263596c6172419f6c9d2e62d7cad7b4bbf0ab21fc4fa3cb29806f60e978579
-technitium_api_2_port: 5382
+# Standard nodes
+technitium_api_url_1: http://localhost
+technitium_api_token_1: f5845ce07767ae33d159948a04850fd179a1741381a7cba9b594c62af0ef07a4
+technitium_api_port_1: 5381
+technitium_https_port_1: 53441
+
+technitium_api_url_2: http://localhost
+technitium_api_token_2: 22db00d75a6b298084f92d1206a6f8840264a37dbaef35ccb06b0bd7928f6d53
+technitium_api_port_2: 5382
+technitium_https_port_2: 53442
+
+technitium_api_url_3: http://localhost
+technitium_api_token_3: 090a932ca0135bb6df15355361d9f5d6779b58e6c3ae486460b60e88acbd75f5
+technitium_api_port_3: 5383
+technitium_https_port_3: 53443
+
 validate_certs: false
 
-# Notify Name Server, used for Zone testing
+# Notify Name Server (technitium01), used for Zone testing
 notify_name_server: 172.17.0.2
 
 # Debugging options
-debug: false
+debug: true
 
-# Testing domain
+# Login Info
+admin_username: admin
+admin_password: topsecret
+
+# Testing domain - unique per job to avoid conflicts
 testing_suffix: example.com
+container_suffix: .example.com

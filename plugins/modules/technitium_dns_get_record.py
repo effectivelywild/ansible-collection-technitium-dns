@@ -58,6 +58,13 @@ options:
         required: false
         type: bool
         default: false
+    node:
+        description:
+            - The node domain name for which this API call is intended
+            - When unspecified, the current node is used
+            - This parameter can be used only when Clustering is initialized
+        required: false
+        type: str
 '''
 
 EXAMPLES = r'''
@@ -235,6 +242,7 @@ class GetRecordsModule(TechnitiumModule):
         **TechnitiumModule.get_common_argument_spec(),
         name=dict(type='str', required=True, aliases=['domain']),
         zone=dict(type='str', required=False),
+        node=dict(type='str', required=False),
         listZone=dict(type='bool', required=False, default=False)
     )
     module_kwargs = dict(
@@ -260,9 +268,7 @@ class GetRecordsModule(TechnitiumModule):
 
         # Fetch DNS records from the API
         data = self.request('/api/zones/records/get', params=query)
-        if data.get('status') != 'ok':
-            error_msg = data.get('errorMessage') or "Unknown error"
-            self.fail_json(msg=f"Technitium API error: {error_msg}", api_response=data)
+        self.validate_api_response(data)
 
         records = data.get('response', {}).get('records', [])
 

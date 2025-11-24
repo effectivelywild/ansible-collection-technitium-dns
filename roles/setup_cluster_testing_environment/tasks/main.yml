@@ -1,0 +1,16 @@
+---
+- name: Validate action parameter
+  ansible.builtin.assert:
+    that:
+      - action is defined
+      - action in ['setup', 'teardown']
+    fail_msg: "action must be either 'setup' or 'teardown'"
+    quiet: true
+
+- name: Include cluster_testing_environment setup
+  ansible.builtin.include_tasks: setup.yml
+  when: action == 'setup'
+
+- name: Include cluster_testing_environment teardown
+  ansible.builtin.include_tasks: teardown.yml
+  when: action == 'teardown'

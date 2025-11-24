@@ -1,0 +1,66 @@
+---
+# Integration tests for technitium_dns_delete_log node parameter (cluster support)
+
+# Setup testing environment with cluster initialization
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+    initialize_cluster: true
+
+# Setup: Get list of logs to identify one to delete
+- name: List logs on primary node
+  technitium_dns_list_logs:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    node: "cluster-primary01.example.com"
+    validate_certs: no
+  register: logs_list
+
+# Test 1: Delete specific log on primary node (if logs exist)
+- name: Delete specific log on primary node
+  technitium_dns_delete_log:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    log: "{{ logs_list.log_files[0].fileName }}"
+    node: "cluster-primary01.example.com"
+    validate_certs: no
+  register: delete_log_primary
+  when: logs_list.log_files | length > 0
+
+- name: Assert delete log on primary node succeeded
+  assert:
+    that:
+      - not delete_log_primary.failed
+      - delete_log_primary.changed
+      - "'deleted successfully' in delete_log_primary.msg"
+    fail_msg: "Delete log on primary node should succeed"
+  when: logs_list.log_files | length > 0
+
+# Test 2: Negative test - invalid node name
+- name: Try to delete log with invalid node name
+  technitium_dns_delete_log:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    log: "2020-01-01"
+    node: "invalid-node-name-xyz"
+    validate_certs: no
+  register: delete_log_invalid_node
+  ignore_errors: true
+
+- name: Assert delete log with invalid node fails
+  assert:
+    that:
+      - delete_log_invalid_node.failed
+      - "'No such node exists' in delete_log_invalid_node.msg"
+    fail_msg: "Delete log with invalid node name should fail with appropriate error"
+
+- name: Include setup_cluster_testing_environment for teardown
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

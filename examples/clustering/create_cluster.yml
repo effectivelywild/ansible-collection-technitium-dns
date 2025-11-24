@@ -1,0 +1,122 @@
+---
+- name: Setup cluster
+  hosts: localhost
+  gather_facts: false
+  vars:
+    cluster_domain: example.com
+  tasks:
+    - name: Initialize cluster on primary node
+      effectivelywild.technitium_dns.technitium_dns_init_cluster:
+        api_url: http://localhost
+        api_token: "APITOKEN"
+        api_port: 5380
+        cluster_domain: "{{ cluster_domain }}"
+        primary_node_ip_addresses:
+          - "192.168.1.10"
+      register: init_cluster_result
+
+    - name: Debug init cluster result
+      debug:
+        var: init_cluster_result
+
+    - name: Wait for initial cluster to stabilize
+      ansible.builtin.pause:
+        seconds: 30
+
+    - name: Join ns02 to cluster
+      effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
+        api_url: http://localhost
+        api_token: "APITOKEN"
+        api_port: 5380
+        secondary_node_ip_addresses:
+          - "192.168.1.11"
+        primary_node_url: "http://192.168.1.10:53433"
+        primary_node_ip_address: "192.168.1.10"
+        primary_node_username: "admin"
+        primary_node_password: "topsecret"
+        ignore_certificate_errors: true
+      register: join_cluster_ns02_result
+      retries: 3
+      delay: 20
+      until: join_cluster_ns02_result is success
+
+    - name: Debug join cluster secondary 01 result
+      debug:
+        var: join_cluster_ns02_result
+
+    - name: Verify cluster state is connected for ns02
+      effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+        api_url: http://localhost
+        api_token: "APITOKEN"
+        api_port: 5380
+        validate_certs: no
+      register: cluster_state
+      retries: 3
+      delay: 15
+      until: cluster_state.cluster_state.clusterNodes | selectattr('name', 'equalto', 'ns02' ~ '.' ~ cluster_domain) | map(attribute='state') | first == "Connected"
+      ignore_errors: true
+
+    - name: Debug cluster state
+      debug:
+        var: cluster_state
+
+    - name: Join secondary node 2 to cluster
+      effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
+        api_url: http://localhost
+        api_token: "APITOKEN"
+        api_port: 5380
+        secondary_node_ip_addresses:
+          - "192.168.1.12"
+        primary_node_url: "http://192.168.1.10:53433"
+        primary_node_ip_address: "192.168.1.10"
+        primary_node_username: "admin"
+        primary_node_password: "topsecret"
+        ignore_certificate_errors: true
+      register: join_cluster_ns03_result
+      retries: 3
+      delay: 20
+      until: join_cluster_ns03_result is success
+
+    - name: Debug join cluster secondary 02 result
+      debug:
+        var: join_cluster_ns03_result
+
+    - name: Verify cluster state is connected for ns03
+      effectivelywild.technitium_dns.technitium_dns_get_cluster_state:
+        api_url: http://localhost
+        api_token: "APITOKEN"
+        api_port: 5380
+        validate_certs: no
+      register: cluster_state
+      retries: 3
+      delay: 15
+      until: cluster_state.cluster_state.clusterNodes | selectattr('name', 'equalto', 'ns03' ~ '.' ~ cluster_domain) | map(attribute='state') | first == "Connected"
+      ignore_errors: true
+
+    - name: Debug cluster state
+      debug:
+        var: cluster_state
+
+    - name: "Login to ns02 to create new token (join_init clears tokens)"
+      effectivelywild.technitium_dns.technitium_dns_login:
+        api_url: "http://localhost"
+        api_port: 5380
+        username: "admin"
+        password: "topsecret"
+      register: ns02_login
+
+    - name: "Update token fact for ns02"
+      ansible.builtin.set_fact:
+        token_cluster_secondary_01: "{{ ns02_login.token }}"
+
+    - name: "Login to ns03 to create new token (join_init clears tokens)"
+      effectivelywild.technitium_dns.technitium_dns_login:
+        api_url: "http://localhost"
+        api_port: 5380
+        username: "admin"
+        password: "topsecret"
+      register: ns03_login
+
+    - name: "Update token fact for ns03"
+      ansible.builtin.set_fact:
+        token_cluster_secondary_02: "{{ ns03_login.token }}"
