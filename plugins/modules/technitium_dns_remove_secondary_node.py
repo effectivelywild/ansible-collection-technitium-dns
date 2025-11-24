@@ -28,7 +28,6 @@ seealso:
 notes:
     - This operation requires Administration Delete permission.
     - This can only be run on the Primary node.
-    - The Secondary node will be asked to leave gracefully.
 options:
     api_port:
         description:

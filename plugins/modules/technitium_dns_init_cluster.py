@@ -29,8 +29,6 @@ notes:
     - The initialization process will enable HTTPS with a self-signed certificate if not already enabled.
     - It's recommended to manually configure HTTPS with a valid certificate before initializing the cluster.
     - The Cluster Primary zone is named as the cluster domain name.
-    - The Cluster Catalog zone uses 'cluster-catalog' as a subdomain of the cluster domain.
-    - This operation requires Administration Delete permission.
 options:
     api_port:
         description:

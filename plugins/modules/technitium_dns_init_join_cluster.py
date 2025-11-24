@@ -29,7 +29,6 @@ seealso:
 notes:
     - This operation requires Administration Delete permission.
     - The process may take a while depending on the amount of config data to sync.
-    - Configuration will be permanently overwritten for Allowed, Blocked, Apps, Settings and Administration sections.
     - It's recommended to manually configure HTTPS with a valid certificate before joining.
 options:
     api_port:
