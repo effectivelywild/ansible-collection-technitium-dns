@@ -312,3 +312,5 @@ releases:
       name: technitium_dns_zone
       namespace: ''
     release_date: '2025-11-26'
+  1.0.1:
+    release_date: '2025-11-26'
