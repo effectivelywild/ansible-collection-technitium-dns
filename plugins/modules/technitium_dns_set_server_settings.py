@@ -164,12 +164,15 @@ options:
         elements: dict
         suboptions:
             prefix:
+                description: IPv4 prefix length to limit (e.g. 32, 24)
                 type: int
                 required: true
             udpLimit:
+                description: Allowed UDP queries per minute for the prefix
                 type: int
                 required: true
             tcpLimit:
+                description: Allowed TCP queries per minute for the prefix
                 type: int
                 required: true
     qpmPrefixLimitsIPv6:
@@ -180,12 +183,15 @@ options:
         elements: dict
         suboptions:
             prefix:
+                description: IPv6 prefix length to limit (e.g. 128, 64)
                 type: int
                 required: true
             udpLimit:
+                description: Allowed UDP queries per minute for the prefix
                 type: int
                 required: true
             tcpLimit:
+                description: Allowed TCP queries per minute for the prefix
                 type: int
                 required: true
     qpmLimitSampleMinutes:
@@ -285,7 +291,6 @@ options:
             - Password for TLS certificate file.
         required: false
         type: str
-        no_log: true
     webServiceRealIpHeader:
         description:
             - Header to read client IP when behind reverse proxy.
@@ -372,7 +377,6 @@ options:
             - Password for DNS TLS certificate.
         required: false
         type: str
-        no_log: true
     dnsOverHttpRealIpHeader:
         description:
             - Header to read client IP for DNS-over-HTTP when behind reverse proxy.
@@ -386,12 +390,15 @@ options:
         elements: dict
         suboptions:
             keyName:
+                description: TSIG key name
                 type: str
                 required: true
             sharedSecret:
+                description: Base64-encoded shared secret
                 type: str
                 required: true
             algorithmName:
+                description: TSIG algorithm name (e.g. hmac-sha256)
                 type: str
                 required: true
     recursion:
@@ -581,7 +588,6 @@ options:
             - Proxy password.
         required: false
         type: str
-        no_log: true
     proxyBypass:
         description:
             - Bypass list for proxy (IP, CIDR, or hostnames).
@@ -771,7 +777,7 @@ class SetServerSettingsModule(TechnitiumModule):
         ),
         qpmLimitSampleMinutes=dict(type='int', required=False),
         qpmLimitUdpTruncationPercentage=dict(type='int', required=False),
-        qpmLimitBypassList=dict(type='list', elements='str', required=False),
+        qpmLimitBypassList=dict(type='list', elements='str', required=False, no_log=True),
         clientTimeout=dict(type='int', required=False),
         tcpSendTimeout=dict(type='int', required=False),
         tcpReceiveTimeout=dict(type='int', required=False),
@@ -810,10 +816,11 @@ class SetServerSettingsModule(TechnitiumModule):
             type='list',
             elements='dict',
             required=False,
+            no_log=True,
             options=dict(
-                keyName=dict(type='str', required=True),
-                sharedSecret=dict(type='str', required=True),
-                algorithmName=dict(type='str', required=True)
+                keyName=dict(type='str', required=True, no_log=True),
+                sharedSecret=dict(type='str', required=True, no_log=True),
+                algorithmName=dict(type='str', required=True, no_log=True)
             )
         ),
         recursion=dict(type='str', required=False, choices=['Deny', 'Allow', 'AllowOnlyForPrivateNetworks', 'UseSpecifiedNetworkACL']),
@@ -841,7 +848,7 @@ class SetServerSettingsModule(TechnitiumModule):
         cachePrefetchSampleEligibilityHitsPerHour=dict(type='int', required=False),
         enableBlocking=dict(type='bool', required=False),
         allowTxtBlockingReport=dict(type='bool', required=False),
-        blockingBypassList=dict(type='list', elements='str', required=False),
+        blockingBypassList=dict(type='list', elements='str', required=False, no_log=True),
         blockingType=dict(type='str', required=False, choices=['AnyAddress', 'NxDomain', 'CustomAddress']),
         blockingAnswerTtl=dict(type='int', required=False),
         customBlockingAddresses=dict(type='list', elements='str', required=False),
@@ -852,7 +859,7 @@ class SetServerSettingsModule(TechnitiumModule):
         proxyPort=dict(type='int', required=False),
         proxyUsername=dict(type='str', required=False),
         proxyPassword=dict(type='str', required=False, no_log=True),
-        proxyBypass=dict(type='list', elements='str', required=False),
+        proxyBypass=dict(type='list', elements='str', required=False, no_log=True),
         forwarders=dict(type='list', elements='str', required=False),
         forwarderProtocol=dict(type='str', required=False, choices=['Udp', 'Tcp', 'Tls', 'Https', 'Quic']),
         concurrentForwarding=dict(type='bool', required=False),
