@@ -1,0 +1,7 @@
+galaxy_info:
+  author: Frank Muise
+  description: Setup and teardown helpers for Technitium DNS cluster integration tests
+  license: GPL-3.0-or-later
+  min_ansible_version: 2.12
+  platforms: []
+dependencies: []
