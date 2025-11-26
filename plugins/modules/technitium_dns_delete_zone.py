@@ -12,7 +12,7 @@ version_added: "0.1.0"
 author: Frank Muise (@effectivelywild)
 description:
     - Delete a DNS zone.
-    - Deprecated: prefer C(technitium_dns_zone) for state-based zone management.
+    - Deprecated. Prefer C(technitium_dns_zone) for state-based zone management.
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_zone
     description: Replacement for this module (state-based zone management)

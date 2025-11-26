@@ -16,7 +16,7 @@ description:
     - The module supports all DNS record types.
     - Some parameters are only valid or required for specific record types.
     - For example, C(ipAddress) is required for A and AAAA records, while C(cname) is required for CNAME records.
-    - Deprecated: prefer C(technitium_dns_record) for state-based record management.
+    - Deprecated. Prefer C(technitium_dns_record) for state-based record management.
 seealso:
     - module: effectivelywild.technitium_dns.technitium_dns_record
       description: Replacement for this module (state-based record management)
