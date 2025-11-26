@@ -4,6 +4,28 @@ effectivelywild.technitium\_dns Release Notes
 
 .. contents:: Topics
 
+v1.0.0
+======
+
+New Modules
+-----------
+
+- effectivelywild.technitium_dns.technitium_dns_delete_cluster - Delete DNS cluster configuration.
+- effectivelywild.technitium_dns.technitium_dns_delete_secondary_node - Immediately delete a Secondary node from the cluster.
+- effectivelywild.technitium_dns.technitium_dns_get_cluster_state - Get DNS cluster state.
+- effectivelywild.technitium_dns.technitium_dns_init_cluster - Initialize a new DNS cluster.
+- effectivelywild.technitium_dns.technitium_dns_init_join_cluster - Join a DNS server to an existing cluster as a Secondary node.
+- effectivelywild.technitium_dns.technitium_dns_leave_cluster - Leave a DNS cluster.
+- effectivelywild.technitium_dns.technitium_dns_login - Authenticate and get a session token.
+- effectivelywild.technitium_dns.technitium_dns_promote_secondary_node - Promote a Secondary node to Primary.
+- effectivelywild.technitium_dns.technitium_dns_record - Manage DNS records.
+- effectivelywild.technitium_dns.technitium_dns_remove_secondary_node - Remove a Secondary node from the cluster.
+- effectivelywild.technitium_dns.technitium_dns_resync_cluster - Manually trigger cluster configuration resync.
+- effectivelywild.technitium_dns.technitium_dns_set_cluster_options - Set DNS cluster options.
+- effectivelywild.technitium_dns.technitium_dns_update_cluster_node_ip - Update cluster node IP address.
+- effectivelywild.technitium_dns.technitium_dns_update_primary_node - Update Primary node details on a Secondary node.
+- effectivelywild.technitium_dns.technitium_dns_zone - Manage DNS zones with state-based approach.
+
 v0.9.1
 ======
 
