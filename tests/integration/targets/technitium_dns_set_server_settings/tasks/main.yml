@@ -1,0 +1,981 @@
+---
+# Integration test suite for technitium_dns_set_server_settings
+# Validates setting server settings, verifying via get, idempotency, and cleanup.
+
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+- name: "Get original server settings"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: original_settings
+
+# Desired settings (kept safe and reversible). Avoids fields that are null/secret by default.
+- name: "Set desired server settings for test"
+  set_fact:
+    desired_settings:
+      dnsServerDomain: "ansible-test.{{ testing_suffix }}"
+      dnsServerLocalEndPoints:
+        - "0.0.0.0:53"
+        - "[::]:53"
+      dnsServerIPv4SourceAddresses:
+        - "0.0.0.0"
+      dnsServerIPv6SourceAddresses:
+        - "::"
+      defaultRecordTtl: 7200
+      useSoaSerialDateScheme: true
+      minSoaRefresh: 600
+      minSoaRetry: 600
+      zoneTransferAllowedNetworks:
+        - "10.0.0.0/24"
+      notifyAllowedNetworks:
+        - "10.0.1.0/24"
+      dnsAppsEnableAutomaticUpdate: false
+      preferIPv6: true
+      enableUdpSocketPool: true
+      socketPoolExcludedPorts:
+        - 53443
+        - 53444
+      udpPayloadSize: 1400
+      dnssecValidation: true
+      eDnsClientSubnet: true
+      eDnsClientSubnetIPv4PrefixLength: 20
+      eDnsClientSubnetIPv6PrefixLength: 60
+      qpmPrefixLimitsIPv4:
+        - { prefix: 32, udpLimit: 500, tcpLimit: 500 }
+        - { prefix: 24, udpLimit: 5500, tcpLimit: 5500 }
+      qpmPrefixLimitsIPv6:
+        - { prefix: 128, udpLimit: 500, tcpLimit: 500 }
+        - { prefix: 64, udpLimit: 1100, tcpLimit: 1100 }
+      qpmLimitSampleMinutes: 6
+      qpmLimitUdpTruncationPercentage: 40
+      qpmLimitBypassList:
+        - "192.0.2.0/24"
+      clientTimeout: 2500
+      tcpSendTimeout: 12000
+      tcpReceiveTimeout: 12000
+      quicIdleTimeout: 65000
+      quicMaxInboundStreams: 150
+      listenBacklog: 120
+      maxConcurrentResolutionsPerCore: 120
+      webServiceLocalAddresses:
+        - "[::]"
+      webServiceHttpPort: 5380
+      webServiceEnableTls: false
+      webServiceEnableHttp3: false
+      webServiceHttpToTlsRedirect: false
+      webServiceTlsPort: 53443
+      webServiceUseSelfSignedTlsCertificate: false
+      webServiceRealIpHeader: "X-Forwarded-For"
+      enableDnsOverUdpProxy: false
+      enableDnsOverTcpProxy: false
+      enableDnsOverHttp: false
+      enableDnsOverTls: false
+      enableDnsOverHttps: false
+      enableDnsOverHttp3: false
+      enableDnsOverQuic: false
+      dnsOverUdpProxyPort: 538
+      dnsOverTcpProxyPort: 538
+      dnsOverHttpPort: 80
+      dnsOverTlsPort: 853
+      dnsOverHttpsPort: 443
+      dnsOverQuicPort: 853
+      reverseProxyNetworkACL:
+        - "203.0.113.0/24"
+      recursion: "UseSpecifiedNetworkACL"
+      recursionNetworkACL:
+        - "127.0.0.1"
+        - "192.168.0.0/16"
+      randomizeName: true
+      qnameMinimization: false
+      resolverRetries: 3
+      resolverTimeout: 1800
+      resolverConcurrency: 3
+      resolverMaxStackCount: 20
+      saveCache: true
+      serveStale: true
+      serveStaleTtl: 200000
+      serveStaleAnswerTtl: 25
+      serveStaleResetTtl: 25
+      serveStaleMaxWaitTime: 1500
+      cacheMaximumEntries: 15000
+      cacheMinimumRecordTtl: 15
+      cacheMaximumRecordTtl: 604800
+      cacheNegativeRecordTtl: 250
+      cacheFailureRecordTtl: 15
+      cachePrefetchEligibility: 3
+      cachePrefetchTrigger: 8
+      cachePrefetchSampleIntervalInMinutes: 4
+      cachePrefetchSampleEligibilityHitsPerHour: 25
+      enableBlocking: true
+      allowTxtBlockingReport: false
+      blockingBypassList:
+        - "10.10.0.0/24"
+      blockingType: "CustomAddress"
+      blockingAnswerTtl: 20
+      customBlockingAddresses:
+        - "127.0.0.2"
+      blockListUpdateIntervalHours: 12
+      proxyType: "Http"
+      proxyAddress: "proxy.example.com"
+      proxyPort: 8080
+      proxyBypass:
+        - "127.0.0.0/8"
+      forwarderProtocol: "Tcp"
+      concurrentForwarding: false
+      forwarderRetries: 4
+      forwarderTimeout: 1800
+      forwarderConcurrency: 3
+      forwarders:
+        - "1.1.1.1"
+        - "1.0.0.1"
+      loggingType: "Console"
+      enableLogging: true
+      ignoreResolverLogs: true
+      logQueries: true
+      useLocalTime: true
+      logFolder: "logs"
+      maxLogFileDays: 30
+      enableInMemoryStats: true
+      maxStatFileDays: 30
+      tsigKeys:
+        - { keyName: "ansible-key", sharedSecret: "abc123", algorithmName: "hmac-sha256" }
+
+- name: "Define per-block desired settings"
+  set_fact:
+    block1_settings:
+      dnsServerDomain: "{{ desired_settings.dnsServerDomain }}"
+      dnsServerLocalEndPoints: "{{ desired_settings.dnsServerLocalEndPoints }}"
+      dnsServerIPv4SourceAddresses: "{{ desired_settings.dnsServerIPv4SourceAddresses }}"
+      dnsServerIPv6SourceAddresses: "{{ desired_settings.dnsServerIPv6SourceAddresses }}"
+      defaultRecordTtl: "{{ desired_settings.defaultRecordTtl }}"
+      defaultResponsiblePerson: "admin@example.com"
+      useSoaSerialDateScheme: "{{ desired_settings.useSoaSerialDateScheme }}"
+      minSoaRefresh: "{{ desired_settings.minSoaRefresh }}"
+      minSoaRetry: "{{ desired_settings.minSoaRetry }}"
+      zoneTransferAllowedNetworks: "{{ desired_settings.zoneTransferAllowedNetworks }}"
+    block2_settings:
+      notifyAllowedNetworks: "{{ desired_settings.notifyAllowedNetworks }}"
+      dnsAppsEnableAutomaticUpdate: "{{ desired_settings.dnsAppsEnableAutomaticUpdate }}"
+      preferIPv6: "{{ desired_settings.preferIPv6 }}"
+      enableUdpSocketPool: "{{ desired_settings.enableUdpSocketPool }}"
+      socketPoolExcludedPorts: "{{ desired_settings.socketPoolExcludedPorts }}"
+      udpPayloadSize: "{{ desired_settings.udpPayloadSize }}"
+      dnssecValidation: "{{ desired_settings.dnssecValidation }}"
+      eDnsClientSubnet: "{{ desired_settings.eDnsClientSubnet }}"
+      eDnsClientSubnetIPv4PrefixLength: "{{ desired_settings.eDnsClientSubnetIPv4PrefixLength }}"
+      eDnsClientSubnetIPv6PrefixLength: "{{ desired_settings.eDnsClientSubnetIPv6PrefixLength }}"
+    block3_settings:
+      eDnsClientSubnetIpv4Override: "198.51.100.0/24"
+      eDnsClientSubnetIpv6Override: "2001:db8::/48"
+      qpmPrefixLimitsIPv4: "{{ desired_settings.qpmPrefixLimitsIPv4 }}"
+      qpmPrefixLimitsIPv6: "{{ desired_settings.qpmPrefixLimitsIPv6 }}"
+      qpmLimitSampleMinutes: "{{ desired_settings.qpmLimitSampleMinutes }}"
+      qpmLimitUdpTruncationPercentage: "{{ desired_settings.qpmLimitUdpTruncationPercentage }}"
+      qpmLimitBypassList: "{{ desired_settings.qpmLimitBypassList }}"
+      clientTimeout: "{{ desired_settings.clientTimeout }}"
+      tcpSendTimeout: "{{ desired_settings.tcpSendTimeout }}"
+      tcpReceiveTimeout: "{{ desired_settings.tcpReceiveTimeout }}"
+    block4_settings:
+      quicIdleTimeout: "{{ desired_settings.quicIdleTimeout }}"
+      quicMaxInboundStreams: "{{ desired_settings.quicMaxInboundStreams }}"
+      listenBacklog: "{{ desired_settings.listenBacklog }}"
+      maxConcurrentResolutionsPerCore: "{{ desired_settings.maxConcurrentResolutionsPerCore }}"
+      webServiceLocalAddresses: "{{ desired_settings.webServiceLocalAddresses }}"
+      webServiceHttpPort: "{{ desired_settings.webServiceHttpPort }}"
+      webServiceEnableTls: "{{ desired_settings.webServiceEnableTls }}"
+      webServiceEnableHttp3: "{{ desired_settings.webServiceEnableHttp3 }}"
+      webServiceHttpToTlsRedirect: "{{ desired_settings.webServiceHttpToTlsRedirect }}"
+      webServiceTlsPort: "{{ desired_settings.webServiceTlsPort }}"
+      webServiceUseSelfSignedTlsCertificate: "{{ desired_settings.webServiceUseSelfSignedTlsCertificate }}"
+      webServiceRealIpHeader: "{{ desired_settings.webServiceRealIpHeader }}"
+    block5_settings:
+      enableDnsOverUdpProxy: "{{ desired_settings.enableDnsOverUdpProxy }}"
+      enableDnsOverTcpProxy: "{{ desired_settings.enableDnsOverTcpProxy }}"
+      enableDnsOverHttp: "{{ desired_settings.enableDnsOverHttp }}"
+      enableDnsOverTls: "{{ desired_settings.enableDnsOverTls }}"
+      enableDnsOverHttps: "{{ desired_settings.enableDnsOverHttps }}"
+      enableDnsOverHttp3: "{{ desired_settings.enableDnsOverHttp3 }}"
+      enableDnsOverQuic: "{{ desired_settings.enableDnsOverQuic }}"
+      dnsOverUdpProxyPort: "{{ desired_settings.dnsOverUdpProxyPort }}"
+      dnsOverTcpProxyPort: "{{ desired_settings.dnsOverTcpProxyPort }}"
+      dnsOverHttpPort: "{{ desired_settings.dnsOverHttpPort }}"
+      dnsOverTlsPort: "{{ desired_settings.dnsOverTlsPort }}"
+      dnsOverHttpsPort: "{{ desired_settings.dnsOverHttpsPort }}"
+      dnsOverQuicPort: "{{ desired_settings.dnsOverQuicPort }}"
+      reverseProxyNetworkACL: "{{ desired_settings.reverseProxyNetworkACL }}"
+    block6_settings:
+      recursion: "{{ desired_settings.recursion }}"
+      recursionNetworkACL: "{{ desired_settings.recursionNetworkACL }}"
+      randomizeName: "{{ desired_settings.randomizeName }}"
+      qnameMinimization: "{{ desired_settings.qnameMinimization }}"
+      resolverRetries: "{{ desired_settings.resolverRetries }}"
+      resolverTimeout: "{{ desired_settings.resolverTimeout }}"
+      resolverConcurrency: "{{ desired_settings.resolverConcurrency }}"
+      resolverMaxStackCount: "{{ desired_settings.resolverMaxStackCount }}"
+    block7_settings:
+      saveCache: "{{ desired_settings.saveCache }}"
+      serveStale: "{{ desired_settings.serveStale }}"
+      serveStaleTtl: "{{ desired_settings.serveStaleTtl }}"
+      serveStaleAnswerTtl: "{{ desired_settings.serveStaleAnswerTtl }}"
+      serveStaleResetTtl: "{{ desired_settings.serveStaleResetTtl }}"
+      serveStaleMaxWaitTime: "{{ desired_settings.serveStaleMaxWaitTime }}"
+      cacheMaximumEntries: "{{ desired_settings.cacheMaximumEntries }}"
+      cacheMinimumRecordTtl: "{{ desired_settings.cacheMinimumRecordTtl }}"
+      cacheMaximumRecordTtl: "{{ desired_settings.cacheMaximumRecordTtl }}"
+      cacheNegativeRecordTtl: "{{ desired_settings.cacheNegativeRecordTtl }}"
+    block8_settings:
+      cacheFailureRecordTtl: "{{ desired_settings.cacheFailureRecordTtl }}"
+      cachePrefetchEligibility: "{{ desired_settings.cachePrefetchEligibility }}"
+      cachePrefetchTrigger: "{{ desired_settings.cachePrefetchTrigger }}"
+      cachePrefetchSampleIntervalInMinutes: "{{ desired_settings.cachePrefetchSampleIntervalInMinutes }}"
+      cachePrefetchSampleEligibilityHitsPerHour: "{{ desired_settings.cachePrefetchSampleEligibilityHitsPerHour }}"
+      enableBlocking: "{{ desired_settings.enableBlocking }}"
+      allowTxtBlockingReport: "{{ desired_settings.allowTxtBlockingReport }}"
+      blockingBypassList: "{{ desired_settings.blockingBypassList }}"
+      blockingType: "{{ desired_settings.blockingType }}"
+      blockingAnswerTtl: "{{ desired_settings.blockingAnswerTtl }}"
+    block9_settings:
+      customBlockingAddresses: "{{ desired_settings.customBlockingAddresses }}"
+      blockListUpdateIntervalHours: "{{ desired_settings.blockListUpdateIntervalHours }}"
+      proxyType: "{{ desired_settings.proxyType }}"
+      proxyAddress: "{{ desired_settings.proxyAddress }}"
+      proxyPort: "{{ desired_settings.proxyPort }}"
+      proxyBypass: "{{ desired_settings.proxyBypass }}"
+      forwarders: "{{ desired_settings.forwarders }}"
+      forwarderProtocol: "{{ desired_settings.forwarderProtocol }}"
+      concurrentForwarding: "{{ desired_settings.concurrentForwarding }}"
+      forwarderRetries: "{{ desired_settings.forwarderRetries }}"
+      forwarderTimeout: "{{ desired_settings.forwarderTimeout }}"
+    block10_settings:
+      forwarderConcurrency: "{{ desired_settings.forwarderConcurrency }}"
+      loggingType: "{{ desired_settings.loggingType }}"
+      enableLogging: "{{ desired_settings.enableLogging }}"
+      ignoreResolverLogs: "{{ desired_settings.ignoreResolverLogs }}"
+      logQueries: "{{ desired_settings.logQueries }}"
+      useLocalTime: "{{ desired_settings.useLocalTime }}"
+      logFolder: "{{ desired_settings.logFolder }}"
+      maxLogFileDays: "{{ desired_settings.maxLogFileDays }}"
+      enableInMemoryStats: "{{ desired_settings.enableInMemoryStats }}"
+      maxStatFileDays: "{{ desired_settings.maxStatFileDays }}"
+    block11_settings:
+      tsigKeys: "{{ desired_settings.tsigKeys }}"
+
+- name: "Apply block 1 (core settings)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    dnsServerDomain: "{{ block1_settings.dnsServerDomain }}"
+    dnsServerLocalEndPoints: "{{ block1_settings.dnsServerLocalEndPoints }}"
+    dnsServerIPv4SourceAddresses: "{{ block1_settings.dnsServerIPv4SourceAddresses }}"
+    dnsServerIPv6SourceAddresses: "{{ block1_settings.dnsServerIPv6SourceAddresses }}"
+    defaultRecordTtl: "{{ block1_settings.defaultRecordTtl }}"
+    defaultResponsiblePerson: "{{ block1_settings.defaultResponsiblePerson }}"
+    useSoaSerialDateScheme: "{{ block1_settings.useSoaSerialDateScheme }}"
+    minSoaRefresh: "{{ block1_settings.minSoaRefresh }}"
+    minSoaRetry: "{{ block1_settings.minSoaRetry }}"
+    zoneTransferAllowedNetworks: "{{ block1_settings.zoneTransferAllowedNetworks }}"
+  register: block1_apply
+
+- name: "Re-apply block 1 (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    dnsServerDomain: "{{ block1_settings.dnsServerDomain }}"
+    dnsServerLocalEndPoints: "{{ block1_settings.dnsServerLocalEndPoints }}"
+    dnsServerIPv4SourceAddresses: "{{ block1_settings.dnsServerIPv4SourceAddresses }}"
+    dnsServerIPv6SourceAddresses: "{{ block1_settings.dnsServerIPv6SourceAddresses }}"
+    defaultRecordTtl: "{{ block1_settings.defaultRecordTtl }}"
+    defaultResponsiblePerson: "{{ block1_settings.defaultResponsiblePerson }}"
+    useSoaSerialDateScheme: "{{ block1_settings.useSoaSerialDateScheme }}"
+    minSoaRefresh: "{{ block1_settings.minSoaRefresh }}"
+    minSoaRetry: "{{ block1_settings.minSoaRetry }}"
+    zoneTransferAllowedNetworks: "{{ block1_settings.zoneTransferAllowedNetworks }}"
+  register: block1_idem
+
+- name: "Get settings after block 1"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_block1
+
+- name: Debug post_block1
+  ansible.builtin.debug:
+    var: post_block1
+  when: debug | default(false)
+
+- name: Debug block1_settings
+  ansible.builtin.debug:
+    var: block1_settings
+  when: debug | default(false)
+
+- name: "Assert block 1 values"
+  assert:
+    that:
+      - block1_apply.changed
+      - not block1_idem.changed
+      - post_block1.settings.dnsServerDomain == block1_settings.dnsServerDomain
+      - post_block1.settings.dnsServerLocalEndPoints == block1_settings.dnsServerLocalEndPoints
+      - post_block1.settings.dnsServerIPv4SourceAddresses == block1_settings.dnsServerIPv4SourceAddresses
+      - post_block1.settings.dnsServerIPv6SourceAddresses == block1_settings.dnsServerIPv6SourceAddresses
+      - post_block1.settings.defaultRecordTtl == block1_settings.defaultRecordTtl | int
+      - post_block1.settings.useSoaSerialDateScheme == block1_settings.useSoaSerialDateScheme | int
+      - post_block1.settings.minSoaRefresh == block1_settings.minSoaRefresh | int
+      - post_block1.settings.minSoaRetry == block1_settings.minSoaRetry | int
+      - post_block1.settings.zoneTransferAllowedNetworks == block1_settings.zoneTransferAllowedNetworks
+
+- name: "Apply block 2 (UDP/EDNS/QPM basics)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    notifyAllowedNetworks: "{{ block2_settings.notifyAllowedNetworks }}"
+    dnsAppsEnableAutomaticUpdate: "{{ block2_settings.dnsAppsEnableAutomaticUpdate }}"
+    preferIPv6: "{{ block2_settings.preferIPv6 }}"
+    enableUdpSocketPool: "{{ block2_settings.enableUdpSocketPool }}"
+    socketPoolExcludedPorts: "{{ block2_settings.socketPoolExcludedPorts }}"
+    udpPayloadSize: "{{ block2_settings.udpPayloadSize }}"
+    dnssecValidation: "{{ block2_settings.dnssecValidation }}"
+    eDnsClientSubnet: "{{ block2_settings.eDnsClientSubnet }}"
+    eDnsClientSubnetIPv4PrefixLength: "{{ block2_settings.eDnsClientSubnetIPv4PrefixLength }}"
+    eDnsClientSubnetIPv6PrefixLength: "{{ block2_settings.eDnsClientSubnetIPv6PrefixLength }}"
+  register: block2_apply
+
+- name: "Re-apply block 2 (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    notifyAllowedNetworks: "{{ block2_settings.notifyAllowedNetworks }}"
+    dnsAppsEnableAutomaticUpdate: "{{ block2_settings.dnsAppsEnableAutomaticUpdate }}"
+    preferIPv6: "{{ block2_settings.preferIPv6 }}"
+    enableUdpSocketPool: "{{ block2_settings.enableUdpSocketPool }}"
+    socketPoolExcludedPorts: "{{ block2_settings.socketPoolExcludedPorts }}"
+    udpPayloadSize: "{{ block2_settings.udpPayloadSize }}"
+    dnssecValidation: "{{ block2_settings.dnssecValidation }}"
+    eDnsClientSubnet: "{{ block2_settings.eDnsClientSubnet }}"
+    eDnsClientSubnetIPv4PrefixLength: "{{ block2_settings.eDnsClientSubnetIPv4PrefixLength }}"
+    eDnsClientSubnetIPv6PrefixLength: "{{ block2_settings.eDnsClientSubnetIPv6PrefixLength }}"
+  register: block2_idem
+
+- name: "Get settings after block 2"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_block2
+
+- name: Debug post_block2
+  ansible.builtin.debug:
+    var: post_block2
+  when: debug | default(false)
+
+- name: Debug block2_settings
+  ansible.builtin.debug:
+    var: block2_settings
+  when: debug | default(false)
+
+- name: "Assert block 2 values"
+  assert:
+    that:
+      - block2_apply.changed
+      - not block2_idem.changed
+      - post_block2.settings.dnsAppsEnableAutomaticUpdate == block2_settings.dnsAppsEnableAutomaticUpdate
+      - post_block2.settings.preferIPv6 == block2_settings.preferIPv6
+      - post_block2.settings.enableUdpSocketPool == block2_settings.enableUdpSocketPool
+      - post_block2.settings.socketPoolExcludedPorts | sort == block2_settings.socketPoolExcludedPorts | sort
+      - post_block2.settings.udpPayloadSize == block2_settings.udpPayloadSize | int
+      - post_block2.settings.dnssecValidation == block2_settings.dnssecValidation
+      - post_block2.settings.eDnsClientSubnet == block2_settings.eDnsClientSubnet
+      - post_block2.settings.eDnsClientSubnetIPv4PrefixLength == block2_settings.eDnsClientSubnetIPv4PrefixLength | int
+      - post_block2.settings.eDnsClientSubnetIPv6PrefixLength == block2_settings.eDnsClientSubnetIPv6PrefixLength | int
+
+- name: "Apply block 3 (QPM limits and timeouts)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    eDnsClientSubnetIpv4Override: "{{ block3_settings.eDnsClientSubnetIpv4Override }}"
+    eDnsClientSubnetIpv6Override: "{{ block3_settings.eDnsClientSubnetIpv6Override }}"
+    qpmPrefixLimitsIPv4: "{{ block3_settings.qpmPrefixLimitsIPv4 }}"
+    qpmPrefixLimitsIPv6: "{{ block3_settings.qpmPrefixLimitsIPv6 }}"
+    qpmLimitSampleMinutes: "{{ block3_settings.qpmLimitSampleMinutes }}"
+    qpmLimitUdpTruncationPercentage: "{{ block3_settings.qpmLimitUdpTruncationPercentage }}"
+    qpmLimitBypassList: "{{ block3_settings.qpmLimitBypassList }}"
+    clientTimeout: "{{ block3_settings.clientTimeout }}"
+    tcpSendTimeout: "{{ block3_settings.tcpSendTimeout }}"
+    tcpReceiveTimeout: "{{ block3_settings.tcpReceiveTimeout }}"
+  register: block3_apply
+
+- name: "Re-apply block 3 (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    eDnsClientSubnetIpv4Override: "{{ block3_settings.eDnsClientSubnetIpv4Override }}"
+    eDnsClientSubnetIpv6Override: "{{ block3_settings.eDnsClientSubnetIpv6Override }}"
+    qpmPrefixLimitsIPv4: "{{ block3_settings.qpmPrefixLimitsIPv4 }}"
+    qpmPrefixLimitsIPv6: "{{ block3_settings.qpmPrefixLimitsIPv6 }}"
+    qpmLimitSampleMinutes: "{{ block3_settings.qpmLimitSampleMinutes }}"
+    qpmLimitUdpTruncationPercentage: "{{ block3_settings.qpmLimitUdpTruncationPercentage }}"
+    qpmLimitBypassList: "{{ block3_settings.qpmLimitBypassList }}"
+    clientTimeout: "{{ block3_settings.clientTimeout }}"
+    tcpSendTimeout: "{{ block3_settings.tcpSendTimeout }}"
+    tcpReceiveTimeout: "{{ block3_settings.tcpReceiveTimeout }}"
+  register: block3_idem
+
+- name: "Get settings after block 3"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_block3
+
+- name: Debug post_block3
+  ansible.builtin.debug:
+    var: post_block3
+  when: debug | default(false)
+
+- name: Debug block3_settings
+  ansible.builtin.debug:
+    var: block3_settings
+  when: debug | default(false)
+
+- name: "Assert block 3 values"
+  assert:
+    that:
+      - block3_apply.changed
+      - not block3_idem.changed
+      - post_block3.settings.qpmPrefixLimitsIPv4 | length == block3_settings.qpmPrefixLimitsIPv4 | length
+      - post_block3.settings.qpmPrefixLimitsIPv6 | length == block3_settings.qpmPrefixLimitsIPv6 | length
+      - post_block3.settings.qpmLimitSampleMinutes == block3_settings.qpmLimitSampleMinutes | int
+      - post_block3.settings.qpmLimitUdpTruncationPercentage == block3_settings.qpmLimitUdpTruncationPercentage | int
+      - post_block3.settings.qpmLimitBypassList == block3_settings.qpmLimitBypassList
+      - post_block3.settings.clientTimeout == block3_settings.clientTimeout | int
+      - post_block3.settings.tcpSendTimeout == block3_settings.tcpSendTimeout | int
+      - post_block3.settings.tcpReceiveTimeout == block3_settings.tcpReceiveTimeout | int
+
+- name: "Apply block 4 (QUIC/web service basics)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    quicIdleTimeout: "{{ block4_settings.quicIdleTimeout }}"
+    quicMaxInboundStreams: "{{ block4_settings.quicMaxInboundStreams }}"
+    listenBacklog: "{{ block4_settings.listenBacklog }}"
+    maxConcurrentResolutionsPerCore: "{{ block4_settings.maxConcurrentResolutionsPerCore }}"
+    webServiceLocalAddresses: "{{ block4_settings.webServiceLocalAddresses }}"
+    webServiceHttpPort: "{{ block4_settings.webServiceHttpPort }}"
+    webServiceEnableTls: "{{ block4_settings.webServiceEnableTls }}"
+    webServiceEnableHttp3: "{{ block4_settings.webServiceEnableHttp3 }}"
+    webServiceHttpToTlsRedirect: "{{ block4_settings.webServiceHttpToTlsRedirect }}"
+    webServiceTlsPort: "{{ block4_settings.webServiceTlsPort }}"
+  register: block4_apply
+
+- name: "Re-apply block 4 (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    quicIdleTimeout: "{{ block4_settings.quicIdleTimeout }}"
+    quicMaxInboundStreams: "{{ block4_settings.quicMaxInboundStreams }}"
+    listenBacklog: "{{ block4_settings.listenBacklog }}"
+    maxConcurrentResolutionsPerCore: "{{ block4_settings.maxConcurrentResolutionsPerCore }}"
+    webServiceLocalAddresses: "{{ block4_settings.webServiceLocalAddresses }}"
+    webServiceHttpPort: "{{ block4_settings.webServiceHttpPort }}"
+    webServiceEnableTls: "{{ block4_settings.webServiceEnableTls }}"
+    webServiceEnableHttp3: "{{ block4_settings.webServiceEnableHttp3 }}"
+    webServiceHttpToTlsRedirect: "{{ block4_settings.webServiceHttpToTlsRedirect }}"
+    webServiceTlsPort: "{{ block4_settings.webServiceTlsPort }}"
+  register: block4_idem
+
+- name: "Get settings after block 4"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_block4
+
+- name: Debug post_block4
+  ansible.builtin.debug:
+    var: post_block4
+  when: debug | default(false)
+
+- name: Debug block4_settings
+  ansible.builtin.debug:
+    var: block4_settings
+  when: debug | default(false)
+
+- name: "Assert block 4 values"
+  assert:
+    that:
+      - block4_apply.changed
+      - not block4_idem.changed
+      - post_block4.settings.quicIdleTimeout == block4_settings.quicIdleTimeout | int
+      - post_block4.settings.quicMaxInboundStreams == block4_settings.quicMaxInboundStreams | int
+      - post_block4.settings.listenBacklog == block4_settings.listenBacklog | int
+      - post_block4.settings.maxConcurrentResolutionsPerCore == block4_settings.maxConcurrentResolutionsPerCore | int
+      - post_block4.settings.webServiceLocalAddresses == block4_settings.webServiceLocalAddresses
+      - post_block4.settings.webServiceHttpPort == block4_settings.webServiceHttpPort | int
+      - post_block4.settings.webServiceEnableTls == block4_settings.webServiceEnableTls
+      - post_block4.settings.webServiceEnableHttp3 == block4_settings.webServiceEnableHttp3
+      - post_block4.settings.webServiceHttpToTlsRedirect == block4_settings.webServiceHttpToTlsRedirect
+      - post_block4.settings.webServiceTlsPort == block4_settings.webServiceTlsPort | int
+
+- name: "Apply block 5 (DNS-over transports and reverse proxy)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    webServiceUseSelfSignedTlsCertificate: "{{ block4_settings.webServiceUseSelfSignedTlsCertificate }}"
+    webServiceRealIpHeader: "{{ block4_settings.webServiceRealIpHeader }}"
+    enableDnsOverUdpProxy: "{{ block5_settings.enableDnsOverUdpProxy }}"
+    enableDnsOverTcpProxy: "{{ block5_settings.enableDnsOverTcpProxy }}"
+    enableDnsOverHttp: "{{ block5_settings.enableDnsOverHttp }}"
+    enableDnsOverTls: "{{ block5_settings.enableDnsOverTls }}"
+    enableDnsOverHttps: "{{ block5_settings.enableDnsOverHttps }}"
+    enableDnsOverHttp3: "{{ block5_settings.enableDnsOverHttp3 }}"
+    enableDnsOverQuic: "{{ block5_settings.enableDnsOverQuic }}"
+    dnsOverUdpProxyPort: "{{ block5_settings.dnsOverUdpProxyPort }}"
+    dnsOverTcpProxyPort: "{{ block5_settings.dnsOverTcpProxyPort }}"
+    dnsOverHttpPort: "{{ block5_settings.dnsOverHttpPort }}"
+    dnsOverTlsPort: "{{ block5_settings.dnsOverTlsPort }}"
+    dnsOverHttpsPort: "{{ block5_settings.dnsOverHttpsPort }}"
+    dnsOverQuicPort: "{{ block5_settings.dnsOverQuicPort }}"
+    reverseProxyNetworkACL: "{{ block5_settings.reverseProxyNetworkACL }}"
+  register: block5_apply
+
+- name: "Re-apply block 5 (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    webServiceUseSelfSignedTlsCertificate: "{{ block4_settings.webServiceUseSelfSignedTlsCertificate }}"
+    webServiceRealIpHeader: "{{ block4_settings.webServiceRealIpHeader }}"
+    enableDnsOverUdpProxy: "{{ block5_settings.enableDnsOverUdpProxy }}"
+    enableDnsOverTcpProxy: "{{ block5_settings.enableDnsOverTcpProxy }}"
+    enableDnsOverHttp: "{{ block5_settings.enableDnsOverHttp }}"
+    enableDnsOverTls: "{{ block5_settings.enableDnsOverTls }}"
+    enableDnsOverHttps: "{{ block5_settings.enableDnsOverHttps }}"
+    enableDnsOverHttp3: "{{ block5_settings.enableDnsOverHttp3 }}"
+    enableDnsOverQuic: "{{ block5_settings.enableDnsOverQuic }}"
+    dnsOverUdpProxyPort: "{{ block5_settings.dnsOverUdpProxyPort }}"
+    dnsOverTcpProxyPort: "{{ block5_settings.dnsOverTcpProxyPort }}"
+    dnsOverHttpPort: "{{ block5_settings.dnsOverHttpPort }}"
+    dnsOverTlsPort: "{{ block5_settings.dnsOverTlsPort }}"
+    dnsOverHttpsPort: "{{ block5_settings.dnsOverHttpsPort }}"
+    dnsOverQuicPort: "{{ block5_settings.dnsOverQuicPort }}"
+    reverseProxyNetworkACL: "{{ block5_settings.reverseProxyNetworkACL }}"
+  register: block5_idem
+
+- name: "Get settings after block 5"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_block5
+
+- name: Debug post_block5
+  ansible.builtin.debug:
+    var: post_block5
+  when: debug | default(false)
+
+- name: Debug block5_settings
+  ansible.builtin.debug:
+    var: block5_settings
+  when: debug | default(false)
+
+- name: "Assert block 5 values"
+  assert:
+    that:
+      - block5_apply.changed
+      - not block5_idem.changed
+      - post_block5.settings.webServiceUseSelfSignedTlsCertificate == block4_settings.webServiceUseSelfSignedTlsCertificate
+      - post_block5.settings.webServiceRealIpHeader == block4_settings.webServiceRealIpHeader
+      - post_block5.settings.enableDnsOverUdpProxy == block5_settings.enableDnsOverUdpProxy
+      - post_block5.settings.enableDnsOverTcpProxy == block5_settings.enableDnsOverTcpProxy
+      - post_block5.settings.enableDnsOverHttp == block5_settings.enableDnsOverHttp
+      - post_block5.settings.enableDnsOverTls == block5_settings.enableDnsOverTls
+      - post_block5.settings.enableDnsOverHttps == block5_settings.enableDnsOverHttps
+      - post_block5.settings.enableDnsOverHttp3 == block5_settings.enableDnsOverHttp3
+      - post_block5.settings.enableDnsOverQuic == block5_settings.enableDnsOverQuic
+      - post_block5.settings.dnsOverUdpProxyPort == block5_settings.dnsOverUdpProxyPort | int
+      - post_block5.settings.dnsOverTcpProxyPort == block5_settings.dnsOverTcpProxyPort | int
+      - post_block5.settings.dnsOverHttpPort == block5_settings.dnsOverHttpPort | int
+      - post_block5.settings.dnsOverTlsPort == block5_settings.dnsOverTlsPort | int
+      - post_block5.settings.dnsOverHttpsPort == block5_settings.dnsOverHttpsPort | int
+      - post_block5.settings.dnsOverQuicPort == block5_settings.dnsOverQuicPort | int
+      - post_block5.settings.reverseProxyNetworkACL == block5_settings.reverseProxyNetworkACL
+
+- name: "Apply block 6 (recursion and resolver)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    recursion: "{{ block6_settings.recursion }}"
+    recursionNetworkACL: "{{ block6_settings.recursionNetworkACL }}"
+    randomizeName: "{{ block6_settings.randomizeName }}"
+    qnameMinimization: "{{ block6_settings.qnameMinimization }}"
+    resolverRetries: "{{ block6_settings.resolverRetries }}"
+    resolverTimeout: "{{ block6_settings.resolverTimeout }}"
+    resolverConcurrency: "{{ block6_settings.resolverConcurrency }}"
+    resolverMaxStackCount: "{{ block6_settings.resolverMaxStackCount }}"
+  register: block6_apply
+
+- name: "Re-apply block 6 (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    recursion: "{{ block6_settings.recursion }}"
+    recursionNetworkACL: "{{ block6_settings.recursionNetworkACL }}"
+    randomizeName: "{{ block6_settings.randomizeName }}"
+    qnameMinimization: "{{ block6_settings.qnameMinimization }}"
+    resolverRetries: "{{ block6_settings.resolverRetries }}"
+    resolverTimeout: "{{ block6_settings.resolverTimeout }}"
+    resolverConcurrency: "{{ block6_settings.resolverConcurrency }}"
+    resolverMaxStackCount: "{{ block6_settings.resolverMaxStackCount }}"
+  register: block6_idem
+
+- name: "Get settings after block 6"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_block6
+
+- name: "Assert block 6 values"
+  assert:
+    that:
+      - block6_apply.changed
+      - not block6_idem.changed
+      - post_block6.settings.recursion == block6_settings.recursion
+      - post_block6.settings.recursionNetworkACL == block6_settings.recursionNetworkACL
+      - post_block6.settings.randomizeName == block6_settings.randomizeName
+      - post_block6.settings.qnameMinimization == block6_settings.qnameMinimization
+      - post_block6.settings.resolverRetries == block6_settings.resolverRetries | int
+      - post_block6.settings.resolverTimeout == block6_settings.resolverTimeout | int
+      - post_block6.settings.resolverConcurrency == block6_settings.resolverConcurrency | int
+      - post_block6.settings.resolverMaxStackCount == block6_settings.resolverMaxStackCount | int
+
+- name: "Apply block 7 (cache and stale)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    saveCache: "{{ block7_settings.saveCache }}"
+    serveStale: "{{ block7_settings.serveStale }}"
+    serveStaleTtl: "{{ block7_settings.serveStaleTtl }}"
+    serveStaleAnswerTtl: "{{ block7_settings.serveStaleAnswerTtl }}"
+    serveStaleResetTtl: "{{ block7_settings.serveStaleResetTtl }}"
+    serveStaleMaxWaitTime: "{{ block7_settings.serveStaleMaxWaitTime }}"
+    cacheMaximumEntries: "{{ block7_settings.cacheMaximumEntries }}"
+    cacheMinimumRecordTtl: "{{ block7_settings.cacheMinimumRecordTtl }}"
+    cacheMaximumRecordTtl: "{{ block7_settings.cacheMaximumRecordTtl }}"
+    cacheNegativeRecordTtl: "{{ block7_settings.cacheNegativeRecordTtl }}"
+  register: block7_apply
+
+- name: "Re-apply block 7 (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    saveCache: "{{ block7_settings.saveCache }}"
+    serveStale: "{{ block7_settings.serveStale }}"
+    serveStaleTtl: "{{ block7_settings.serveStaleTtl }}"
+    serveStaleAnswerTtl: "{{ block7_settings.serveStaleAnswerTtl }}"
+    serveStaleResetTtl: "{{ block7_settings.serveStaleResetTtl }}"
+    serveStaleMaxWaitTime: "{{ block7_settings.serveStaleMaxWaitTime }}"
+    cacheMaximumEntries: "{{ block7_settings.cacheMaximumEntries }}"
+    cacheMinimumRecordTtl: "{{ block7_settings.cacheMinimumRecordTtl }}"
+    cacheMaximumRecordTtl: "{{ block7_settings.cacheMaximumRecordTtl }}"
+    cacheNegativeRecordTtl: "{{ block7_settings.cacheNegativeRecordTtl }}"
+  register: block7_idem
+
+- name: "Get settings after block 7"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_block7
+
+- name: "Assert block 7 values"
+  assert:
+    that:
+      - block7_apply.changed
+      - not block7_idem.changed
+      - post_block7.settings.saveCache == block7_settings.saveCache
+      - post_block7.settings.serveStale == block7_settings.serveStale
+      - post_block7.settings.serveStaleTtl == block7_settings.serveStaleTtl | int
+      - post_block7.settings.serveStaleAnswerTtl == block7_settings.serveStaleAnswerTtl | int
+      - post_block7.settings.serveStaleResetTtl == block7_settings.serveStaleResetTtl | int
+      - post_block7.settings.serveStaleMaxWaitTime == block7_settings.serveStaleMaxWaitTime | int
+      - post_block7.settings.cacheMaximumEntries == block7_settings.cacheMaximumEntries | int
+      - post_block7.settings.cacheMinimumRecordTtl == block7_settings.cacheMinimumRecordTtl | int
+      - post_block7.settings.cacheMaximumRecordTtl == block7_settings.cacheMaximumRecordTtl | int
+      - post_block7.settings.cacheNegativeRecordTtl == block7_settings.cacheNegativeRecordTtl | int
+
+- name: "Apply block 8 (cache prefetch and blocking basics)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    cacheFailureRecordTtl: "{{ block8_settings.cacheFailureRecordTtl }}"
+    cachePrefetchEligibility: "{{ block8_settings.cachePrefetchEligibility }}"
+    cachePrefetchTrigger: "{{ block8_settings.cachePrefetchTrigger }}"
+    cachePrefetchSampleIntervalInMinutes: "{{ block8_settings.cachePrefetchSampleIntervalInMinutes }}"
+    cachePrefetchSampleEligibilityHitsPerHour: "{{ block8_settings.cachePrefetchSampleEligibilityHitsPerHour }}"
+    enableBlocking: "{{ block8_settings.enableBlocking }}"
+    allowTxtBlockingReport: "{{ block8_settings.allowTxtBlockingReport }}"
+    blockingBypassList: "{{ block8_settings.blockingBypassList }}"
+    blockingType: "{{ block8_settings.blockingType }}"
+    blockingAnswerTtl: "{{ block8_settings.blockingAnswerTtl }}"
+  register: block8_apply
+
+- name: "Re-apply block 8 (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    cacheFailureRecordTtl: "{{ block8_settings.cacheFailureRecordTtl }}"
+    cachePrefetchEligibility: "{{ block8_settings.cachePrefetchEligibility }}"
+    cachePrefetchTrigger: "{{ block8_settings.cachePrefetchTrigger }}"
+    cachePrefetchSampleIntervalInMinutes: "{{ block8_settings.cachePrefetchSampleIntervalInMinutes }}"
+    cachePrefetchSampleEligibilityHitsPerHour: "{{ block8_settings.cachePrefetchSampleEligibilityHitsPerHour }}"
+    enableBlocking: "{{ block8_settings.enableBlocking }}"
+    allowTxtBlockingReport: "{{ block8_settings.allowTxtBlockingReport }}"
+    blockingBypassList: "{{ block8_settings.blockingBypassList }}"
+    blockingType: "{{ block8_settings.blockingType }}"
+    blockingAnswerTtl: "{{ block8_settings.blockingAnswerTtl }}"
+  register: block8_idem
+
+- name: "Get settings after block 8"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_block8
+
+- name: "Assert block 8 values"
+  assert:
+    that:
+      - block8_apply.changed
+      - not block8_idem.changed
+      - post_block8.settings.cacheFailureRecordTtl == block8_settings.cacheFailureRecordTtl | int
+      - post_block8.settings.cachePrefetchEligibility == block8_settings.cachePrefetchEligibility | int
+      - post_block8.settings.cachePrefetchTrigger == block8_settings.cachePrefetchTrigger | int
+      - post_block8.settings.cachePrefetchSampleIntervalInMinutes == block8_settings.cachePrefetchSampleIntervalInMinutes | int
+      - post_block8.settings.cachePrefetchSampleEligibilityHitsPerHour == block8_settings.cachePrefetchSampleEligibilityHitsPerHour | int
+      - post_block8.settings.enableBlocking == block8_settings.enableBlocking
+      - post_block8.settings.allowTxtBlockingReport == block8_settings.allowTxtBlockingReport
+      - post_block8.settings.blockingBypassList == block8_settings.blockingBypassList
+      - post_block8.settings.blockingType == block8_settings.blockingType
+      - post_block8.settings.blockingAnswerTtl == block8_settings.blockingAnswerTtl | int
+
+- name: "Apply block 9 (blocking extras, proxy, forwarders core)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    customBlockingAddresses: "{{ block9_settings.customBlockingAddresses }}"
+    blockListUpdateIntervalHours: "{{ block9_settings.blockListUpdateIntervalHours }}"
+    proxyType: "{{ block9_settings.proxyType }}"
+    proxyAddress: "{{ block9_settings.proxyAddress }}"
+    proxyPort: "{{ block9_settings.proxyPort }}"
+    proxyBypass: "{{ block9_settings.proxyBypass }}"
+    forwarders: "{{ block9_settings.forwarders }}"
+    forwarderProtocol: "{{ block9_settings.forwarderProtocol }}"
+    concurrentForwarding: "{{ block9_settings.concurrentForwarding }}"
+    forwarderRetries: "{{ block9_settings.forwarderRetries }}"
+    forwarderTimeout: "{{ block9_settings.forwarderTimeout }}"
+  register: block9_apply
+
+- name: "Get settings after block 9"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_block9
+
+- name: Debug post_block9
+  ansible.builtin.debug:
+    var: post_block9
+  when: debug | default(false)
+
+- name: Debug block9_settings
+  ansible.builtin.debug:
+    var: block9_settings
+  when: debug | default(false)
+
+- name: "Re-apply block 9 (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    customBlockingAddresses: "{{ block9_settings.customBlockingAddresses }}"
+    blockListUpdateIntervalHours: "{{ block9_settings.blockListUpdateIntervalHours }}"
+    proxyType: "{{ block9_settings.proxyType }}"
+    proxyAddress: "{{ block9_settings.proxyAddress }}"
+    proxyPort: "{{ block9_settings.proxyPort }}"
+    proxyBypass: "{{ block9_settings.proxyBypass }}"
+    forwarderProtocol: "{{ block9_settings.forwarderProtocol }}"
+    forwarders: "{{ block9_settings.forwarders }}"
+    concurrentForwarding: "{{ block9_settings.concurrentForwarding }}"
+    forwarderRetries: "{{ block9_settings.forwarderRetries }}"
+    forwarderTimeout: "{{ block9_settings.forwarderTimeout }}"
+  register: block9_idem
+
+- name: "Get settings after block 9"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_block9
+
+- name: "Assert block 9 values"
+  assert:
+    that:
+      - block9_apply.changed
+      - not block9_idem.changed
+      - post_block9.settings.customBlockingAddresses == block9_settings.customBlockingAddresses
+      - post_block9.settings.blockListUpdateIntervalHours == block9_settings.blockListUpdateIntervalHours | int
+      - post_block9.settings.proxy.type == block9_settings.proxyType
+      - post_block9.settings.proxy.address == block9_settings.proxyAddress
+      - post_block9.settings.proxy.port == block9_settings.proxyPort | int
+      - post_block9.settings.proxy.bypass == block9_settings.proxyBypass
+      - post_block9.settings.forwarders == block9_settings.forwarders
+      - post_block9.settings.forwarderProtocol == block9_settings.forwarderProtocol
+      - post_block9.settings.concurrentForwarding == block9_settings.concurrentForwarding
+      - post_block9.settings.forwarderRetries == block9_settings.forwarderRetries | int
+      - post_block9.settings.forwarderTimeout == block9_settings.forwarderTimeout | int
+
+- name: "Apply block 10 (forwarder concurrency and logging)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    forwarderConcurrency: "{{ block10_settings.forwarderConcurrency }}"
+    loggingType: "{{ block10_settings.loggingType }}"
+    enableLogging: "{{ block10_settings.enableLogging }}"
+    ignoreResolverLogs: "{{ block10_settings.ignoreResolverLogs }}"
+    logQueries: "{{ block10_settings.logQueries }}"
+    useLocalTime: "{{ block10_settings.useLocalTime }}"
+    logFolder: "{{ block10_settings.logFolder }}"
+    maxLogFileDays: "{{ block10_settings.maxLogFileDays }}"
+    enableInMemoryStats: "{{ block10_settings.enableInMemoryStats }}"
+    maxStatFileDays: "{{ block10_settings.maxStatFileDays }}"
+  register: block10_apply
+
+- name: "Re-apply block 10 (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    forwarderConcurrency: "{{ block10_settings.forwarderConcurrency }}"
+    loggingType: "{{ block10_settings.loggingType }}"
+    enableLogging: "{{ block10_settings.enableLogging }}"
+    ignoreResolverLogs: "{{ block10_settings.ignoreResolverLogs }}"
+    logQueries: "{{ block10_settings.logQueries }}"
+    useLocalTime: "{{ block10_settings.useLocalTime }}"
+    logFolder: "{{ block10_settings.logFolder }}"
+    maxLogFileDays: "{{ block10_settings.maxLogFileDays }}"
+    enableInMemoryStats: "{{ block10_settings.enableInMemoryStats }}"
+    maxStatFileDays: "{{ block10_settings.maxStatFileDays }}"
+  register: block10_idem
+
+- name: "Get settings after block 10"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_block10
+
+- name: "Assert block 10 values"
+  assert:
+    that:
+      - block10_apply.changed
+      - not block10_idem.changed
+      - post_block10.settings.forwarderConcurrency == block10_settings.forwarderConcurrency | int
+      - post_block10.settings.loggingType == block10_settings.loggingType
+      - post_block10.settings.enableLogging == block10_settings.enableLogging
+      - post_block10.settings.ignoreResolverLogs == block10_settings.ignoreResolverLogs
+      - post_block10.settings.logQueries == block10_settings.logQueries
+      - post_block10.settings.useLocalTime == block10_settings.useLocalTime
+      - post_block10.settings.logFolder == block10_settings.logFolder
+      - post_block10.settings.maxLogFileDays == block10_settings.maxLogFileDays | int
+      - post_block10.settings.enableInMemoryStats == block10_settings.enableInMemoryStats
+      - post_block10.settings.maxStatFileDays == block10_settings.maxStatFileDays | int
+
+- name: "Apply block 11 (TSIG keys)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    tsigKeys: "{{ block11_settings.tsigKeys }}"
+  register: block11_apply
+
+- name: "Re-apply block 11 (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    tsigKeys: "{{ block11_settings.tsigKeys }}"
+  register: block11_idem
+
+- name: "Get settings after block 11"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_block11
+
+- name: "Assert block 11 values"
+  assert:
+    that:
+      - block11_apply.changed
+      - not block11_idem.changed
+      - post_block11.settings.tsigKeys | length == block11_settings.tsigKeys | length
+- name: Debug original_settings
+  ansible.builtin.debug:
+    var: original_settings
+  when: debug | default(false)

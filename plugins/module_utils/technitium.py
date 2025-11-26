@@ -31,14 +31,18 @@ class TechnitiumModule(AnsibleModule):
         self.validate_certs = self.params.get('validate_certs', True)
         self.name = self.params.get('name')
 
-    def request(self, path, params=None, method='GET'):
+    def request(self, path, params=None, method='GET', json_payload=None):
         url = f"{self.api_url}:{self.api_port}{path}"
         params = params or {}
         params['token'] = self.api_token
 
         headers = {'Accept': 'application/json'}
 
-        if method == 'GET':
+        if json_payload is not None:
+            url_with_params = url + '?' + urlencode(params)
+            data = json.dumps(json_payload).encode('utf-8')
+            headers['Content-Type'] = 'application/json'
+        elif method == 'GET':
             url_with_params = url + '?' + urlencode(params)
             data = None
         else:
@@ -185,12 +189,28 @@ class TechnitiumModule(AnsibleModule):
         # Format as XX-XX-XX-XX-XX-XX
         return '-'.join([mac_clean[i:i + 2] for i in range(0, len(mac_clean), 2)])
 
+    def normalize_list(self, value, sort=False, transform=str):
+        """Normalize list-like values for comparison"""
+        if value is None:
+            return []
+        if isinstance(value, list):
+            normalized = [transform(v) for v in value]
+        else:
+            normalized = [transform(value)]
+        return sorted(normalized) if sort else normalized
+
     def validate_api_response(self, data, context=""):
         """Validate API response status and fail with standardized error message"""
         if data.get('status') != 'ok':
             error_msg = data.get('errorMessage') or "Unknown error"
             context_msg = f"{context}: " if context else ""
             self.fail_json(msg=f"{context_msg}Technitium API error: {error_msg}", api_response=data)
+
+    def get_server_settings(self):
+        """Fetch current server settings with standard validation"""
+        data = self.request('/api/settings/get')
+        self.validate_api_response(data, context="Failed to fetch server settings")
+        return data.get('response', {})
 
     def get_sessions_list(self):
         """Get list of all active sessions with standardized error handling"""
