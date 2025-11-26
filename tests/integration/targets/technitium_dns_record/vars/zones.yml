@@ -1,0 +1,23 @@
+---
+# Zone definitions for technitium_dns_record testing
+# Uses Technitium API terminology and parameters
+
+zones_to_create:
+  - zone: "primary.{{ testing_suffix }}"
+    type: "Primary"
+    description: "Primary zone for state-based record testing"
+
+  - zone: "sec-primary.{{ testing_suffix }}"
+    type: "Primary"
+    description: "Primary DNSSEC enabled zone for DNSSEC related record testing, needs to be signed before use."
+    dnssec: true
+
+  - zone: "forwarder.{{ testing_suffix }}"
+    type: "Forwarder"
+    forwarder: "6.7.8.9"
+    description: "Forwarder zone for record testing"
+
+# Zone name shortcuts for use in test scenarios
+primary_zone_name: "primary.{{ testing_suffix }}"
+primary_sec_zone_name: "sec-primary.{{ testing_suffix }}"
+forwarder_zone_name: "forwarder.{{ testing_suffix }}"

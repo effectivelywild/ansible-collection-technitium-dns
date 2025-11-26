@@ -1,0 +1,168 @@
+---
+# Integration tests for technitium_dns_record node parameter (cluster support)
+
+# Setup testing environment with cluster initialization
+- name: Include setup_cluster_testing_environment for setup
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "setup"
+    initialize_cluster: true
+
+- name: Ensure test zone exists on primary node
+  effectivelywild.technitium_dns.technitium_dns_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "node-records.local"
+    type: "Primary"
+    node: "cluster-primary01.example.com"
+    validate_certs: no
+  register: create_zone_on_primary
+
+- name: Assert zone created on primary node
+  ansible.builtin.assert:
+    that:
+      - create_zone_on_primary.changed
+      - not create_zone_on_primary.failed
+
+- name: Add A record on primary node
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    name: "www.node-records.local"
+    zone: "node-records.local"
+    node: "cluster-primary01.example.com"
+    type: "A"
+    ipAddress: "192.0.2.42"
+    ttl: 3600
+    comments: "node-specific record"
+    validate_certs: no
+  register: add_record_primary
+
+- name: Assert A record added successfully
+  ansible.builtin.assert:
+    that:
+      - add_record_primary.changed
+      - not add_record_primary.failed
+
+- name: Re-run add to verify idempotency on same node
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    name: "www.node-records.local"
+    zone: "node-records.local"
+    node: "cluster-primary01.example.com"
+    type: "A"
+    ipAddress: "192.0.2.42"
+    ttl: 3600
+    comments: "node-specific record"
+    validate_certs: no
+  register: add_record_idempotent
+
+- name: Assert A record is idempotent on node
+  ansible.builtin.assert:
+    that:
+      - not add_record_idempotent.changed
+      - not add_record_idempotent.failed
+
+- name: Add TXT record using node parameter
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    name: "node-records.local"
+    zone: "node-records.local"
+    node: "cluster-primary01.example.com"
+    type: "TXT"
+    text: "node cluster text"
+    ttl: 1800
+    validate_certs: no
+  register: add_txt_record_primary
+
+- name: Assert TXT record added successfully
+  ansible.builtin.assert:
+    that:
+      - add_txt_record_primary.changed
+      - not add_txt_record_primary.failed
+
+- name: Delete TXT record on specific node
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    name: "node-records.local"
+    zone: "node-records.local"
+    node: "cluster-primary01.example.com"
+    type: "TXT"
+    state: absent
+    text: "node cluster text"
+    ttl: 1800
+    validate_certs: no
+  register: delete_txt_record_primary
+
+- name: Assert TXT record deleted
+  ansible.builtin.assert:
+    that:
+      - delete_txt_record_primary.changed
+      - not delete_txt_record_primary.failed
+
+- name: Delete TXT record again to verify idempotency
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    name: "node-records.local"
+    zone: "node-records.local"
+    node: "cluster-primary01.example.com"
+    type: "TXT"
+    state: absent
+    text: "node cluster text"
+    ttl: 1800
+    validate_certs: no
+  register: delete_txt_record_idempotent
+
+- name: Assert TXT record delete is idempotent
+  ansible.builtin.assert:
+    that:
+      - not delete_txt_record_idempotent.changed
+      - not delete_txt_record_idempotent.failed
+
+- name: "Negative: attempt to add record with invalid node"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    name: "bad.node-records.local"
+    zone: "node-records.local"
+    node: "invalid-node.example.com"
+    type: "A"
+    ipAddress: "192.0.2.99"
+    ttl: 300
+    validate_certs: no
+  register: add_invalid_node
+  ignore_errors: true
+
+- name: Assert invalid node add fails
+  ansible.builtin.assert:
+    that:
+      - add_invalid_node.failed
+      - "'node' in add_invalid_node.msg | lower"
+
+- name: Ensure zone is cleaned up on primary node
+  effectivelywild.technitium_dns.technitium_dns_zone:
+    api_url: http://localhost
+    api_token: "{{ token_cluster_primary_01 }}"
+    api_port: "{{ api_port_cluster_primary_01 }}"
+    zone: "node-records.local"
+    node: "cluster-primary01.example.com"
+    state: absent
+    validate_certs: no
+
+- name: Include setup_cluster_testing_environment for teardown
+  ansible.builtin.include_role:
+    name: effectivelywild.technitium_dns.setup_cluster_testing_environment
+  vars:
+    action: "teardown"

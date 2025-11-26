@@ -12,9 +12,10 @@ version_added: "0.1.0"
 author: Frank Muise (@effectivelywild)
 description:
     - Create a DNS zone.
+    - Deprecated. Prefer C(technitium_dns_zone) for state-based zone management.
 seealso:
-  - module: effectivelywild.technitium_dns.technitium_dns_delete_zone
-    description: Deletes DNS Zones
+  - module: effectivelywild.technitium_dns.technitium_dns_zone
+    description: Replacement for this module (state-based zone management)
   - module: effectivelywild.technitium_dns.technitium_dns_sign_zone
     description: Sign a zone with DNSSEC
   - module: effectivelywild.technitium_dns.technitium_dns_get_zone_info

@@ -13,10 +13,8 @@ author: Frank Muise (@effectivelywild)
 description:
     - Get DNS resource records from an authoritative zone.
 seealso:
-    - module: effectivelywild.technitium_dns.technitium_dns_add_record
-      description: Used to add DNS records
-    - module: effectivelywild.technitium_dns.technitium_dns_delete_record
-      description: Used to delete DNS record details
+    - module: effectivelywild.technitium_dns.technitium_dns_record
+      description: State-based management for DNS records
 options:
     api_url:
         description:

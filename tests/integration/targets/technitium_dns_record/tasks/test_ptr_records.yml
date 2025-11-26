@@ -1,0 +1,502 @@
+---
+# PTR Record Integration Tests
+# PTR (Pointer) records map IP addresses to domain names (reverse DNS)
+# They support multiple records per DNS name
+# Note: For testing, we use PTR records in forward zones, though they're typically used in reverse DNS zones
+
+# Test 1: Basic PTR record using shorthand syntax
+- name: "Test 1.1: Create basic PTR record using shorthand"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-basic.{{ primary_zone_name }}"
+    type: PTR
+    ptrName: "host1.example.net"
+    state: present
+  register: ptr_basic_result
+
+- name: "Test 1.2: Assert PTR record was created"
+  ansible.builtin.assert:
+    that:
+      - ptr_basic_result.changed
+
+- name: "Test 1.3: Verify PTR record exists"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-basic.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: ptr_basic_get
+
+- name: "Test 1.4: Assert PTR values match"
+  ansible.builtin.assert:
+    that:
+      - ptr_basic_get.records | selectattr('type', 'equalto', 'PTR') | list | length == 1
+      - (ptr_basic_get.records | selectattr('type', 'equalto', 'PTR') | first).rData.ptrName == "host1.example.net"
+
+- name: "Test 1.5: Re-create PTR record (idempotency)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-basic.{{ primary_zone_name }}"
+    type: PTR
+    ptrName: "host1.example.net"
+    state: present
+  register: ptr_basic_idempotent
+
+- name: "Test 1.6: Assert idempotency (no change)"
+  ansible.builtin.assert:
+    that:
+      - not ptr_basic_idempotent.changed
+
+# Test 2: Multiple PTR records for same name (multi-homed host)
+- name: "Test 2.1: Create multiple PTR records using records list"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-multi.{{ primary_zone_name }}"
+    type: PTR
+    records:
+      - ptrName: "web.example.net"
+      - ptrName: "www.example.net"
+    state: present
+  register: ptr_multi_result
+
+- name: "Test 2.2: Assert PTR records created"
+  ansible.builtin.assert:
+    that:
+      - ptr_multi_result.changed
+
+- name: "Test 2.3: Verify both PTR records exist"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-multi.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: ptr_multi_get
+
+- name: "Test 2.4: Assert both PTR records exist with correct values"
+  ansible.builtin.assert:
+    that:
+      - ptr_multi_get.records | selectattr('type', 'equalto', 'PTR') | list | length == 2
+      - ptr_multi_get.records | selectattr('type', 'equalto', 'PTR') | map(attribute='rData.ptrName') | select('search', '^web\\.') | list | length == 1
+      - ptr_multi_get.records | selectattr('type', 'equalto', 'PTR') | map(attribute='rData.ptrName') | select('search', '^www\\.') | list | length == 1
+
+- name: "Test 2.5: Re-create both PTR records (idempotency)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-multi.{{ primary_zone_name }}"
+    type: PTR
+    records:
+      - ptrName: "web.example.net"
+      - ptrName: "www.example.net"
+    state: present
+  register: ptr_multi_idempotent
+
+- name: "Test 2.6: Assert idempotency (no change)"
+  ansible.builtin.assert:
+    that:
+      - not ptr_multi_idempotent.changed
+
+# Test 3: Overwrite mode
+- name: "Test 3.1: Overwrite PTR records with new set"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-multi.{{ primary_zone_name }}"
+    type: PTR
+    records:
+      - ptrName: "api.{{ primary_zone_name }}"
+      - ptrName: "app.{{ primary_zone_name }}"
+    overwrite: true
+    state: present
+  register: ptr_overwrite_result
+
+- name: "Test 3.2: Assert overwrite changed"
+  ansible.builtin.assert:
+    that:
+      - ptr_overwrite_result.changed
+
+- name: "Test 3.3: Verify only new PTR records exist"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-multi.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: ptr_overwrite_get
+
+- name: "Test 3.4: Assert old PTR records removed, new ones exist"
+  ansible.builtin.assert:
+    that:
+      - ptr_overwrite_get.records | selectattr('type', 'equalto', 'PTR') | list | length == 2
+      - ptr_overwrite_get.records | selectattr('type', 'equalto', 'PTR') | map(attribute='rData.ptrName') | select('search', '^api\\.') | list | length == 1
+      - ptr_overwrite_get.records | selectattr('type', 'equalto', 'PTR') | map(attribute='rData.ptrName') | select('search', '^app\\.') | list | length == 1
+      - ptr_overwrite_get.records | selectattr('type', 'equalto', 'PTR') | map(attribute='rData.ptrName') | select('search', '^web\\.') | list | length == 0
+      - ptr_overwrite_get.records | selectattr('type', 'equalto', 'PTR') | map(attribute='rData.ptrName') | select('search', '^www\\.') | list | length == 0
+
+# Test 4: Additive mode (overwrite=false)
+- name: "Test 4.1: Add PTR record to existing set (additive)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-multi.{{ primary_zone_name }}"
+    type: PTR
+    ptrName: "mail.{{ primary_zone_name }}"
+    overwrite: false
+    state: present
+  register: ptr_additive_result
+
+- name: "Test 4.2: Assert additive mode changed"
+  ansible.builtin.assert:
+    that:
+      - ptr_additive_result.changed
+
+- name: "Test 4.3: Verify all PTR records exist (old + new)"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-multi.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: ptr_additive_get
+
+- name: "Test 4.4: Assert all PTR records present"
+  ansible.builtin.assert:
+    that:
+      - ptr_additive_get.records | selectattr('type', 'equalto', 'PTR') | list | length == 3
+      - ptr_additive_get.records | selectattr('type', 'equalto', 'PTR') | map(attribute='rData.ptrName') | select('search', '^api\\.') | list | length == 1
+      - ptr_additive_get.records | selectattr('type', 'equalto', 'PTR') | map(attribute='rData.ptrName') | select('search', '^app\\.') | list | length == 1
+      - ptr_additive_get.records | selectattr('type', 'equalto', 'PTR') | map(attribute='rData.ptrName') | select('search', '^mail\\.') | list | length == 1
+
+# Test 5: Selective deletion
+- name: "Test 5.1: Delete specific PTR record by ptrName"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-multi.{{ primary_zone_name }}"
+    type: PTR
+    ptrName: "mail.{{ primary_zone_name }}"
+    state: absent
+  register: ptr_delete_specific_result
+
+- name: "Test 5.2: Assert specific PTR deleted"
+  ansible.builtin.assert:
+    that:
+      - ptr_delete_specific_result.changed
+
+- name: "Test 5.3: Verify specific PTR record removed"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-multi.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: ptr_delete_specific_get
+
+- name: "Test 5.4: Assert only mail PTR removed, others remain"
+  ansible.builtin.assert:
+    that:
+      - ptr_delete_specific_get.records | selectattr('type', 'equalto', 'PTR') | list | length == 2
+      - ptr_delete_specific_get.records | selectattr('type', 'equalto', 'PTR') | map(attribute='rData.ptrName') | select('search', '^api\\.') | list | length == 1
+      - ptr_delete_specific_get.records | selectattr('type', 'equalto', 'PTR') | map(attribute='rData.ptrName') | select('search', '^app\\.') | list | length == 1
+      - ptr_delete_specific_get.records | selectattr('type', 'equalto', 'PTR') | map(attribute='rData.ptrName') | select('search', '^mail\\.') | list | length == 0
+
+# Test 6: Delete all PTR records by name/type
+- name: "Test 6.1: Delete all PTR records for name"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-multi.{{ primary_zone_name }}"
+    type: PTR
+    state: absent
+  register: ptr_delete_all_result
+
+- name: "Test 6.2: Assert all PTR records deleted"
+  ansible.builtin.assert:
+    that:
+      - ptr_delete_all_result.changed
+
+- name: "Test 6.3: Verify no PTR records remain"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-multi.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: ptr_delete_all_get
+  ignore_errors: true
+
+- name: "Test 6.4: Assert no PTR records found"
+  ansible.builtin.assert:
+    that:
+      - ptr_delete_all_get.failed or (ptr_delete_all_get.records | selectattr('type', 'equalto', 'PTR') | list | length == 0)
+
+# Test 7: Check mode
+- name: "Test 7.1: Create PTR record in check mode"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-check.{{ primary_zone_name }}"
+    type: PTR
+    ptrName: "test.{{ primary_zone_name }}"
+    state: present
+  check_mode: true
+  register: ptr_check_create
+
+- name: "Test 7.2: Assert check mode reports change"
+  ansible.builtin.assert:
+    that:
+      - ptr_check_create.changed
+
+- name: "Test 7.3: Verify PTR record was not actually created"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-check.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: ptr_check_verify
+  ignore_errors: true
+
+- name: "Test 7.4: Assert PTR record does not exist"
+  ansible.builtin.assert:
+    that:
+      - ptr_check_verify.failed or (ptr_check_verify.records | selectattr('type', 'equalto', 'PTR') | list | length == 0)
+
+- name: "Test 7.5: Create PTR record for real (for delete check mode test)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-check.{{ primary_zone_name }}"
+    type: PTR
+    ptrName: "test.{{ primary_zone_name }}"
+    state: present
+  register: ptr_real_create
+
+- name: "Test 7.6: Delete PTR record in check mode"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-check.{{ primary_zone_name }}"
+    type: PTR
+    state: absent
+  check_mode: true
+  register: ptr_check_delete
+
+- name: "Test 7.7: Assert check mode delete reports change"
+  ansible.builtin.assert:
+    that:
+      - ptr_check_delete.changed
+
+- name: "Test 7.8: Verify PTR record still exists"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-check.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: ptr_check_delete_verify
+
+- name: "Test 7.9: Assert PTR record still exists"
+  ansible.builtin.assert:
+    that:
+      - ptr_check_delete_verify.records | selectattr('type', 'equalto', 'PTR') | list | length == 1
+
+# Test 8: TTL and comments
+- name: "Test 8.1: Create PTR record with custom TTL and comments"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-metadata.{{ primary_zone_name }}"
+    type: PTR
+    ptrName: "metadata-test.{{ primary_zone_name }}"
+    ttl: 7200
+    comments: "PTR record with custom TTL"
+    state: present
+  register: ptr_metadata_result
+
+- name: "Test 8.2: Assert PTR with metadata created"
+  ansible.builtin.assert:
+    that:
+      - ptr_metadata_result.changed
+
+- name: "Test 8.3: Verify PTR metadata"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-metadata.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: ptr_metadata_get
+
+- name: "Test 8.4: Assert PTR metadata values"
+  ansible.builtin.assert:
+    that:
+      - ptr_metadata_get.records | selectattr('type', 'equalto', 'PTR') | list | length == 1
+      - (ptr_metadata_get.records | selectattr('type', 'equalto', 'PTR') | first).ttl == 7200
+      - (ptr_metadata_get.records | selectattr('type', 'equalto', 'PTR') | first).comments == "PTR record with custom TTL"
+
+# Test 9: expiryTtl (auto-expiration)
+- name: "Test 9.1: Create PTR record with expiryTtl for auto-deletion"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-expiry.{{ primary_zone_name }}"
+    type: PTR
+    ptrName: "temp-host.{{ primary_zone_name }}"
+    expiryTtl: 300
+    comments: "Temporary PTR - expires in 5 minutes"
+    state: present
+  register: ptr_expiry_result
+
+- name: "Test 9.2: Assert PTR with expiryTtl created"
+  ansible.builtin.assert:
+    that:
+      - ptr_expiry_result.changed
+
+- name: "Test 9.3: Verify PTR expiryTtl"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-expiry.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: ptr_expiry_get
+
+- name: "Test 9.4: Assert PTR expiryTtl value"
+  ansible.builtin.assert:
+    that:
+      - ptr_expiry_get.records | selectattr('type', 'equalto', 'PTR') | list | length == 1
+      - (ptr_expiry_get.records | selectattr('type', 'equalto', 'PTR') | first).expiryTtl == 300
+
+- name: "Test 9.5: Create PTR record in DNSSEC-enabled zone"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "dnssec-test.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: PTR
+    ptrName: "host.example.com"
+    state: present
+  register: test9_dnssec_create
+
+- name: "Test 9.5: Assert DNSSEC zone record created"
+  ansible.builtin.assert:
+    that:
+      - test9_dnssec_create is changed
+
+- name: "Test 9.5: Cleanup DNSSEC zone test"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "dnssec-test.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: PTR
+    state: absent
+
+# Test 10: Negative tests
+- name: "Test 10.1: PTR without required ptrName should fail"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-neg-missing.{{ primary_zone_name }}"
+    type: PTR
+    state: present
+  register: ptr_no_ptrname
+  ignore_errors: true
+
+- name: "Test 10.2: Assert failure for missing ptrName"
+  ansible.builtin.assert:
+    that:
+      - ptr_no_ptrname.failed
+      - "'ptrName' in (ptr_no_ptrname.msg | default(''))"
+
+- name: "Test 10.3: PTR with unsupported parameter should fail"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-neg-badparam.{{ primary_zone_name }}"
+    type: PTR
+    ptrName: "invalid.{{ primary_zone_name }}"
+    ipAddress: "192.0.2.99"
+    state: present
+  register: ptr_bad_param
+  ignore_errors: true
+
+- name: "Test 10.4: Assert failure for unsupported parameter"
+  ansible.builtin.assert:
+    that:
+      - ptr_bad_param.failed
+      - "'ipAddress' in (ptr_bad_param.msg | default(''))"
+
+- name: "Test 10.5: PTR with invalid API token should fail"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "INVALID_TOKEN"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-neg-badtoken.{{ primary_zone_name }}"
+    type: PTR
+    ptrName: "badtoken.{{ primary_zone_name }}"
+    state: present
+  register: ptr_bad_token
+  ignore_errors: true
+
+- name: "Test 10.6: Assert failure for invalid token"
+  ansible.builtin.assert:
+    that:
+      - ptr_bad_token.failed
+      - "'Invalid token' in (ptr_bad_token.msg | default(''))"
+
+# Test 11: Delete non-existent record (idempotency)
+- name: "Test 11.1: Delete non-existent PTR record"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-nonexist.{{ primary_zone_name }}"
+    type: PTR
+    ptrName: "nonexistent.{{ primary_zone_name }}"
+    state: absent
+  register: ptr_delete_nonexist
+
+- name: "Test 11.2: Assert no change for deleting non-existent record"
+  ansible.builtin.assert:
+    that:
+      - not ptr_delete_nonexist.changed
+
+# Cleanup: Delete test PTR records
+- name: "Cleanup: Delete test PTR records"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "{{ item }}"
+    type: PTR
+    state: absent
+  loop:
+    - "ptr-basic.{{ primary_zone_name }}"
+    - "ptr-check.{{ primary_zone_name }}"
+    - "ptr-metadata.{{ primary_zone_name }}"
+    - "ptr-expiry.{{ primary_zone_name }}"
+  ignore_errors: true

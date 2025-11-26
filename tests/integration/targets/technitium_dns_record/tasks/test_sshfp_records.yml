@@ -1,0 +1,541 @@
+---
+# SSHFP record integration tests for state-based module
+# SSHFP records store SSH public key fingerprints for verification
+
+# Test 1: Basic SSHFP record creation using shorthand
+- name: "Test 1.1: Create basic SSHFP record using shorthand"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-host1.{{ primary_zone_name }}"
+    type: SSHFP
+    sshfpAlgorithm: RSA
+    sshfpFingerprintType: SHA256
+    sshfpFingerprint: a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0fedcba9876543210
+    state: present
+  register: sshfp_basic_result
+
+- name: "Test 1.2: Assert SSHFP record was created"
+  ansible.builtin.assert:
+    that:
+      - sshfp_basic_result.changed
+
+- name: "Test 1.3: Verify SSHFP record exists"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-host1.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: sshfp_basic_get
+
+- name: "Test 1.4: Assert SSHFP values match"
+  ansible.builtin.assert:
+    that:
+      - sshfp_basic_get.records | selectattr('type', 'equalto', 'SSHFP') | list | length == 1
+      - (sshfp_basic_get.records | selectattr('type', 'equalto', 'SSHFP') | first).rData.algorithm == "RSA"
+      - (sshfp_basic_get.records | selectattr('type', 'equalto', 'SSHFP') | first).rData.fingerprintType == "SHA256"
+      - (sshfp_basic_get.records | selectattr('type', 'equalto', 'SSHFP') | first).rData.fingerprint | lower == "a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0fedcba9876543210"
+
+- name: "Test 1.5: Re-create SSHFP record (idempotency)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-host1.{{ primary_zone_name }}"
+    type: SSHFP
+    records:
+      - sshfpAlgorithm: RSA
+        sshfpFingerprintType: SHA256
+        sshfpFingerprint: a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0fedcba9876543210
+    overwrite: true
+    state: present
+  register: sshfp_basic_idempotent
+
+- name: "Test 1.6: Assert idempotency (no change)"
+  ansible.builtin.assert:
+    that:
+      - not sshfp_basic_idempotent.changed
+
+# Test 2: Multiple SSHFP records for different algorithms
+- name: "Test 2.1: Create multiple SSHFP records using records list"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-multi.{{ primary_zone_name }}"
+    type: SSHFP
+    records:
+      - sshfpAlgorithm: RSA
+        sshfpFingerprintType: SHA256
+        sshfpFingerprint: b1c2d3e4f5061728394a5b6c7d8e9f00112233445566778899aabbccddeeff00
+      - sshfpAlgorithm: DSA
+        sshfpFingerprintType: SHA256
+        sshfpFingerprint: b1c2d3e4f5061728394a5b6c7d8e9f00112233445566778899aabbccddeeff01
+      - sshfpAlgorithm: ECDSA
+        sshfpFingerprintType: SHA256
+        sshfpFingerprint: c1d2e3f40516273849a5b6c7d8e9f00112233445566778899aabbccddeeff112
+      - sshfpAlgorithm: Ed25519
+        sshfpFingerprintType: SHA256
+        sshfpFingerprint: d1e2f30415263748a9b5c6d7e8f00112233445566778899aabbccddeeff11223
+    state: present
+  register: sshfp_multi_result
+
+- name: "Test 2.2: Assert SSHFP records created"
+  ansible.builtin.assert:
+    that:
+      - sshfp_multi_result.changed
+
+- name: "Test 2.3: Verify all four SSHFP records exist"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-multi.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: sshfp_multi_get
+
+- name: "Test 2.4: Assert all SSHFP records exist with correct values"
+  ansible.builtin.assert:
+    that:
+      - sshfp_multi_get.records | selectattr('type', 'equalto', 'SSHFP') | list | length == 4
+      - sshfp_multi_get.records | selectattr('type', 'equalto', 'SSHFP') | selectattr('rData.algorithm', 'equalto', 'RSA') | list | length == 1
+      - sshfp_multi_get.records | selectattr('type', 'equalto', 'SSHFP') | selectattr('rData.algorithm', 'equalto', 'DSA') | list | length == 1
+      - sshfp_multi_get.records | selectattr('type', 'equalto', 'SSHFP') | selectattr('rData.algorithm', 'equalto', 'ECDSA') | list | length == 1
+      - sshfp_multi_get.records | selectattr('type', 'equalto', 'SSHFP') | selectattr('rData.algorithm', 'equalto', 'Ed25519') | list | length == 1
+
+- name: "Test 2.5: Re-create all SSHFP records (idempotency)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-multi.{{ primary_zone_name }}"
+    type: SSHFP
+    records:
+      - sshfpAlgorithm: RSA
+        sshfpFingerprintType: SHA256
+        sshfpFingerprint: b1c2d3e4f5061728394a5b6c7d8e9f00112233445566778899aabbccddeeff00
+      - sshfpAlgorithm: DSA
+        sshfpFingerprintType: SHA256
+        sshfpFingerprint: b1c2d3e4f5061728394a5b6c7d8e9f00112233445566778899aabbccddeeff01
+      - sshfpAlgorithm: ECDSA
+        sshfpFingerprintType: SHA256
+        sshfpFingerprint: c1d2e3f40516273849a5b6c7d8e9f00112233445566778899aabbccddeeff112
+      - sshfpAlgorithm: Ed25519
+        sshfpFingerprintType: SHA256
+        sshfpFingerprint: d1e2f30415263748a9b5c6d7e8f00112233445566778899aabbccddeeff11223
+    state: present
+  register: sshfp_multi_idempotent
+
+- name: "Test 2.6: Assert idempotency (no change)"
+  ansible.builtin.assert:
+    that:
+      - not sshfp_multi_idempotent.changed
+
+# Test 3: Overwrite mode
+- name: "Test 3.1: Overwrite SSHFP records with new set"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-multi.{{ primary_zone_name }}"
+    type: SSHFP
+    records:
+      - sshfpAlgorithm: Ed448
+        sshfpFingerprintType: SHA256
+        sshfpFingerprint: e1f2031425364748a9b5c6d7e8f00112233445566778899aabbccddeeff11223
+    overwrite: true
+    state: present
+  register: sshfp_overwrite_result
+
+- name: "Test 3.2: Assert overwrite changed"
+  ansible.builtin.assert:
+    that:
+      - sshfp_overwrite_result.changed
+
+- name: "Test 3.3: Verify only new SSHFP record exists"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-multi.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: sshfp_overwrite_get
+
+- name: "Test 3.4: Assert old SSHFP records removed, new one exists"
+  ansible.builtin.assert:
+    that:
+      - sshfp_overwrite_get.records | selectattr('type', 'equalto', 'SSHFP') | list | length == 1
+      - sshfp_overwrite_get.records | selectattr('type', 'equalto', 'SSHFP') | selectattr('rData.algorithm', 'equalto', 'Ed448') | list | length == 1
+      - sshfp_overwrite_get.records | selectattr('type', 'equalto', 'SSHFP') | map(attribute='rData.fingerprint') | map('lower') | select('search', '^e1f20314') | list | length == 1
+
+# Test 4: Additive mode (overwrite: false)
+- name: "Test 4.1: Add SSHFP record to existing set (additive)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-multi.{{ primary_zone_name }}"
+    type: SSHFP
+    sshfpAlgorithm: DSA
+    sshfpFingerprintType: SHA256
+    sshfpFingerprint: f1020314253647a8b9c5d6e7f80011223344556677889aabbccddeff11223344
+    overwrite: false
+    state: present
+  register: sshfp_additive_result
+
+- name: "Test 4.2: Assert additive mode changed"
+  ansible.builtin.assert:
+    that:
+      - sshfp_additive_result.changed
+
+- name: "Test 4.3: Verify all SSHFP records exist (old + new)"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-multi.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: sshfp_additive_get
+
+- name: "Test 4.4: Assert all SSHFP records present"
+  ansible.builtin.assert:
+    that:
+      - sshfp_additive_get.records | selectattr('type', 'equalto', 'SSHFP') | list | length == 2
+      - sshfp_additive_get.records | selectattr('type', 'equalto', 'SSHFP') | map(attribute='rData.fingerprint') | map('lower') | select('search', '^e1f20314') | list | length == 1
+      - sshfp_additive_get.records | selectattr('type', 'equalto', 'SSHFP') | map(attribute='rData.fingerprint') | map('lower') | select('search', '^f1020314') | list | length == 1
+
+# Test 5: Selective deletion
+- name: "Test 5.1: Delete specific SSHFP record by identifying fields"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-multi.{{ primary_zone_name }}"
+    type: SSHFP
+    sshfpAlgorithm: DSA
+    sshfpFingerprintType: SHA256
+    sshfpFingerprint: f1020314253647a8b9c5d6e7f80011223344556677889aabbccddeff11223344
+    state: absent
+  register: sshfp_delete_specific_result
+
+- name: "Test 5.2: Assert specific SSHFP deleted"
+  ansible.builtin.assert:
+    that:
+      - sshfp_delete_specific_result.changed
+
+- name: "Test 5.3: Verify specific SSHFP record removed"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-multi.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: sshfp_delete_specific_get
+
+- name: "Test 5.4: Assert only DSA SSHFP removed, Ed448 remains"
+  ansible.builtin.assert:
+    that:
+      - sshfp_delete_specific_get.records | selectattr('type', 'equalto', 'SSHFP') | list | length == 1
+      - sshfp_delete_specific_get.records | selectattr('type', 'equalto', 'SSHFP') | map(attribute='rData.fingerprint') | map('lower') | select('search', '^e1f20314') | list | length == 1
+      - sshfp_delete_specific_get.records | selectattr('type', 'equalto', 'SSHFP') | map(attribute='rData.fingerprint') | map('lower') | select('search', '^f1020314') | list | length == 0
+
+# Test 6: Delete all SSHFP records by name/type
+- name: "Test 6.1: Delete all SSHFP records for name"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-multi.{{ primary_zone_name }}"
+    type: SSHFP
+    state: absent
+  register: sshfp_delete_all_result
+
+- name: "Test 6.2: Assert all SSHFP records deleted"
+  ansible.builtin.assert:
+    that:
+      - sshfp_delete_all_result.changed
+
+- name: "Test 6.3: Verify no SSHFP records remain"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-multi.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: sshfp_delete_all_get
+  ignore_errors: true
+
+- name: "Test 6.4: Assert no SSHFP records found"
+  ansible.builtin.assert:
+    that:
+      - sshfp_delete_all_get.failed or (sshfp_delete_all_get.records | selectattr('type', 'equalto', 'SSHFP') | list | length == 0)
+
+# Test 7: Check mode
+- name: "Test 7.1: Create SSHFP record in check mode"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-check.{{ primary_zone_name }}"
+    type: SSHFP
+    sshfpAlgorithm: RSA
+    sshfpFingerprintType: SHA256
+    sshfpFingerprint: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    state: present
+  check_mode: true
+  register: sshfp_check_create
+
+- name: "Test 7.2: Assert check mode reports change"
+  ansible.builtin.assert:
+    that:
+      - sshfp_check_create.changed
+
+- name: "Test 7.3: Verify SSHFP record was not actually created"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-check.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: sshfp_check_verify
+  ignore_errors: true
+
+- name: "Test 7.4: Assert SSHFP record does not exist"
+  ansible.builtin.assert:
+    that:
+      - sshfp_check_verify.failed or (sshfp_check_verify.records | selectattr('type', 'equalto', 'SSHFP') | list | length == 0)
+
+- name: "Test 7.5: Create SSHFP record for real (for delete check mode test)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-check.{{ primary_zone_name }}"
+    type: SSHFP
+    sshfpAlgorithm: RSA
+    sshfpFingerprintType: SHA256
+    sshfpFingerprint: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+    state: present
+
+- name: "Test 7.6: Delete SSHFP record in check mode"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-check.{{ primary_zone_name }}"
+    type: SSHFP
+    state: absent
+  check_mode: true
+  register: sshfp_check_delete
+
+- name: "Test 7.7: Assert check mode delete reports change"
+  ansible.builtin.assert:
+    that:
+      - sshfp_check_delete.changed
+
+- name: "Test 7.8: Verify SSHFP record still exists"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-check.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: sshfp_check_still_exists
+
+- name: "Test 7.9: Assert SSHFP record still exists"
+  ansible.builtin.assert:
+    that:
+      - sshfp_check_still_exists.records | selectattr('type', 'equalto', 'SSHFP') | list | length == 1
+
+# Test 8: Custom TTL and comments
+- name: "Test 8.1: Create SSHFP record with custom TTL and comments"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-metadata.{{ primary_zone_name }}"
+    type: SSHFP
+    sshfpAlgorithm: ECDSA
+    sshfpFingerprintType: SHA256
+    sshfpFingerprint: 1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef
+    ttl: 7200
+    comments: "Production SSH server fingerprint"
+    state: present
+  register: sshfp_metadata_result
+
+- name: "Test 8.2: Assert SSHFP with metadata created"
+  ansible.builtin.assert:
+    that:
+      - sshfp_metadata_result.changed
+
+- name: "Test 8.3: Verify SSHFP metadata"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-metadata.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: sshfp_metadata_get
+
+- name: "Test 8.4: Assert SSHFP metadata values"
+  ansible.builtin.assert:
+    that:
+      - sshfp_metadata_get.records | selectattr('type', 'equalto', 'SSHFP') | list | length == 1
+      - (sshfp_metadata_get.records | selectattr('type', 'equalto', 'SSHFP') | first).ttl == 7200
+      - (sshfp_metadata_get.records | selectattr('type', 'equalto', 'SSHFP') | first).comments == "Production SSH server fingerprint"
+
+# Test 9: ExpiryTtl for auto-deletion
+- name: "Test 9.1: Create SSHFP record with expiryTtl for auto-deletion"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-temp.{{ primary_zone_name }}"
+    type: SSHFP
+    sshfpAlgorithm: Ed25519
+    sshfpFingerprintType: SHA256
+    sshfpFingerprint: fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210
+    expiryTtl: 86400
+    state: present
+  register: sshfp_expiry_result
+
+- name: "Test 9.2: Assert SSHFP with expiryTtl created"
+  ansible.builtin.assert:
+    that:
+      - sshfp_expiry_result.changed
+
+- name: "Test 9.3: Verify SSHFP expiryTtl"
+  effectivelywild.technitium_dns.technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-temp.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+  register: sshfp_expiry_get
+
+- name: "Test 9.4: Assert SSHFP expiryTtl value"
+  ansible.builtin.assert:
+    that:
+      - sshfp_expiry_get.records | selectattr('type', 'equalto', 'SSHFP') | list | length == 1
+      - (sshfp_expiry_get.records | selectattr('type', 'equalto', 'SSHFP') | first).expiryTtl == 86400
+
+- name: "Test 9.5: Create SSHFP record in DNSSEC-enabled zone"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "dnssec-test.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: SSHFP
+    sshfpAlgorithm: RSA
+    sshfpFingerprintType: SHA256
+    sshfpFingerprint: "a1b2c3d4e5f60718293a4b5c6d7e8f90123456789abcdef0fedcba9876543210"
+    state: present
+  register: test9_dnssec_create
+
+- name: "Test 9.5: Assert DNSSEC zone record created"
+  ansible.builtin.assert:
+    that:
+      - test9_dnssec_create is changed
+
+- name: "Test 9.5: Cleanup DNSSEC zone test"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "dnssec-test.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: SSHFP
+    state: absent
+
+# Test 10: Negative tests - error conditions
+- name: "Test 10.1: SSHFP without required sshfpAlgorithm should fail"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-invalid.{{ primary_zone_name }}"
+    type: SSHFP
+    sshfpFingerprintType: SHA256
+    sshfpFingerprint: 0000000000000000000000000000000000000000000000000000000000000000
+    state: present
+  register: sshfp_missing_algo
+  ignore_errors: true
+
+- name: "Test 10.2: Assert failure for missing sshfpAlgorithm"
+  ansible.builtin.assert:
+    that:
+      - sshfp_missing_algo.failed
+
+- name: "Test 10.3: SSHFP with unsupported parameter should fail"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-invalid.{{ primary_zone_name }}"
+    type: SSHFP
+    sshfpAlgorithm: RSA
+    sshfpFingerprintType: SHA256
+    sshfpFingerprint: 0000000000000000000000000000000000000000000000000000000000000000
+    ipAddress: "192.0.2.1"
+    state: present
+  register: sshfp_invalid_param
+  ignore_errors: true
+
+- name: "Test 10.4: Assert failure for unsupported parameter"
+  ansible.builtin.assert:
+    that:
+      - sshfp_invalid_param.failed
+
+- name: "Test 10.5: SSHFP with invalid API token should fail"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "invalid-token-12345"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-invalid.{{ primary_zone_name }}"
+    type: SSHFP
+    sshfpAlgorithm: RSA
+    sshfpFingerprintType: SHA256
+    sshfpFingerprint: 0000000000000000000000000000000000000000000000000000000000000000
+    state: present
+  register: sshfp_invalid_token
+  ignore_errors: true
+
+- name: "Test 10.6: Assert failure for invalid token"
+  ansible.builtin.assert:
+    that:
+      - sshfp_invalid_token.failed
+
+# Test 11: Deleting non-existent record is idempotent
+- name: "Test 11.1: Delete non-existent SSHFP record"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ssh-nonexistent.{{ primary_zone_name }}"
+    type: SSHFP
+    state: absent
+  register: sshfp_delete_nonexistent
+
+- name: "Test 11.2: Assert no change for deleting non-existent record"
+  ansible.builtin.assert:
+    that:
+      - not sshfp_delete_nonexistent.changed
+
+# Cleanup: Delete test SSHFP records
+- name: "Cleanup: Delete test SSHFP records"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "{{ item }}"
+    type: SSHFP
+    state: absent
+  loop:
+    - "ssh-host1.{{ primary_zone_name }}"
+    - "ssh-check.{{ primary_zone_name }}"
+    - "ssh-metadata.{{ primary_zone_name }}"
+    - "ssh-temp.{{ primary_zone_name }}"
+  ignore_errors: true

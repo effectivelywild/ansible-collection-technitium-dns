@@ -15,8 +15,8 @@ description:
 seealso:
   - module: effectivelywild.technitium_dns.technitium_dns_create_zone
     description: Creates DNS Zones
-  - module: effectivelywild.technitium_dns.technitium_dns_delete_zone
-    description: Deletes DNS Zones
+  - module: effectivelywild.technitium_dns.technitium_dns_zone
+    description: State-based management for DNS zones
   - module: effectivelywild.technitium_dns.technitium_dns_sign_zone
     description: Sign a zone with DNSSEC
   - module: effectivelywild.technitium_dns.technitium_dns_get_zone_info

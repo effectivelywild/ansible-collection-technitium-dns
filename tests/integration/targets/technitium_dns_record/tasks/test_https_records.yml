@@ -1,0 +1,571 @@
+---
+# HTTPS (HTTP/3) Record Tests for technitium_dns_record module
+# NOTE: HTTPS records support multiple records per DNS name
+# HTTPS records are service bindings for HTTPS services (RFC 9460)
+
+# =============================================================================
+# Test 1: Shorthand Single Record - Create, Update, Delete
+# =============================================================================
+- name: "Test 1.1: Create single HTTPS record using shorthand syntax"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "shorthand-https.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: HTTPS
+    svcPriority: 1
+    svcTargetName: "target1.{{ primary_zone_name }}"
+    svcParams: "alpn|h2"
+    state: present
+  register: test1_create
+
+- name: "Test 1.1: Assert record was created"
+  ansible.builtin.assert:
+    that:
+      - test1_create is changed
+
+- name: "Test 1.2: Verify record exists with correct values"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "shorthand-https.{{ primary_zone_name }}"
+  register: test1_verify
+
+- name: "Test 1.2: Assert record values"
+  ansible.builtin.assert:
+    that:
+      - test1_verify.records | length == 1
+      - test1_verify.records[0].type == 'HTTPS'
+      - test1_verify.records[0].rData.svcPriority == 1
+      - test1_verify.records[0].rData.svcTargetName == "target1.{{ primary_zone_name }}"
+      - test1_verify.records[0].rData.svcParams.alpn == "h2"
+
+- name: "Test 1.3: Idempotency - Run same create again"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "shorthand-https.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: HTTPS
+    svcPriority: 1
+    svcTargetName: "target1.{{ primary_zone_name }}"
+    svcParams: "alpn|h2"
+    state: present
+  register: test1_idempotent
+
+- name: "Test 1.3: Assert no changes"
+  ansible.builtin.assert:
+    that:
+      - test1_idempotent is not changed
+
+- name: "Test 1.4: Delete shorthand record"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "shorthand-https.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: HTTPS
+    state: absent
+  register: test1_delete
+
+- name: "Test 1.4: Assert deletion succeeded"
+  ansible.builtin.assert:
+    that:
+      - test1_delete is changed
+
+- name: "Test 1.5: Verify record is deleted"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "shorthand-https.{{ primary_zone_name }}"
+  register: test1_verify_delete
+  ignore_errors: true
+
+- name: "Test 1.5: Assert record is gone"
+  ansible.builtin.assert:
+    that:
+      - test1_verify_delete is failed
+
+# =============================================================================
+# Test 2: Multiple Records in a Set - Different Priorities
+# =============================================================================
+- name: "Test 2.1: Create multiple HTTPS records"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "multi-https.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: HTTPS
+    ttl: 7200
+    records:
+      - svcPriority: 1
+        svcTargetName: "primary.{{ primary_zone_name }}"
+        svcParams: "alpn|h3"
+      - svcPriority: 2
+        svcTargetName: "secondary.{{ primary_zone_name }}"
+        svcParams: "alpn|h2"
+      - svcPriority: 10
+        svcTargetName: "backup.{{ primary_zone_name }}"
+        svcParams: "alpn|h2|port|8443"
+    state: present
+  register: test2_create
+
+- name: "Test 2.1: Assert records were created"
+  ansible.builtin.assert:
+    that:
+      - test2_create is changed
+
+- name: "Test 2.2: Verify all 3 records exist"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "multi-https.{{ primary_zone_name }}"
+  register: test2_verify
+
+- name: "Test 2.2: Assert 3 HTTPS records exist"
+  ansible.builtin.assert:
+    that:
+      - test2_verify.records | length == 3
+      - test2_verify.records | selectattr('rData.svcPriority', 'equalto', 1) | list | length == 1
+      - test2_verify.records | selectattr('rData.svcPriority', 'equalto', 2) | list | length == 1
+      - test2_verify.records | selectattr('rData.svcPriority', 'equalto', 10) | list | length == 1
+
+- name: "Test 2.3: Idempotency - Run same create again"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "multi-https.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: HTTPS
+    ttl: 7200
+    records:
+      - svcPriority: 1
+        svcTargetName: "primary.{{ primary_zone_name }}"
+        svcParams: "alpn|h3"
+      - svcPriority: 2
+        svcTargetName: "secondary.{{ primary_zone_name }}"
+        svcParams: "alpn|h2"
+      - svcPriority: 10
+        svcTargetName: "backup.{{ primary_zone_name }}"
+        svcParams: "alpn|h2|port|8443"
+    state: present
+  register: test2_idempotent
+
+- name: "Test 2.3: Assert no changes"
+  ansible.builtin.assert:
+    that:
+      - test2_idempotent is not changed
+
+- name: "Test 2.4: Delete entire record set"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "multi-https.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: HTTPS
+    state: absent
+  register: test2_delete
+
+- name: "Test 2.4: Assert deletion succeeded"
+  ansible.builtin.assert:
+    that:
+      - test2_delete is changed
+
+# =============================================================================
+# Test 3: Overwrite Mode
+# =============================================================================
+- name: "Test 3.1: Create initial HTTPS records"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "overwrite-https.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: HTTPS
+    ttl: 3600
+    records:
+      - svcPriority: 1
+        svcTargetName: "old1.{{ primary_zone_name }}"
+        svcParams: "alpn|h2"
+      - svcPriority: 2
+        svcTargetName: "old2.{{ primary_zone_name }}"
+        svcParams: "alpn|h2"
+    state: present
+  register: test3_create
+
+- name: "Test 3.2: Overwrite with new record set"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "overwrite-https.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: HTTPS
+    ttl: 7200
+    overwrite: true
+    records:
+      - svcPriority: 10
+        svcTargetName: "new.{{ primary_zone_name }}"
+        svcParams: "alpn|h3"
+    state: present
+  register: test3_overwrite
+
+- name: "Test 3.2: Assert overwrite was applied"
+  ansible.builtin.assert:
+    that:
+      - test3_overwrite is changed
+
+- name: "Test 3.3: Verify only new record exists"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "overwrite-https.{{ primary_zone_name }}"
+  register: test3_verify
+
+- name: "Test 3.3: Assert only replacement records exist"
+  ansible.builtin.assert:
+    that:
+      - test3_verify.records | length == 1
+      - test3_verify.records[0].rData.svcPriority == 10
+      - test3_verify.records | selectattr('rData.svcPriority', 'equalto', 1) | list | length == 0
+
+- name: "Test 3.4: Delete overwrite test records"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "overwrite-https.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: HTTPS
+    state: absent
+  register: test3_delete
+
+# =============================================================================
+# Test 4: Additive Mode (overwrite=false)
+# =============================================================================
+- name: "Test 4.1: Create initial HTTPS record"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "additive-https.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: HTTPS
+    overwrite: false
+    records:
+      - svcPriority: 1
+        svcTargetName: "first.{{ primary_zone_name }}"
+        svcParams: "alpn|h2"
+    state: present
+  register: test4_create
+
+- name: "Test 4.2: Add additional record (additive mode)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "additive-https.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: HTTPS
+    overwrite: false
+    records:
+      - svcPriority: 2
+        svcTargetName: "second.{{ primary_zone_name }}"
+        svcParams: "alpn|h3"
+    state: present
+  register: test4_add
+
+- name: "Test 4.2: Assert record was added"
+  ansible.builtin.assert:
+    that:
+      - test4_add is changed
+
+- name: "Test 4.3: Verify both records exist"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "additive-https.{{ primary_zone_name }}"
+  register: test4_verify
+
+- name: "Test 4.3: Assert both records exist"
+  ansible.builtin.assert:
+    that:
+      - test4_verify.records | length == 2
+      - test4_verify.records | selectattr('rData.svcPriority', 'equalto', 1) | list | length == 1
+      - test4_verify.records | selectattr('rData.svcPriority', 'equalto', 2) | list | length == 1
+
+- name: "Test 4.4: Delete additive test records"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "additive-https.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: HTTPS
+    state: absent
+  register: test4_delete
+
+# =============================================================================
+# Test 5: Selective Deletion
+# =============================================================================
+- name: "Test 5.1: Create multiple HTTPS records for selective deletion"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "selective-https.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: HTTPS
+    records:
+      - svcPriority: 1
+        svcTargetName: "keep.{{ primary_zone_name }}"
+        svcParams: "alpn|h2"
+      - svcPriority: 2
+        svcTargetName: "delete.{{ primary_zone_name }}"
+        svcParams: "alpn|h3"
+    state: present
+  register: test5_create
+
+- name: "Test 5.2: Delete specific record by identifying fields"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "selective-https.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: HTTPS
+    records:
+      - svcPriority: 2
+        svcTargetName: "delete.{{ primary_zone_name }}"
+    state: absent
+  register: test5_selective_delete
+
+- name: "Test 5.2: Assert selective deletion succeeded"
+  ansible.builtin.assert:
+    that:
+      - test5_selective_delete is changed
+
+- name: "Test 5.3: Verify only one record remains"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "selective-https.{{ primary_zone_name }}"
+  register: test5_verify
+
+- name: "Test 5.3: Assert correct record remains"
+  ansible.builtin.assert:
+    that:
+      - test5_verify.records | length == 1
+      - test5_verify.records[0].rData.svcPriority == 1
+
+- name: "Test 5.4: Cleanup remaining records"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "selective-https.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: HTTPS
+    state: absent
+  register: test5_cleanup
+
+# =============================================================================
+# Test 6: Check Mode
+# =============================================================================
+- name: "Test 6.1: Check mode - Create HTTPS record"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "check-https.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: HTTPS
+    svcPriority: 1
+    svcTargetName: "check.{{ primary_zone_name }}"
+    svcParams: "alpn|h2"
+    state: present
+  check_mode: true
+  register: test6_check_create
+
+- name: "Test 6.1: Assert check mode reports change"
+  ansible.builtin.assert:
+    that:
+      - test6_check_create is changed
+
+- name: "Test 6.2: Verify record was NOT created"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "check-https.{{ primary_zone_name }}"
+  register: test6_verify
+  ignore_errors: true
+
+- name: "Test 6.2: Assert record does not exist"
+  ansible.builtin.assert:
+    that:
+      - test6_verify is failed
+
+# =============================================================================
+# Test 7: Optional Fields (autoIpv4Hint, autoIpv6Hint)
+# =============================================================================
+- name: "Test 7.1: Create HTTPS record with autoIpv4Hint"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "hints-https.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: HTTPS
+    records:
+      - svcPriority: 1
+        svcTargetName: "."
+        svcParams: "alpn|h3"
+        autoIpv4Hint: true
+        autoIpv6Hint: true
+    state: present
+  register: test7_create
+
+- name: "Test 7.1: Assert record was created"
+  ansible.builtin.assert:
+    that:
+      - test7_create is changed
+
+- name: "Test 7.2: Verify record with hints"
+  technitium_dns_get_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "hints-https.{{ primary_zone_name }}"
+  register: test7_verify
+
+- name: "Test 7.2: Assert hints are present"
+  ansible.builtin.assert:
+    that:
+      - test7_verify.records | length == 1
+      - test7_verify.records[0].rData.autoIpv4Hint == true
+      - test7_verify.records[0].rData.autoIpv6Hint == true
+
+- name: "Test 7.3: Delete hints test records"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "hints-https.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: HTTPS
+    records:
+      - svcPriority: 1
+        svcTargetName: "."
+        svcParams: "alpn|h3"
+    state: absent
+  register: test7_delete
+
+- name: "Test 7.1: Create HTTPS record in DNSSEC-enabled zone"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "dnssec-test.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: HTTPS
+    svcPriority: 1
+    svcTargetName: "target.{{ primary_zone_name }}"
+    svcParams: "alpn|h2"
+    state: present
+  register: test7_dnssec_create
+
+- name: "Test 7.1: Assert DNSSEC zone record created"
+  ansible.builtin.assert:
+    that:
+      - test7_dnssec_create is changed
+
+- name: "Test 7.1: Cleanup DNSSEC zone test"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "dnssec-test.{{ primary_sec_zone_name }}"
+    zone: "{{ primary_sec_zone_name }}"
+    type: HTTPS
+    state: absent
+
+# =============================================================================
+# Test 8: Negative Tests
+# =============================================================================
+- name: "Test 8.1: Attempt to create HTTPS without required svcTargetName"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "neg-missing-https.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: HTTPS
+    svcPriority: 1
+    state: present
+  register: test8_missing
+  ignore_errors: true
+
+- name: "Test 8.1: Assert missing required field error"
+  ansible.builtin.assert:
+    that:
+      - test8_missing is failed
+      - "'svcTargetName' in test8_missing.msg"
+
+- name: "Test 8.2: Attempt to create HTTPS with unsupported field"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "neg-unsupported-https.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: HTTPS
+    records:
+      - svcPriority: 1
+        svcTargetName: "target.{{ primary_zone_name }}"
+        svcParams: "alpn|h2"
+        ipAddress: "192.0.2.1"
+    state: present
+  register: test8_unsupported
+  ignore_errors: true
+
+- name: "Test 8.2: Assert unsupported field error"
+  ansible.builtin.assert:
+    that:
+      - test8_unsupported is failed
+      - "'ipAddress' in test8_unsupported.msg"
+
+# =============================================================================
+# Test 9: Idempotent Deletion
+# =============================================================================
+- name: "Test 9.1: Delete non-existent HTTPS record (idempotent)"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "nonexistent-https.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: HTTPS
+    state: absent
+  register: test9_delete_nonexistent
+
+- name: "Test 9.1: Assert no changes"
+  ansible.builtin.assert:
+    that:
+      - test9_delete_nonexistent is not changed
+
+- name: "Test Completion Message"
+  ansible.builtin.debug:
+    msg: "HTTPS Record tests completed successfully!"
