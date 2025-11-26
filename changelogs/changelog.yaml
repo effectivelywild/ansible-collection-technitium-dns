@@ -264,3 +264,51 @@ releases:
     release_date: '2025-10-06'
   0.9.1:
     release_date: '2025-10-06'
+  1.0.0:
+    modules:
+    - description: Delete DNS cluster configuration.
+      name: technitium_dns_delete_cluster
+      namespace: ''
+    - description: Immediately delete a Secondary node from the cluster.
+      name: technitium_dns_delete_secondary_node
+      namespace: ''
+    - description: Get DNS cluster state.
+      name: technitium_dns_get_cluster_state
+      namespace: ''
+    - description: Initialize a new DNS cluster.
+      name: technitium_dns_init_cluster
+      namespace: ''
+    - description: Join a DNS server to an existing cluster as a Secondary node.
+      name: technitium_dns_init_join_cluster
+      namespace: ''
+    - description: Leave a DNS cluster.
+      name: technitium_dns_leave_cluster
+      namespace: ''
+    - description: Authenticate and get a session token.
+      name: technitium_dns_login
+      namespace: ''
+    - description: Promote a Secondary node to Primary.
+      name: technitium_dns_promote_secondary_node
+      namespace: ''
+    - description: Manage DNS records.
+      name: technitium_dns_record
+      namespace: ''
+    - description: Remove a Secondary node from the cluster.
+      name: technitium_dns_remove_secondary_node
+      namespace: ''
+    - description: Manually trigger cluster configuration resync.
+      name: technitium_dns_resync_cluster
+      namespace: ''
+    - description: Set DNS cluster options.
+      name: technitium_dns_set_cluster_options
+      namespace: ''
+    - description: Update cluster node IP address.
+      name: technitium_dns_update_cluster_node_ip
+      namespace: ''
+    - description: Update Primary node details on a Secondary node.
+      name: technitium_dns_update_primary_node
+      namespace: ''
+    - description: Manage DNS zones with state-based approach.
+      name: technitium_dns_zone
+      namespace: ''
+    release_date: '2025-11-26'
