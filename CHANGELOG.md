@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.0.0](https://github.com/effectivelywild/ansible-collection-technitium-dns/compare/v0.9.1...v1.0.0) (2025-11-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* Add technitium_dns_record and technitium_dns_zone modules ([#43](https://github.com/effectivelywild/ansible-collection-technitium-dns/issues/43))
+* Update to support v14 changes and add clustering modules ([#42](https://github.com/effectivelywild/ansible-collection-technitium-dns/issues/42))
+
+### Features
+
+* Add technitium_dns_record and technitium_dns_zone modules ([#43](https://github.com/effectivelywild/ansible-collection-technitium-dns/issues/43)) ([8d6218c](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/8d6218ce748b7e5029c8ed632df01233ed640f80))
+* Update to support v14 changes and add clustering modules ([#42](https://github.com/effectivelywild/ansible-collection-technitium-dns/issues/42)) ([408e461](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/408e461ca0c4ddec45a0dd67f5d1b4202b0f3241))
+
 ## [0.9.1](https://github.com/effectivelywild/ansible-collection-technitium-dns/compare/v0.9.0...v0.9.1) (2025-10-06)
 
 
