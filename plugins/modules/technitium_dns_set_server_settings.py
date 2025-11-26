@@ -1027,6 +1027,17 @@ class SetServerSettingsModule(TechnitiumModule):
         return query
 
     def _compute_diff(self, current, desired):
+        # Flatten proxy fields from nested structure (API response) for comparison
+        proxy = current.get('proxy') or {}
+        if proxy:
+            current = dict(current)
+            current['proxyType'] = proxy.get('type')
+            current['proxyAddress'] = proxy.get('address')
+            current['proxyPort'] = proxy.get('port')
+            current['proxyUsername'] = proxy.get('username')
+            current['proxyPassword'] = proxy.get('password')
+            current['proxyBypass'] = proxy.get('bypass')
+
         diff = {}
         for key, desired_value in desired.items():
             current_value = current.get(key)
