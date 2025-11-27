@@ -918,6 +918,21 @@ class SetServerSettingsModule(TechnitiumModule):
 
     int_list_fields = {'socketPoolExcludedPorts'}
 
+    @staticmethod
+    def _is_false_clear(value):
+        """Helper to detect explicit clear intent (boolean False or literal 'false')."""
+        if isinstance(value, list) and len(value) == 1:
+            inner = value[0]
+            if inner is False:
+                return True
+            if isinstance(inner, str) and inner.strip().lower() == 'false':
+                return True
+        if value is False:
+            return True
+        if isinstance(value, str) and value.strip().lower() == 'false':
+            return True
+        return False
+
     def _normalize_limits(self, value):
         if value in [False, 'false']:
             return 'false'
@@ -954,6 +969,10 @@ class SetServerSettingsModule(TechnitiumModule):
         if key in self.simple_list_fields:
             if value is None:
                 return []
+            if key == 'blockListUrls' and self._is_false_clear(value):
+                return []
+            if isinstance(value, bool):
+                return [str(value)]
             if isinstance(value, list):
                 return sorted([str(v) for v in value])
             if isinstance(value, str):
@@ -962,6 +981,8 @@ class SetServerSettingsModule(TechnitiumModule):
         if key in self.int_list_fields:
             if value is None:
                 return []
+            if isinstance(value, bool):
+                return [] if value is False else [int(value)]
             if isinstance(value, list):
                 return sorted([int(v) for v in value])
             if isinstance(value, str):
@@ -1020,7 +1041,11 @@ class SetServerSettingsModule(TechnitiumModule):
         query = {}
         for key, value in desired.items():
             if key in self.simple_list_fields:
-                query[key] = self._serialize_list(value)
+                # Special-case: for blockListUrls, use explicit "false" string to clear when value is False/empty
+                if key == 'blockListUrls' and self._is_false_clear(value):
+                    query[key] = 'false'
+                else:
+                    query[key] = self._serialize_list(value)
             elif key in self.int_list_fields:
                 query[key] = self._serialize_int_list(value)
             elif key in ['qpmPrefixLimitsIPv4', 'qpmPrefixLimitsIPv6']:
@@ -1048,8 +1073,15 @@ class SetServerSettingsModule(TechnitiumModule):
         diff = {}
         for key, desired_value in desired.items():
             current_value = current.get(key)
+
+            # Treat blockListUrls cleared via "false" as equivalent to null/empty
+            if key == 'blockListUrls' and self._is_false_clear(desired_value):
+                if self._is_false_clear(current_value) or current_value in [None, []]:
+                    continue
+
             norm_current = self._normalize_value(key, current_value)
             norm_desired = self._normalize_value(key, desired_value)
+
             if norm_current != norm_desired:
                 diff[key] = {'current': current_value, 'desired': desired_value}
         return diff
@@ -1065,7 +1097,25 @@ class SetServerSettingsModule(TechnitiumModule):
         if not desired_settings:
             self.fail_json(msg="At least one setting must be provided.")
 
+        # Only allow clearing blockListUrls via explicit boolean false
+        if 'blockListUrls' in desired_settings:
+            val = desired_settings['blockListUrls']
+            if isinstance(val, list) and len(val) == 0:
+                self.fail_json(msg="blockListUrls can only be cleared with boolean false, not an empty list")
+
         current_settings = self.get_server_settings()
+
+        # Special-case: clearing blockListUrls with False should be idempotent when already empty/null
+        if 'blockListUrls' in desired_settings and self._is_false_clear(desired_settings.get('blockListUrls')):
+            current_blocklists = self._normalize_value('blockListUrls', current_settings.get('blockListUrls'))
+            desired_blocklists = self._normalize_value('blockListUrls', desired_settings.get('blockListUrls'))
+            if current_blocklists == desired_blocklists:
+                self.exit_json(
+                    changed=False,
+                    settings=current_settings,
+                    msg="Server settings already match desired values"
+                )
+
         diff = self._compute_diff(current_settings, desired_settings)
 
         if not diff:
