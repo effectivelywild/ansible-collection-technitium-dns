@@ -1071,3 +1071,138 @@
       - step12_clear.changed
       - not step12_clear_idem.changed
       - post_step12_clear.settings.blockListUrls in [None, [], False, 'false']
+
+- name: "Apply step 13 clear (qpmPrefixLimits false)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    qpmPrefixLimitsIPv4: false
+    qpmPrefixLimitsIPv6: false
+  register: step13_clear_qpm
+
+- name: "Re-apply step 13 clear (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    qpmPrefixLimitsIPv4: false
+    qpmPrefixLimitsIPv6: false
+  register: step13_clear_qpm_idem
+
+- name: "Get settings after step 13 clear"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_step13_clear
+
+- name: "Assert step 13 clear values"
+  assert:
+    that:
+      - step13_clear_qpm.changed
+      - not step13_clear_qpm_idem.changed
+      - post_step13_clear.settings.qpmPrefixLimitsIPv4 in [None, [], False, 'false']
+      - post_step13_clear.settings.qpmPrefixLimitsIPv6 in [None, [], False, 'false']
+
+- name: "Apply step 14 clear (recursionNetworkACL false)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    recursionNetworkACL: false
+  register: step14_clear_recursion_acl
+
+- name: "Re-apply step 14 clear (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    recursionNetworkACL: false
+  register: step14_clear_recursion_acl_idem
+
+- name: "Get settings after step 14 clear"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_step14_clear
+
+- name: "Assert step 14 clear values"
+  assert:
+    that:
+      - step14_clear_recursion_acl.changed
+      - not step14_clear_recursion_acl_idem.changed
+      - post_step14_clear.settings.recursionNetworkACL in [None, [], False, 'false']
+
+- name: "Apply step 15 clear (tsigKeys false)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    tsigKeys: false
+  register: step15_clear_tsig
+
+- name: "Re-apply step 15 clear (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    tsigKeys: false
+  register: step15_clear_tsig_idem
+
+- name: "Get settings after step 15 clear"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_step15_clear
+
+- name: "Assert step 15 clear values"
+  assert:
+    that:
+      - step15_clear_tsig.changed
+      - not step15_clear_tsig_idem.changed
+      - post_step15_clear.settings.tsigKeys in [None, [], False, 'false']
+
+- name: "Apply step 16 clear (forwarders false)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    forwarders: false
+  register: step16_clear_forwarders
+
+- name: "Re-apply step 16 clear (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    forwarders: false
+  register: step16_clear_forwarders_idem
+
+- name: "Get settings after step 16 clear"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_step16_clear
+
+- name: "Assert step 16 clear values"
+  assert:
+    that:
+      - step16_clear_forwarders.changed
+      - not step16_clear_forwarders_idem.changed
+      - post_step16_clear.settings.forwarders in [None, [], False, 'false']

@@ -10,8 +10,7 @@ module: technitium_dns_set_server_settings
 short_description: Update DNS server settings
 version_added: "1.1.0"
 description:
-    - Update Technitium DNS server settings using form-encoded parameters.
-    - Only supplied parameters are sent; unspecified settings remain unchanged.
+    - Update Technitium DNS server settings.
 author:
     - Frank Muise (@effectivelywild)
 seealso:
@@ -755,26 +754,8 @@ class SetServerSettingsModule(TechnitiumModule):
         eDnsClientSubnetIPv6PrefixLength=dict(type='int', required=False),
         eDnsClientSubnetIpv4Override=dict(type='str', required=False),
         eDnsClientSubnetIpv6Override=dict(type='str', required=False),
-        qpmPrefixLimitsIPv4=dict(
-            type='list',
-            elements='dict',
-            required=False,
-            options=dict(
-                prefix=dict(type='int', required=True),
-                udpLimit=dict(type='int', required=True),
-                tcpLimit=dict(type='int', required=True)
-            )
-        ),
-        qpmPrefixLimitsIPv6=dict(
-            type='list',
-            elements='dict',
-            required=False,
-            options=dict(
-                prefix=dict(type='int', required=True),
-                udpLimit=dict(type='int', required=True),
-                tcpLimit=dict(type='int', required=True)
-            )
-        ),
+        qpmPrefixLimitsIPv4=dict(type='raw', required=False),
+        qpmPrefixLimitsIPv6=dict(type='raw', required=False),
         qpmLimitSampleMinutes=dict(type='int', required=False),
         qpmLimitUdpTruncationPercentage=dict(type='int', required=False),
         qpmLimitBypassList=dict(type='list', elements='str', required=False, no_log=True),
@@ -812,19 +793,9 @@ class SetServerSettingsModule(TechnitiumModule):
         dnsTlsCertificatePath=dict(type='str', required=False),
         dnsTlsCertificatePassword=dict(type='str', required=False, no_log=True),
         dnsOverHttpRealIpHeader=dict(type='str', required=False),
-        tsigKeys=dict(
-            type='list',
-            elements='dict',
-            required=False,
-            no_log=True,
-            options=dict(
-                keyName=dict(type='str', required=True, no_log=True),
-                sharedSecret=dict(type='str', required=True, no_log=True),
-                algorithmName=dict(type='str', required=True, no_log=True)
-            )
-        ),
+        tsigKeys=dict(type='raw', required=False, no_log=True),
         recursion=dict(type='str', required=False, choices=['Deny', 'Allow', 'AllowOnlyForPrivateNetworks', 'UseSpecifiedNetworkACL']),
-        recursionNetworkACL=dict(type='list', elements='str', required=False),
+        recursionNetworkACL=dict(type='raw', required=False),
         randomizeName=dict(type='bool', required=False),
         qnameMinimization=dict(type='bool', required=False),
         resolverRetries=dict(type='int', required=False),
@@ -860,7 +831,7 @@ class SetServerSettingsModule(TechnitiumModule):
         proxyUsername=dict(type='str', required=False),
         proxyPassword=dict(type='str', required=False, no_log=True),
         proxyBypass=dict(type='list', elements='str', required=False, no_log=True),
-        forwarders=dict(type='list', elements='str', required=False),
+        forwarders=dict(type='raw', required=False),
         forwarderProtocol=dict(type='str', required=False, choices=['Udp', 'Tcp', 'Tls', 'Https', 'Quic']),
         concurrentForwarding=dict(type='bool', required=False),
         forwarderRetries=dict(type='int', required=False),
@@ -917,6 +888,9 @@ class SetServerSettingsModule(TechnitiumModule):
     }
 
     int_list_fields = {'socketPoolExcludedPorts'}
+    false_clear_simple_list_fields = {'blockListUrls', 'recursionNetworkACL', 'forwarders'}
+    false_clear_limit_fields = {'qpmPrefixLimitsIPv4', 'qpmPrefixLimitsIPv6'}
+    false_clear_key_fields = {'tsigKeys'}
 
     @staticmethod
     def _is_false_clear(value):
@@ -934,8 +908,8 @@ class SetServerSettingsModule(TechnitiumModule):
         return False
 
     def _normalize_limits(self, value):
-        if value in [False, 'false']:
-            return 'false'
+        if self._is_false_clear(value):
+            return []
         if not isinstance(value, list):
             return []
         normalized = []
@@ -950,8 +924,8 @@ class SetServerSettingsModule(TechnitiumModule):
         return sorted(normalized, key=lambda x: x.get('prefix', 0))
 
     def _normalize_tsig_keys(self, value):
-        if value in [False, 'false']:
-            return 'false'
+        if self._is_false_clear(value):
+            return []
         if not isinstance(value, list):
             return []
         normalized = []
@@ -969,7 +943,7 @@ class SetServerSettingsModule(TechnitiumModule):
         if key in self.simple_list_fields:
             if value is None:
                 return []
-            if key == 'blockListUrls' and self._is_false_clear(value):
+            if key in self.false_clear_simple_list_fields and self._is_false_clear(value):
                 return []
             if isinstance(value, bool):
                 return [str(value)]
@@ -987,13 +961,25 @@ class SetServerSettingsModule(TechnitiumModule):
                 return sorted([int(v) for v in value])
             if isinstance(value, str):
                 parts = [p.strip() for p in value.split(",") if p.strip()]
-                return sorted([int(p) for p in parts])
+            return sorted([int(p) for p in parts])
             return [int(value)]
         if key in ['qpmPrefixLimitsIPv4', 'qpmPrefixLimitsIPv6']:
             return self._normalize_limits(value)
         if key == 'tsigKeys':
             return self._normalize_tsig_keys(value)
         return value
+
+    def _validate_list_or_false(self, name, value, allow_string=False):
+        """Ensure raw-typed list fields accept only list/false/optional string for backward compatibility."""
+        if value is None:
+            return
+        if self._is_false_clear(value):
+            return
+        if isinstance(value, list):
+            return
+        if allow_string and isinstance(value, str):
+            return
+        self.fail_json(msg=f"{name} must be a list or false to clear")
 
     def _serialize_list(self, value):
         if isinstance(value, bool):
@@ -1041,8 +1027,7 @@ class SetServerSettingsModule(TechnitiumModule):
         query = {}
         for key, value in desired.items():
             if key in self.simple_list_fields:
-                # Special-case: for blockListUrls, use explicit "false" string to clear when value is False/empty
-                if key == 'blockListUrls' and self._is_false_clear(value):
+                if key in self.false_clear_simple_list_fields and self._is_false_clear(value):
                     query[key] = 'false'
                 else:
                     query[key] = self._serialize_list(value)
@@ -1096,6 +1081,14 @@ class SetServerSettingsModule(TechnitiumModule):
 
         if not desired_settings:
             self.fail_json(msg="At least one setting must be provided.")
+
+        # Validate raw list-or-false fields before further processing
+        for name in self.false_clear_limit_fields | self.false_clear_key_fields:
+            if name in desired_settings:
+                self._validate_list_or_false(name, desired_settings[name])
+        for name in {'recursionNetworkACL', 'forwarders'}:
+            if name in desired_settings:
+                self._validate_list_or_false(name, desired_settings[name], allow_string=True)
 
         # Only allow clearing blockListUrls via explicit boolean false
         if 'blockListUrls' in desired_settings:
