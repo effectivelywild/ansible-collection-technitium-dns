@@ -157,7 +157,7 @@ options:
         type: str
     qpmPrefixLimitsIPv4:
         description:
-            - List of IPv4 prefix limits; set to false to clear. Each item must include prefix, udpLimit, tcpLimit.
+            - List of IPv4 prefix limits. Use clear_qpmPrefixLimitsIPv4 to remove all entries.
         required: false
         type: list
         elements: dict
@@ -174,9 +174,14 @@ options:
                 description: Allowed TCP queries per minute for the prefix
                 type: int
                 required: true
+    clear_qpmPrefixLimitsIPv4:
+        description:
+            - Clear all IPv4 prefix limits. Cannot be used together with qpmPrefixLimitsIPv4.
+        required: false
+        type: bool
     qpmPrefixLimitsIPv6:
         description:
-            - List of IPv6 prefix limits; set to false to clear. Each item must include prefix, udpLimit, tcpLimit.
+            - List of IPv6 prefix limits. Use clear_qpmPrefixLimitsIPv6 to remove all entries.
         required: false
         type: list
         elements: dict
@@ -193,6 +198,11 @@ options:
                 description: Allowed TCP queries per minute for the prefix
                 type: int
                 required: true
+    clear_qpmPrefixLimitsIPv6:
+        description:
+            - Clear all IPv6 prefix limits. Cannot be used together with qpmPrefixLimitsIPv6.
+        required: false
+        type: bool
     qpmLimitSampleMinutes:
         description:
             - Client query stats sample size in minutes.
@@ -383,7 +393,7 @@ options:
         type: str
     tsigKeys:
         description:
-            - List of TSIG keys; set to false to clear. Each item must include keyName, sharedSecret, algorithmName.
+            - List of TSIG keys. Use clear_tsigKeys to remove all keys.
         required: false
         type: list
         elements: dict
@@ -400,6 +410,11 @@ options:
                 description: TSIG algorithm name (e.g. hmac-sha256)
                 type: str
                 required: true
+    clear_tsigKeys:
+        description:
+            - Clear all TSIG keys. Cannot be used together with tsigKeys.
+        required: false
+        type: bool
     recursion:
         description:
             - Recursion policy.
@@ -408,10 +423,15 @@ options:
         choices: [Deny, Allow, AllowOnlyForPrivateNetworks, UseSpecifiedNetworkACL]
     recursionNetworkACL:
         description:
-            - ACL for recursion when policy is UseSpecifiedNetworkACL. Set to false to clear.
+            - ACL for recursion when policy is UseSpecifiedNetworkACL. Use clear_recursionNetworkACL to remove entries.
         required: false
         type: list
         elements: str
+    clear_recursionNetworkACL:
+        description:
+            - Clear recursion network ACL entries. Cannot be used together with recursionNetworkACL.
+        required: false
+        type: bool
     randomizeName:
         description:
             - Enable QNAME randomization.
@@ -552,10 +572,15 @@ options:
         elements: str
     blockListUrls:
         description:
-            - Block list URLs; set to false to clear.
+            - Block list URLs. Use clear_blockListUrls to remove all block list URLs.
         required: false
         type: list
         elements: str
+    clear_blockListUrls:
+        description:
+            - Clear all block list URLs. Cannot be used together with blockListUrls.
+        required: false
+        type: bool
     blockListUpdateIntervalHours:
         description:
             - Interval in hours to update block lists.
@@ -595,10 +620,15 @@ options:
         elements: str
     forwarders:
         description:
-            - Forwarders list; set to false to remove and use recursion.
+            - Forwarders list. Use clear_forwarders to remove all forwarders and use recursion.
         required: false
         type: list
         elements: str
+    clear_forwarders:
+        description:
+            - Clear all forwarders to use recursion. Cannot be used together with forwarders.
+        required: false
+        type: bool
     forwarderProtocol:
         description:
             - Forwarder transport protocol.
@@ -754,8 +784,28 @@ class SetServerSettingsModule(TechnitiumModule):
         eDnsClientSubnetIPv6PrefixLength=dict(type='int', required=False),
         eDnsClientSubnetIpv4Override=dict(type='str', required=False),
         eDnsClientSubnetIpv6Override=dict(type='str', required=False),
-        qpmPrefixLimitsIPv4=dict(type='raw', required=False),
-        qpmPrefixLimitsIPv6=dict(type='raw', required=False),
+        qpmPrefixLimitsIPv4=dict(
+            type='list',
+            elements='dict',
+            required=False,
+            options=dict(
+                prefix=dict(type='int', required=True),
+                udpLimit=dict(type='int', required=True),
+                tcpLimit=dict(type='int', required=True)
+            )
+        ),
+        clear_qpmPrefixLimitsIPv4=dict(type='bool', required=False, default=False),
+        qpmPrefixLimitsIPv6=dict(
+            type='list',
+            elements='dict',
+            required=False,
+            options=dict(
+                prefix=dict(type='int', required=True),
+                udpLimit=dict(type='int', required=True),
+                tcpLimit=dict(type='int', required=True)
+            )
+        ),
+        clear_qpmPrefixLimitsIPv6=dict(type='bool', required=False, default=False),
         qpmLimitSampleMinutes=dict(type='int', required=False),
         qpmLimitUdpTruncationPercentage=dict(type='int', required=False),
         qpmLimitBypassList=dict(type='list', elements='str', required=False, no_log=True),
@@ -793,9 +843,21 @@ class SetServerSettingsModule(TechnitiumModule):
         dnsTlsCertificatePath=dict(type='str', required=False),
         dnsTlsCertificatePassword=dict(type='str', required=False, no_log=True),
         dnsOverHttpRealIpHeader=dict(type='str', required=False),
-        tsigKeys=dict(type='raw', required=False, no_log=True),
+        tsigKeys=dict(
+            type='list',
+            elements='dict',
+            required=False,
+            no_log=True,
+            options=dict(
+                keyName=dict(type='str', required=True, no_log=True),
+                sharedSecret=dict(type='str', required=True, no_log=True),
+                algorithmName=dict(type='str', required=True, no_log=True)
+            )
+        ),
+        clear_tsigKeys=dict(type='bool', required=False, default=False),
         recursion=dict(type='str', required=False, choices=['Deny', 'Allow', 'AllowOnlyForPrivateNetworks', 'UseSpecifiedNetworkACL']),
-        recursionNetworkACL=dict(type='raw', required=False),
+        recursionNetworkACL=dict(type='list', elements='str', required=False),
+        clear_recursionNetworkACL=dict(type='bool', required=False, default=False),
         randomizeName=dict(type='bool', required=False),
         qnameMinimization=dict(type='bool', required=False),
         resolverRetries=dict(type='int', required=False),
@@ -824,6 +886,7 @@ class SetServerSettingsModule(TechnitiumModule):
         blockingAnswerTtl=dict(type='int', required=False),
         customBlockingAddresses=dict(type='list', elements='str', required=False),
         blockListUrls=dict(type='list', elements='str', required=False),
+        clear_blockListUrls=dict(type='bool', required=False, default=False),
         blockListUpdateIntervalHours=dict(type='int', required=False),
         proxyType=dict(type='str', required=False, choices=['None', 'Http', 'Socks5']),
         proxyAddress=dict(type='str', required=False),
@@ -831,7 +894,8 @@ class SetServerSettingsModule(TechnitiumModule):
         proxyUsername=dict(type='str', required=False),
         proxyPassword=dict(type='str', required=False, no_log=True),
         proxyBypass=dict(type='list', elements='str', required=False, no_log=True),
-        forwarders=dict(type='raw', required=False),
+        forwarders=dict(type='list', elements='str', required=False),
+        clear_forwarders=dict(type='bool', required=False, default=False),
         forwarderProtocol=dict(type='str', required=False, choices=['Udp', 'Tcp', 'Tls', 'Https', 'Quic']),
         concurrentForwarding=dict(type='bool', required=False),
         forwarderRetries=dict(type='int', required=False),
@@ -889,8 +953,6 @@ class SetServerSettingsModule(TechnitiumModule):
 
     int_list_fields = {'socketPoolExcludedPorts'}
     false_clear_simple_list_fields = {'blockListUrls', 'recursionNetworkACL', 'forwarders'}
-    false_clear_limit_fields = {'qpmPrefixLimitsIPv4', 'qpmPrefixLimitsIPv6'}
-    false_clear_key_fields = {'tsigKeys'}
 
     @staticmethod
     def _is_false_clear(value):
@@ -961,25 +1023,13 @@ class SetServerSettingsModule(TechnitiumModule):
                 return sorted([int(v) for v in value])
             if isinstance(value, str):
                 parts = [p.strip() for p in value.split(",") if p.strip()]
-            return sorted([int(p) for p in parts])
+                return sorted([int(p) for p in parts])
             return [int(value)]
         if key in ['qpmPrefixLimitsIPv4', 'qpmPrefixLimitsIPv6']:
             return self._normalize_limits(value)
         if key == 'tsigKeys':
             return self._normalize_tsig_keys(value)
         return value
-
-    def _validate_list_or_false(self, name, value, allow_string=False):
-        """Ensure raw-typed list fields accept only list/false/optional string for backward compatibility."""
-        if value is None:
-            return
-        if self._is_false_clear(value):
-            return
-        if isinstance(value, list):
-            return
-        if allow_string and isinstance(value, str):
-            return
-        self.fail_json(msg=f"{name} must be a list or false to clear")
 
     def _serialize_list(self, value):
         if isinstance(value, bool):
@@ -1079,22 +1129,30 @@ class SetServerSettingsModule(TechnitiumModule):
             if value is not None:
                 desired_settings[key] = value
 
+        clear_flags = {
+            'qpmPrefixLimitsIPv4': params.get('clear_qpmPrefixLimitsIPv4'),
+            'qpmPrefixLimitsIPv6': params.get('clear_qpmPrefixLimitsIPv6'),
+            'tsigKeys': params.get('clear_tsigKeys'),
+            'recursionNetworkACL': params.get('clear_recursionNetworkACL'),
+            'forwarders': params.get('clear_forwarders'),
+            'blockListUrls': params.get('clear_blockListUrls'),
+        }
+
+        # Apply clear toggles and guard against conflicting inputs
+        for field, clear_flag in clear_flags.items():
+            if clear_flag:
+                if field in desired_settings and desired_settings[field] not in [None, []]:
+                    self.fail_json(msg=f"Cannot set {field} and clear_{field} at the same time.")
+                desired_settings[field] = False
+
         if not desired_settings:
             self.fail_json(msg="At least one setting must be provided.")
 
-        # Validate raw list-or-false fields before further processing
-        for name in self.false_clear_limit_fields | self.false_clear_key_fields:
-            if name in desired_settings:
-                self._validate_list_or_false(name, desired_settings[name])
-        for name in {'recursionNetworkACL', 'forwarders'}:
-            if name in desired_settings:
-                self._validate_list_or_false(name, desired_settings[name], allow_string=True)
-
-        # Only allow clearing blockListUrls via explicit boolean false
+        # Only allow clearing blockListUrls via the explicit clear flag
         if 'blockListUrls' in desired_settings:
             val = desired_settings['blockListUrls']
             if isinstance(val, list) and len(val) == 0:
-                self.fail_json(msg="blockListUrls can only be cleared with boolean false, not an empty list")
+                self.fail_json(msg="blockListUrls can only be cleared with clear_blockListUrls, not an empty list")
 
         current_settings = self.get_server_settings()
 
