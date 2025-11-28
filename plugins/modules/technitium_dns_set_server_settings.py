@@ -179,6 +179,7 @@ options:
             - Clear all IPv4 prefix limits. Cannot be used together with qpmPrefixLimitsIPv4.
         required: false
         type: bool
+        default: false
     qpmPrefixLimitsIPv6:
         description:
             - List of IPv6 prefix limits. Use clear_qpmPrefixLimitsIPv6 to remove all entries.
@@ -203,6 +204,7 @@ options:
             - Clear all IPv6 prefix limits. Cannot be used together with qpmPrefixLimitsIPv6.
         required: false
         type: bool
+        default: false
     qpmLimitSampleMinutes:
         description:
             - Client query stats sample size in minutes.
@@ -415,6 +417,7 @@ options:
             - Clear all TSIG keys. Cannot be used together with tsigKeys.
         required: false
         type: bool
+        default: false
     recursion:
         description:
             - Recursion policy.
@@ -432,6 +435,7 @@ options:
             - Clear recursion network ACL entries. Cannot be used together with recursionNetworkACL.
         required: false
         type: bool
+        default: false
     randomizeName:
         description:
             - Enable QNAME randomization.
@@ -581,6 +585,7 @@ options:
             - Clear all block list URLs. Cannot be used together with blockListUrls.
         required: false
         type: bool
+        default: false
     blockListUpdateIntervalHours:
         description:
             - Interval in hours to update block lists.
@@ -629,6 +634,7 @@ options:
             - Clear all forwarders to use recursion. Cannot be used together with forwarders.
         required: false
         type: bool
+        default: false
     forwarderProtocol:
         description:
             - Forwarder transport protocol.
