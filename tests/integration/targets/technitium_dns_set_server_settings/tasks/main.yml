@@ -1,0 +1,1240 @@
+---
+# Integration test suite for technitium_dns_set_server_settings
+# Validates setting server settings, verifying via get, idempotency, and cleanup.
+
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+- name: "Get original server settings"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: original_settings
+
+# Desired settings (kept safe and reversible). Avoids fields that are null/secret by default.
+- name: "Set desired server settings for test"
+  set_fact:
+    desired_settings:
+      dnsServerDomain: "ansible-test.{{ testing_suffix }}"
+      dnsServerLocalEndPoints:
+        - "0.0.0.0:53"
+        - "[::]:53"
+      dnsServerIPv4SourceAddresses:
+        - "0.0.0.0"
+      dnsServerIPv6SourceAddresses:
+        - "::"
+      defaultRecordTtl: 7200
+      useSoaSerialDateScheme: true
+      minSoaRefresh: 600
+      minSoaRetry: 600
+      zoneTransferAllowedNetworks:
+        - "10.0.0.0/24"
+      notifyAllowedNetworks:
+        - "10.0.1.0/24"
+      dnsAppsEnableAutomaticUpdate: false
+      preferIPv6: true
+      enableUdpSocketPool: true
+      socketPoolExcludedPorts:
+        - 53443
+        - 53444
+      udpPayloadSize: 1400
+      dnssecValidation: true
+      eDnsClientSubnet: true
+      eDnsClientSubnetIPv4PrefixLength: 20
+      eDnsClientSubnetIPv6PrefixLength: 60
+      qpmPrefixLimitsIPv4:
+        - { prefix: 32, udpLimit: 500, tcpLimit: 500 }
+        - { prefix: 24, udpLimit: 5500, tcpLimit: 5500 }
+      qpmPrefixLimitsIPv6:
+        - { prefix: 128, udpLimit: 500, tcpLimit: 500 }
+        - { prefix: 64, udpLimit: 1100, tcpLimit: 1100 }
+      qpmLimitSampleMinutes: 6
+      qpmLimitUdpTruncationPercentage: 40
+      qpmLimitBypassList:
+        - "192.0.2.0/24"
+      clientTimeout: 2500
+      tcpSendTimeout: 12000
+      tcpReceiveTimeout: 12000
+      quicIdleTimeout: 65000
+      quicMaxInboundStreams: 150
+      listenBacklog: 120
+      maxConcurrentResolutionsPerCore: 120
+      webServiceLocalAddresses:
+        - "[::]"
+      webServiceHttpPort: 5380
+      webServiceEnableTls: false
+      webServiceEnableHttp3: false
+      webServiceHttpToTlsRedirect: false
+      webServiceTlsPort: 53443
+      webServiceUseSelfSignedTlsCertificate: false
+      webServiceRealIpHeader: "X-Forwarded-For"
+      enableDnsOverUdpProxy: false
+      enableDnsOverTcpProxy: false
+      enableDnsOverHttp: false
+      enableDnsOverTls: false
+      enableDnsOverHttps: false
+      enableDnsOverHttp3: false
+      enableDnsOverQuic: false
+      dnsOverUdpProxyPort: 538
+      dnsOverTcpProxyPort: 538
+      dnsOverHttpPort: 80
+      dnsOverTlsPort: 853
+      dnsOverHttpsPort: 443
+      dnsOverQuicPort: 853
+      reverseProxyNetworkACL:
+        - "203.0.113.0/24"
+      recursion: "UseSpecifiedNetworkACL"
+      recursionNetworkACL:
+        - "127.0.0.1"
+        - "192.168.0.0/16"
+      randomizeName: true
+      qnameMinimization: false
+      resolverRetries: 3
+      resolverTimeout: 1800
+      resolverConcurrency: 3
+      resolverMaxStackCount: 20
+      saveCache: true
+      serveStale: true
+      serveStaleTtl: 200000
+      serveStaleAnswerTtl: 25
+      serveStaleResetTtl: 25
+      serveStaleMaxWaitTime: 1500
+      cacheMaximumEntries: 15000
+      cacheMinimumRecordTtl: 15
+      cacheMaximumRecordTtl: 604800
+      cacheNegativeRecordTtl: 250
+      cacheFailureRecordTtl: 15
+      cachePrefetchEligibility: 3
+      cachePrefetchTrigger: 8
+      cachePrefetchSampleIntervalInMinutes: 4
+      cachePrefetchSampleEligibilityHitsPerHour: 25
+      enableBlocking: true
+      allowTxtBlockingReport: false
+      blockingBypassList:
+        - "10.10.0.0/24"
+      blockingType: "CustomAddress"
+      blockingAnswerTtl: 20
+      customBlockingAddresses:
+        - "127.0.0.2"
+      blockListUpdateIntervalHours: 12
+      proxyType: "Http"
+      proxyAddress: "proxy.example.com"
+      proxyPort: 8080
+      proxyBypass:
+        - "127.0.0.0/8"
+      forwarderProtocol: "Tcp"
+      concurrentForwarding: false
+      forwarderRetries: 4
+      forwarderTimeout: 1800
+      forwarderConcurrency: 3
+      forwarders:
+        - "1.1.1.1"
+        - "1.0.0.1"
+      loggingType: "Console"
+      enableLogging: true
+      ignoreResolverLogs: true
+      logQueries: true
+      useLocalTime: true
+      logFolder: "logs"
+      maxLogFileDays: 30
+      enableInMemoryStats: true
+      maxStatFileDays: 30
+      tsigKeys:
+        - { keyName: "ansible-key", sharedSecret: "abc123", algorithmName: "hmac-sha256" }
+
+- name: "Define per-step desired settings"
+  set_fact:
+    step1_settings:
+      dnsServerDomain: "{{ desired_settings.dnsServerDomain }}"
+      dnsServerLocalEndPoints: "{{ desired_settings.dnsServerLocalEndPoints }}"
+      dnsServerIPv4SourceAddresses: "{{ desired_settings.dnsServerIPv4SourceAddresses }}"
+      dnsServerIPv6SourceAddresses: "{{ desired_settings.dnsServerIPv6SourceAddresses }}"
+      defaultRecordTtl: "{{ desired_settings.defaultRecordTtl }}"
+      defaultResponsiblePerson: "admin@example.com"
+      useSoaSerialDateScheme: "{{ desired_settings.useSoaSerialDateScheme }}"
+      minSoaRefresh: "{{ desired_settings.minSoaRefresh }}"
+      minSoaRetry: "{{ desired_settings.minSoaRetry }}"
+      zoneTransferAllowedNetworks: "{{ desired_settings.zoneTransferAllowedNetworks }}"
+    step2_settings:
+      notifyAllowedNetworks: "{{ desired_settings.notifyAllowedNetworks }}"
+      dnsAppsEnableAutomaticUpdate: "{{ desired_settings.dnsAppsEnableAutomaticUpdate }}"
+      preferIPv6: "{{ desired_settings.preferIPv6 }}"
+      enableUdpSocketPool: "{{ desired_settings.enableUdpSocketPool }}"
+      socketPoolExcludedPorts: "{{ desired_settings.socketPoolExcludedPorts }}"
+      udpPayloadSize: "{{ desired_settings.udpPayloadSize }}"
+      dnssecValidation: "{{ desired_settings.dnssecValidation }}"
+      eDnsClientSubnet: "{{ desired_settings.eDnsClientSubnet }}"
+      eDnsClientSubnetIPv4PrefixLength: "{{ desired_settings.eDnsClientSubnetIPv4PrefixLength }}"
+      eDnsClientSubnetIPv6PrefixLength: "{{ desired_settings.eDnsClientSubnetIPv6PrefixLength }}"
+    step3_settings:
+      eDnsClientSubnetIpv4Override: "198.51.100.0/24"
+      eDnsClientSubnetIpv6Override: "2001:db8::/48"
+      qpmPrefixLimitsIPv4: "{{ desired_settings.qpmPrefixLimitsIPv4 }}"
+      qpmPrefixLimitsIPv6: "{{ desired_settings.qpmPrefixLimitsIPv6 }}"
+      qpmLimitSampleMinutes: "{{ desired_settings.qpmLimitSampleMinutes }}"
+      qpmLimitUdpTruncationPercentage: "{{ desired_settings.qpmLimitUdpTruncationPercentage }}"
+      qpmLimitBypassList: "{{ desired_settings.qpmLimitBypassList }}"
+      clientTimeout: "{{ desired_settings.clientTimeout }}"
+      tcpSendTimeout: "{{ desired_settings.tcpSendTimeout }}"
+      tcpReceiveTimeout: "{{ desired_settings.tcpReceiveTimeout }}"
+    step4_settings:
+      quicIdleTimeout: "{{ desired_settings.quicIdleTimeout }}"
+      quicMaxInboundStreams: "{{ desired_settings.quicMaxInboundStreams }}"
+      listenBacklog: "{{ desired_settings.listenBacklog }}"
+      maxConcurrentResolutionsPerCore: "{{ desired_settings.maxConcurrentResolutionsPerCore }}"
+      webServiceLocalAddresses: "{{ desired_settings.webServiceLocalAddresses }}"
+      webServiceHttpPort: "{{ desired_settings.webServiceHttpPort }}"
+      webServiceEnableTls: "{{ desired_settings.webServiceEnableTls }}"
+      webServiceEnableHttp3: "{{ desired_settings.webServiceEnableHttp3 }}"
+      webServiceHttpToTlsRedirect: "{{ desired_settings.webServiceHttpToTlsRedirect }}"
+      webServiceTlsPort: "{{ desired_settings.webServiceTlsPort }}"
+      webServiceUseSelfSignedTlsCertificate: "{{ desired_settings.webServiceUseSelfSignedTlsCertificate }}"
+      webServiceRealIpHeader: "{{ desired_settings.webServiceRealIpHeader }}"
+    step5_settings:
+      enableDnsOverUdpProxy: "{{ desired_settings.enableDnsOverUdpProxy }}"
+      enableDnsOverTcpProxy: "{{ desired_settings.enableDnsOverTcpProxy }}"
+      enableDnsOverHttp: "{{ desired_settings.enableDnsOverHttp }}"
+      enableDnsOverTls: "{{ desired_settings.enableDnsOverTls }}"
+      enableDnsOverHttps: "{{ desired_settings.enableDnsOverHttps }}"
+      enableDnsOverHttp3: "{{ desired_settings.enableDnsOverHttp3 }}"
+      enableDnsOverQuic: "{{ desired_settings.enableDnsOverQuic }}"
+      dnsOverUdpProxyPort: "{{ desired_settings.dnsOverUdpProxyPort }}"
+      dnsOverTcpProxyPort: "{{ desired_settings.dnsOverTcpProxyPort }}"
+      dnsOverHttpPort: "{{ desired_settings.dnsOverHttpPort }}"
+      dnsOverTlsPort: "{{ desired_settings.dnsOverTlsPort }}"
+      dnsOverHttpsPort: "{{ desired_settings.dnsOverHttpsPort }}"
+      dnsOverQuicPort: "{{ desired_settings.dnsOverQuicPort }}"
+      reverseProxyNetworkACL: "{{ desired_settings.reverseProxyNetworkACL }}"
+    step6_settings:
+      recursion: "{{ desired_settings.recursion }}"
+      recursionNetworkACL: "{{ desired_settings.recursionNetworkACL }}"
+      randomizeName: "{{ desired_settings.randomizeName }}"
+      qnameMinimization: "{{ desired_settings.qnameMinimization }}"
+      resolverRetries: "{{ desired_settings.resolverRetries }}"
+      resolverTimeout: "{{ desired_settings.resolverTimeout }}"
+      resolverConcurrency: "{{ desired_settings.resolverConcurrency }}"
+      resolverMaxStackCount: "{{ desired_settings.resolverMaxStackCount }}"
+    step7_settings:
+      saveCache: "{{ desired_settings.saveCache }}"
+      serveStale: "{{ desired_settings.serveStale }}"
+      serveStaleTtl: "{{ desired_settings.serveStaleTtl }}"
+      serveStaleAnswerTtl: "{{ desired_settings.serveStaleAnswerTtl }}"
+      serveStaleResetTtl: "{{ desired_settings.serveStaleResetTtl }}"
+      serveStaleMaxWaitTime: "{{ desired_settings.serveStaleMaxWaitTime }}"
+      cacheMaximumEntries: "{{ desired_settings.cacheMaximumEntries }}"
+      cacheMinimumRecordTtl: "{{ desired_settings.cacheMinimumRecordTtl }}"
+      cacheMaximumRecordTtl: "{{ desired_settings.cacheMaximumRecordTtl }}"
+      cacheNegativeRecordTtl: "{{ desired_settings.cacheNegativeRecordTtl }}"
+    step8_settings:
+      cacheFailureRecordTtl: "{{ desired_settings.cacheFailureRecordTtl }}"
+      cachePrefetchEligibility: "{{ desired_settings.cachePrefetchEligibility }}"
+      cachePrefetchTrigger: "{{ desired_settings.cachePrefetchTrigger }}"
+      cachePrefetchSampleIntervalInMinutes: "{{ desired_settings.cachePrefetchSampleIntervalInMinutes }}"
+      cachePrefetchSampleEligibilityHitsPerHour: "{{ desired_settings.cachePrefetchSampleEligibilityHitsPerHour }}"
+      enableBlocking: "{{ desired_settings.enableBlocking }}"
+      allowTxtBlockingReport: "{{ desired_settings.allowTxtBlockingReport }}"
+      blockingBypassList: "{{ desired_settings.blockingBypassList }}"
+      blockingType: "{{ desired_settings.blockingType }}"
+      blockingAnswerTtl: "{{ desired_settings.blockingAnswerTtl }}"
+    step9_settings:
+      customBlockingAddresses: "{{ desired_settings.customBlockingAddresses }}"
+      blockListUpdateIntervalHours: "{{ desired_settings.blockListUpdateIntervalHours | int }}"
+      proxyType: "{{ desired_settings.proxyType }}"
+      proxyAddress: "{{ desired_settings.proxyAddress }}"
+      proxyPort: "{{ desired_settings.proxyPort | int }}"
+      proxyBypass: "{{ desired_settings.proxyBypass }}"
+      forwarders: "{{ desired_settings.forwarders }}"
+      forwarderProtocol: "{{ desired_settings.forwarderProtocol }}"
+      concurrentForwarding: "{{ desired_settings.concurrentForwarding }}"
+      forwarderRetries: "{{ desired_settings.forwarderRetries | int }}"
+      forwarderTimeout: "{{ desired_settings.forwarderTimeout | int }}"
+    step10_settings:
+      forwarderConcurrency: "{{ desired_settings.forwarderConcurrency }}"
+      loggingType: "{{ desired_settings.loggingType }}"
+      enableLogging: "{{ desired_settings.enableLogging }}"
+      ignoreResolverLogs: "{{ desired_settings.ignoreResolverLogs }}"
+      logQueries: "{{ desired_settings.logQueries }}"
+      useLocalTime: "{{ desired_settings.useLocalTime }}"
+      logFolder: "{{ desired_settings.logFolder }}"
+      maxLogFileDays: "{{ desired_settings.maxLogFileDays }}"
+      enableInMemoryStats: "{{ desired_settings.enableInMemoryStats }}"
+      maxStatFileDays: "{{ desired_settings.maxStatFileDays }}"
+    step11_settings:
+      tsigKeys: "{{ desired_settings.tsigKeys }}"
+
+- name: "Apply step 1 (core settings)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    dnsServerDomain: "{{ step1_settings.dnsServerDomain }}"
+    dnsServerLocalEndPoints: "{{ step1_settings.dnsServerLocalEndPoints }}"
+    dnsServerIPv4SourceAddresses: "{{ step1_settings.dnsServerIPv4SourceAddresses }}"
+    dnsServerIPv6SourceAddresses: "{{ step1_settings.dnsServerIPv6SourceAddresses }}"
+    defaultRecordTtl: "{{ step1_settings.defaultRecordTtl }}"
+    defaultResponsiblePerson: "{{ step1_settings.defaultResponsiblePerson }}"
+    useSoaSerialDateScheme: "{{ step1_settings.useSoaSerialDateScheme }}"
+    minSoaRefresh: "{{ step1_settings.minSoaRefresh }}"
+    minSoaRetry: "{{ step1_settings.minSoaRetry }}"
+    zoneTransferAllowedNetworks: "{{ step1_settings.zoneTransferAllowedNetworks }}"
+  register: step1_apply
+
+- name: "Re-apply step 1 (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    dnsServerDomain: "{{ step1_settings.dnsServerDomain }}"
+    dnsServerLocalEndPoints: "{{ step1_settings.dnsServerLocalEndPoints }}"
+    dnsServerIPv4SourceAddresses: "{{ step1_settings.dnsServerIPv4SourceAddresses }}"
+    dnsServerIPv6SourceAddresses: "{{ step1_settings.dnsServerIPv6SourceAddresses }}"
+    defaultRecordTtl: "{{ step1_settings.defaultRecordTtl }}"
+    defaultResponsiblePerson: "{{ step1_settings.defaultResponsiblePerson }}"
+    useSoaSerialDateScheme: "{{ step1_settings.useSoaSerialDateScheme }}"
+    minSoaRefresh: "{{ step1_settings.minSoaRefresh }}"
+    minSoaRetry: "{{ step1_settings.minSoaRetry }}"
+    zoneTransferAllowedNetworks: "{{ step1_settings.zoneTransferAllowedNetworks }}"
+  register: step1_idem
+
+- name: "Get settings after step 1"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_step1
+
+- name: Debug post_step1
+  ansible.builtin.debug:
+    var: post_step1
+  when: debug | default(false)
+
+- name: Debug step1_settings
+  ansible.builtin.debug:
+    var: step1_settings
+  when: debug | default(false)
+
+- name: "Assert step 1 values"
+  assert:
+    that:
+      - step1_apply.changed
+      - not step1_idem.changed
+      - post_step1.settings.dnsServerDomain == step1_settings.dnsServerDomain
+      - post_step1.settings.dnsServerLocalEndPoints == step1_settings.dnsServerLocalEndPoints
+      - post_step1.settings.dnsServerIPv4SourceAddresses == step1_settings.dnsServerIPv4SourceAddresses
+      - post_step1.settings.dnsServerIPv6SourceAddresses == step1_settings.dnsServerIPv6SourceAddresses
+      - post_step1.settings.defaultRecordTtl == step1_settings.defaultRecordTtl | int
+      - post_step1.settings.useSoaSerialDateScheme == step1_settings.useSoaSerialDateScheme | int
+      - post_step1.settings.minSoaRefresh == step1_settings.minSoaRefresh | int
+      - post_step1.settings.minSoaRetry == step1_settings.minSoaRetry | int
+      - post_step1.settings.zoneTransferAllowedNetworks == step1_settings.zoneTransferAllowedNetworks
+
+- name: "Apply step 2 (UDP/EDNS/QPM basics)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    notifyAllowedNetworks: "{{ step2_settings.notifyAllowedNetworks }}"
+    dnsAppsEnableAutomaticUpdate: "{{ step2_settings.dnsAppsEnableAutomaticUpdate }}"
+    preferIPv6: "{{ step2_settings.preferIPv6 }}"
+    enableUdpSocketPool: "{{ step2_settings.enableUdpSocketPool }}"
+    socketPoolExcludedPorts: "{{ step2_settings.socketPoolExcludedPorts }}"
+    udpPayloadSize: "{{ step2_settings.udpPayloadSize }}"
+    dnssecValidation: "{{ step2_settings.dnssecValidation }}"
+    eDnsClientSubnet: "{{ step2_settings.eDnsClientSubnet }}"
+    eDnsClientSubnetIPv4PrefixLength: "{{ step2_settings.eDnsClientSubnetIPv4PrefixLength }}"
+    eDnsClientSubnetIPv6PrefixLength: "{{ step2_settings.eDnsClientSubnetIPv6PrefixLength }}"
+  register: step2_apply
+
+- name: "Re-apply step 2 (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    notifyAllowedNetworks: "{{ step2_settings.notifyAllowedNetworks }}"
+    dnsAppsEnableAutomaticUpdate: "{{ step2_settings.dnsAppsEnableAutomaticUpdate }}"
+    preferIPv6: "{{ step2_settings.preferIPv6 }}"
+    enableUdpSocketPool: "{{ step2_settings.enableUdpSocketPool }}"
+    socketPoolExcludedPorts: "{{ step2_settings.socketPoolExcludedPorts }}"
+    udpPayloadSize: "{{ step2_settings.udpPayloadSize }}"
+    dnssecValidation: "{{ step2_settings.dnssecValidation }}"
+    eDnsClientSubnet: "{{ step2_settings.eDnsClientSubnet }}"
+    eDnsClientSubnetIPv4PrefixLength: "{{ step2_settings.eDnsClientSubnetIPv4PrefixLength }}"
+    eDnsClientSubnetIPv6PrefixLength: "{{ step2_settings.eDnsClientSubnetIPv6PrefixLength }}"
+  register: step2_idem
+
+- name: "Get settings after step 2"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_step2
+
+- name: Debug post_step2
+  ansible.builtin.debug:
+    var: post_step2
+  when: debug | default(false)
+
+- name: Debug step2_settings
+  ansible.builtin.debug:
+    var: step2_settings
+  when: debug | default(false)
+
+- name: "Assert step 2 values"
+  assert:
+    that:
+      - step2_apply.changed
+      - not step2_idem.changed
+      - post_step2.settings.dnsAppsEnableAutomaticUpdate == step2_settings.dnsAppsEnableAutomaticUpdate
+      - post_step2.settings.preferIPv6 == step2_settings.preferIPv6
+      - post_step2.settings.enableUdpSocketPool == step2_settings.enableUdpSocketPool
+      - post_step2.settings.socketPoolExcludedPorts | sort == step2_settings.socketPoolExcludedPorts | sort
+      - post_step2.settings.udpPayloadSize == step2_settings.udpPayloadSize | int
+      - post_step2.settings.dnssecValidation == step2_settings.dnssecValidation
+      - post_step2.settings.eDnsClientSubnet == step2_settings.eDnsClientSubnet
+      - post_step2.settings.eDnsClientSubnetIPv4PrefixLength == step2_settings.eDnsClientSubnetIPv4PrefixLength | int
+      - post_step2.settings.eDnsClientSubnetIPv6PrefixLength == step2_settings.eDnsClientSubnetIPv6PrefixLength | int
+
+- name: "Apply step 3 (QPM limits and timeouts)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    eDnsClientSubnetIpv4Override: "{{ step3_settings.eDnsClientSubnetIpv4Override }}"
+    eDnsClientSubnetIpv6Override: "{{ step3_settings.eDnsClientSubnetIpv6Override }}"
+    qpmPrefixLimitsIPv4: "{{ step3_settings.qpmPrefixLimitsIPv4 }}"
+    qpmPrefixLimitsIPv6: "{{ step3_settings.qpmPrefixLimitsIPv6 }}"
+    qpmLimitSampleMinutes: "{{ step3_settings.qpmLimitSampleMinutes }}"
+    qpmLimitUdpTruncationPercentage: "{{ step3_settings.qpmLimitUdpTruncationPercentage }}"
+    qpmLimitBypassList: "{{ step3_settings.qpmLimitBypassList }}"
+    clientTimeout: "{{ step3_settings.clientTimeout }}"
+    tcpSendTimeout: "{{ step3_settings.tcpSendTimeout }}"
+    tcpReceiveTimeout: "{{ step3_settings.tcpReceiveTimeout }}"
+  register: step3_apply
+
+- name: "Re-apply step 3 (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    eDnsClientSubnetIpv4Override: "{{ step3_settings.eDnsClientSubnetIpv4Override }}"
+    eDnsClientSubnetIpv6Override: "{{ step3_settings.eDnsClientSubnetIpv6Override }}"
+    qpmPrefixLimitsIPv4: "{{ step3_settings.qpmPrefixLimitsIPv4 }}"
+    qpmPrefixLimitsIPv6: "{{ step3_settings.qpmPrefixLimitsIPv6 }}"
+    qpmLimitSampleMinutes: "{{ step3_settings.qpmLimitSampleMinutes }}"
+    qpmLimitUdpTruncationPercentage: "{{ step3_settings.qpmLimitUdpTruncationPercentage }}"
+    qpmLimitBypassList: "{{ step3_settings.qpmLimitBypassList }}"
+    clientTimeout: "{{ step3_settings.clientTimeout }}"
+    tcpSendTimeout: "{{ step3_settings.tcpSendTimeout }}"
+    tcpReceiveTimeout: "{{ step3_settings.tcpReceiveTimeout }}"
+  register: step3_idem
+
+- name: "Get settings after step 3"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_step3
+
+- name: Debug post_step3
+  ansible.builtin.debug:
+    var: post_step3
+  when: debug | default(false)
+
+- name: Debug step3_settings
+  ansible.builtin.debug:
+    var: step3_settings
+  when: debug | default(false)
+
+- name: "Assert step 3 values"
+  assert:
+    that:
+      - step3_apply.changed
+      - not step3_idem.changed
+      - post_step3.settings.qpmPrefixLimitsIPv4 | length == step3_settings.qpmPrefixLimitsIPv4 | length
+      - post_step3.settings.qpmPrefixLimitsIPv6 | length == step3_settings.qpmPrefixLimitsIPv6 | length
+      - post_step3.settings.qpmLimitSampleMinutes == step3_settings.qpmLimitSampleMinutes | int
+      - post_step3.settings.qpmLimitUdpTruncationPercentage == step3_settings.qpmLimitUdpTruncationPercentage | int
+      - post_step3.settings.qpmLimitBypassList == step3_settings.qpmLimitBypassList
+      - post_step3.settings.clientTimeout == step3_settings.clientTimeout | int
+      - post_step3.settings.tcpSendTimeout == step3_settings.tcpSendTimeout | int
+      - post_step3.settings.tcpReceiveTimeout == step3_settings.tcpReceiveTimeout | int
+
+- name: "Apply step 4 (QUIC/web service basics)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    quicIdleTimeout: "{{ step4_settings.quicIdleTimeout }}"
+    quicMaxInboundStreams: "{{ step4_settings.quicMaxInboundStreams }}"
+    listenBacklog: "{{ step4_settings.listenBacklog }}"
+    maxConcurrentResolutionsPerCore: "{{ step4_settings.maxConcurrentResolutionsPerCore }}"
+    webServiceLocalAddresses: "{{ step4_settings.webServiceLocalAddresses }}"
+    webServiceHttpPort: "{{ step4_settings.webServiceHttpPort }}"
+    webServiceEnableTls: "{{ step4_settings.webServiceEnableTls }}"
+    webServiceEnableHttp3: "{{ step4_settings.webServiceEnableHttp3 }}"
+    webServiceHttpToTlsRedirect: "{{ step4_settings.webServiceHttpToTlsRedirect }}"
+    webServiceTlsPort: "{{ step4_settings.webServiceTlsPort }}"
+  register: step4_apply
+
+- name: "Re-apply step 4 (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    quicIdleTimeout: "{{ step4_settings.quicIdleTimeout }}"
+    quicMaxInboundStreams: "{{ step4_settings.quicMaxInboundStreams }}"
+    listenBacklog: "{{ step4_settings.listenBacklog }}"
+    maxConcurrentResolutionsPerCore: "{{ step4_settings.maxConcurrentResolutionsPerCore }}"
+    webServiceLocalAddresses: "{{ step4_settings.webServiceLocalAddresses }}"
+    webServiceHttpPort: "{{ step4_settings.webServiceHttpPort }}"
+    webServiceEnableTls: "{{ step4_settings.webServiceEnableTls }}"
+    webServiceEnableHttp3: "{{ step4_settings.webServiceEnableHttp3 }}"
+    webServiceHttpToTlsRedirect: "{{ step4_settings.webServiceHttpToTlsRedirect }}"
+    webServiceTlsPort: "{{ step4_settings.webServiceTlsPort }}"
+  register: step4_idem
+
+- name: "Get settings after step 4"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_step4
+
+- name: Debug post_step4
+  ansible.builtin.debug:
+    var: post_step4
+  when: debug | default(false)
+
+- name: Debug step4_settings
+  ansible.builtin.debug:
+    var: step4_settings
+  when: debug | default(false)
+
+- name: "Assert step 4 values"
+  assert:
+    that:
+      - step4_apply.changed
+      - not step4_idem.changed
+      - post_step4.settings.quicIdleTimeout == step4_settings.quicIdleTimeout | int
+      - post_step4.settings.quicMaxInboundStreams == step4_settings.quicMaxInboundStreams | int
+      - post_step4.settings.listenBacklog == step4_settings.listenBacklog | int
+      - post_step4.settings.maxConcurrentResolutionsPerCore == step4_settings.maxConcurrentResolutionsPerCore | int
+      - post_step4.settings.webServiceLocalAddresses == step4_settings.webServiceLocalAddresses
+      - post_step4.settings.webServiceHttpPort == step4_settings.webServiceHttpPort | int
+      - post_step4.settings.webServiceEnableTls == step4_settings.webServiceEnableTls
+      - post_step4.settings.webServiceEnableHttp3 == step4_settings.webServiceEnableHttp3
+      - post_step4.settings.webServiceHttpToTlsRedirect == step4_settings.webServiceHttpToTlsRedirect
+      - post_step4.settings.webServiceTlsPort == step4_settings.webServiceTlsPort | int
+
+- name: "Apply step 5 (DNS-over transports and reverse proxy)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    webServiceUseSelfSignedTlsCertificate: "{{ step4_settings.webServiceUseSelfSignedTlsCertificate }}"
+    webServiceRealIpHeader: "{{ step4_settings.webServiceRealIpHeader }}"
+    enableDnsOverUdpProxy: "{{ step5_settings.enableDnsOverUdpProxy }}"
+    enableDnsOverTcpProxy: "{{ step5_settings.enableDnsOverTcpProxy }}"
+    enableDnsOverHttp: "{{ step5_settings.enableDnsOverHttp }}"
+    enableDnsOverTls: "{{ step5_settings.enableDnsOverTls }}"
+    enableDnsOverHttps: "{{ step5_settings.enableDnsOverHttps }}"
+    enableDnsOverHttp3: "{{ step5_settings.enableDnsOverHttp3 }}"
+    enableDnsOverQuic: "{{ step5_settings.enableDnsOverQuic }}"
+    dnsOverUdpProxyPort: "{{ step5_settings.dnsOverUdpProxyPort }}"
+    dnsOverTcpProxyPort: "{{ step5_settings.dnsOverTcpProxyPort }}"
+    dnsOverHttpPort: "{{ step5_settings.dnsOverHttpPort }}"
+    dnsOverTlsPort: "{{ step5_settings.dnsOverTlsPort }}"
+    dnsOverHttpsPort: "{{ step5_settings.dnsOverHttpsPort }}"
+    dnsOverQuicPort: "{{ step5_settings.dnsOverQuicPort }}"
+    reverseProxyNetworkACL: "{{ step5_settings.reverseProxyNetworkACL }}"
+  register: step5_apply
+
+- name: "Re-apply step 5 (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    webServiceUseSelfSignedTlsCertificate: "{{ step4_settings.webServiceUseSelfSignedTlsCertificate }}"
+    webServiceRealIpHeader: "{{ step4_settings.webServiceRealIpHeader }}"
+    enableDnsOverUdpProxy: "{{ step5_settings.enableDnsOverUdpProxy }}"
+    enableDnsOverTcpProxy: "{{ step5_settings.enableDnsOverTcpProxy }}"
+    enableDnsOverHttp: "{{ step5_settings.enableDnsOverHttp }}"
+    enableDnsOverTls: "{{ step5_settings.enableDnsOverTls }}"
+    enableDnsOverHttps: "{{ step5_settings.enableDnsOverHttps }}"
+    enableDnsOverHttp3: "{{ step5_settings.enableDnsOverHttp3 }}"
+    enableDnsOverQuic: "{{ step5_settings.enableDnsOverQuic }}"
+    dnsOverUdpProxyPort: "{{ step5_settings.dnsOverUdpProxyPort }}"
+    dnsOverTcpProxyPort: "{{ step5_settings.dnsOverTcpProxyPort }}"
+    dnsOverHttpPort: "{{ step5_settings.dnsOverHttpPort }}"
+    dnsOverTlsPort: "{{ step5_settings.dnsOverTlsPort }}"
+    dnsOverHttpsPort: "{{ step5_settings.dnsOverHttpsPort }}"
+    dnsOverQuicPort: "{{ step5_settings.dnsOverQuicPort }}"
+    reverseProxyNetworkACL: "{{ step5_settings.reverseProxyNetworkACL }}"
+  register: step5_idem
+
+- name: "Get settings after step 5"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_step5
+
+- name: Debug post_step5
+  ansible.builtin.debug:
+    var: post_step5
+  when: debug | default(false)
+
+- name: Debug step5_settings
+  ansible.builtin.debug:
+    var: step5_settings
+  when: debug | default(false)
+
+- name: "Assert step 5 values"
+  assert:
+    that:
+      - step5_apply.changed
+      - not step5_idem.changed
+      - post_step5.settings.webServiceUseSelfSignedTlsCertificate == step4_settings.webServiceUseSelfSignedTlsCertificate
+      - post_step5.settings.webServiceRealIpHeader == step4_settings.webServiceRealIpHeader
+      - post_step5.settings.enableDnsOverUdpProxy == step5_settings.enableDnsOverUdpProxy
+      - post_step5.settings.enableDnsOverTcpProxy == step5_settings.enableDnsOverTcpProxy
+      - post_step5.settings.enableDnsOverHttp == step5_settings.enableDnsOverHttp
+      - post_step5.settings.enableDnsOverTls == step5_settings.enableDnsOverTls
+      - post_step5.settings.enableDnsOverHttps == step5_settings.enableDnsOverHttps
+      - post_step5.settings.enableDnsOverHttp3 == step5_settings.enableDnsOverHttp3
+      - post_step5.settings.enableDnsOverQuic == step5_settings.enableDnsOverQuic
+      - post_step5.settings.dnsOverUdpProxyPort == step5_settings.dnsOverUdpProxyPort | int
+      - post_step5.settings.dnsOverTcpProxyPort == step5_settings.dnsOverTcpProxyPort | int
+      - post_step5.settings.dnsOverHttpPort == step5_settings.dnsOverHttpPort | int
+      - post_step5.settings.dnsOverTlsPort == step5_settings.dnsOverTlsPort | int
+      - post_step5.settings.dnsOverHttpsPort == step5_settings.dnsOverHttpsPort | int
+      - post_step5.settings.dnsOverQuicPort == step5_settings.dnsOverQuicPort | int
+      - post_step5.settings.reverseProxyNetworkACL == step5_settings.reverseProxyNetworkACL
+
+- name: "Apply step 6 (recursion and resolver)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    recursion: "{{ step6_settings.recursion }}"
+    recursionNetworkACL: "{{ step6_settings.recursionNetworkACL }}"
+    randomizeName: "{{ step6_settings.randomizeName }}"
+    qnameMinimization: "{{ step6_settings.qnameMinimization }}"
+    resolverRetries: "{{ step6_settings.resolverRetries }}"
+    resolverTimeout: "{{ step6_settings.resolverTimeout }}"
+    resolverConcurrency: "{{ step6_settings.resolverConcurrency }}"
+    resolverMaxStackCount: "{{ step6_settings.resolverMaxStackCount }}"
+  register: step6_apply
+
+- name: "Re-apply step 6 (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    recursion: "{{ step6_settings.recursion }}"
+    recursionNetworkACL: "{{ step6_settings.recursionNetworkACL }}"
+    randomizeName: "{{ step6_settings.randomizeName }}"
+    qnameMinimization: "{{ step6_settings.qnameMinimization }}"
+    resolverRetries: "{{ step6_settings.resolverRetries }}"
+    resolverTimeout: "{{ step6_settings.resolverTimeout }}"
+    resolverConcurrency: "{{ step6_settings.resolverConcurrency }}"
+    resolverMaxStackCount: "{{ step6_settings.resolverMaxStackCount }}"
+  register: step6_idem
+
+- name: "Get settings after step 6"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_step6
+
+- name: "Assert step 6 values"
+  assert:
+    that:
+      - step6_apply.changed
+      - not step6_idem.changed
+      - post_step6.settings.recursion == step6_settings.recursion
+      - post_step6.settings.recursionNetworkACL == step6_settings.recursionNetworkACL
+      - post_step6.settings.randomizeName == step6_settings.randomizeName
+      - post_step6.settings.qnameMinimization == step6_settings.qnameMinimization
+      - post_step6.settings.resolverRetries == step6_settings.resolverRetries | int
+      - post_step6.settings.resolverTimeout == step6_settings.resolverTimeout | int
+      - post_step6.settings.resolverConcurrency == step6_settings.resolverConcurrency | int
+      - post_step6.settings.resolverMaxStackCount == step6_settings.resolverMaxStackCount | int
+
+- name: "Apply step 7 (cache and stale)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    saveCache: "{{ step7_settings.saveCache }}"
+    serveStale: "{{ step7_settings.serveStale }}"
+    serveStaleTtl: "{{ step7_settings.serveStaleTtl }}"
+    serveStaleAnswerTtl: "{{ step7_settings.serveStaleAnswerTtl }}"
+    serveStaleResetTtl: "{{ step7_settings.serveStaleResetTtl }}"
+    serveStaleMaxWaitTime: "{{ step7_settings.serveStaleMaxWaitTime }}"
+    cacheMaximumEntries: "{{ step7_settings.cacheMaximumEntries }}"
+    cacheMinimumRecordTtl: "{{ step7_settings.cacheMinimumRecordTtl }}"
+    cacheMaximumRecordTtl: "{{ step7_settings.cacheMaximumRecordTtl }}"
+    cacheNegativeRecordTtl: "{{ step7_settings.cacheNegativeRecordTtl }}"
+  register: step7_apply
+
+- name: "Re-apply step 7 (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    saveCache: "{{ step7_settings.saveCache }}"
+    serveStale: "{{ step7_settings.serveStale }}"
+    serveStaleTtl: "{{ step7_settings.serveStaleTtl }}"
+    serveStaleAnswerTtl: "{{ step7_settings.serveStaleAnswerTtl }}"
+    serveStaleResetTtl: "{{ step7_settings.serveStaleResetTtl }}"
+    serveStaleMaxWaitTime: "{{ step7_settings.serveStaleMaxWaitTime }}"
+    cacheMaximumEntries: "{{ step7_settings.cacheMaximumEntries }}"
+    cacheMinimumRecordTtl: "{{ step7_settings.cacheMinimumRecordTtl }}"
+    cacheMaximumRecordTtl: "{{ step7_settings.cacheMaximumRecordTtl }}"
+    cacheNegativeRecordTtl: "{{ step7_settings.cacheNegativeRecordTtl }}"
+  register: step7_idem
+
+- name: "Get settings after step 7"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_step7
+
+- name: "Assert step 7 values"
+  assert:
+    that:
+      - step7_apply.changed
+      - not step7_idem.changed
+      - post_step7.settings.saveCache == step7_settings.saveCache
+      - post_step7.settings.serveStale == step7_settings.serveStale
+      - post_step7.settings.serveStaleTtl == step7_settings.serveStaleTtl | int
+      - post_step7.settings.serveStaleAnswerTtl == step7_settings.serveStaleAnswerTtl | int
+      - post_step7.settings.serveStaleResetTtl == step7_settings.serveStaleResetTtl | int
+      - post_step7.settings.serveStaleMaxWaitTime == step7_settings.serveStaleMaxWaitTime | int
+      - post_step7.settings.cacheMaximumEntries == step7_settings.cacheMaximumEntries | int
+      - post_step7.settings.cacheMinimumRecordTtl == step7_settings.cacheMinimumRecordTtl | int
+      - post_step7.settings.cacheMaximumRecordTtl == step7_settings.cacheMaximumRecordTtl | int
+      - post_step7.settings.cacheNegativeRecordTtl == step7_settings.cacheNegativeRecordTtl | int
+
+- name: "Apply step 8 (cache prefetch and blocking basics)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    cacheFailureRecordTtl: "{{ step8_settings.cacheFailureRecordTtl }}"
+    cachePrefetchEligibility: "{{ step8_settings.cachePrefetchEligibility }}"
+    cachePrefetchTrigger: "{{ step8_settings.cachePrefetchTrigger }}"
+    cachePrefetchSampleIntervalInMinutes: "{{ step8_settings.cachePrefetchSampleIntervalInMinutes }}"
+    cachePrefetchSampleEligibilityHitsPerHour: "{{ step8_settings.cachePrefetchSampleEligibilityHitsPerHour }}"
+    enableBlocking: "{{ step8_settings.enableBlocking }}"
+    allowTxtBlockingReport: "{{ step8_settings.allowTxtBlockingReport }}"
+    blockingBypassList: "{{ step8_settings.blockingBypassList }}"
+    blockingType: "{{ step8_settings.blockingType }}"
+    blockingAnswerTtl: "{{ step8_settings.blockingAnswerTtl }}"
+  register: step8_apply
+
+- name: "Re-apply step 8 (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    cacheFailureRecordTtl: "{{ step8_settings.cacheFailureRecordTtl }}"
+    cachePrefetchEligibility: "{{ step8_settings.cachePrefetchEligibility }}"
+    cachePrefetchTrigger: "{{ step8_settings.cachePrefetchTrigger }}"
+    cachePrefetchSampleIntervalInMinutes: "{{ step8_settings.cachePrefetchSampleIntervalInMinutes }}"
+    cachePrefetchSampleEligibilityHitsPerHour: "{{ step8_settings.cachePrefetchSampleEligibilityHitsPerHour }}"
+    enableBlocking: "{{ step8_settings.enableBlocking }}"
+    allowTxtBlockingReport: "{{ step8_settings.allowTxtBlockingReport }}"
+    blockingBypassList: "{{ step8_settings.blockingBypassList }}"
+    blockingType: "{{ step8_settings.blockingType }}"
+    blockingAnswerTtl: "{{ step8_settings.blockingAnswerTtl }}"
+  register: step8_idem
+
+- name: "Get settings after step 8"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_step8
+
+- name: "Assert step 8 values"
+  assert:
+    that:
+      - step8_apply.changed
+      - not step8_idem.changed
+      - post_step8.settings.cacheFailureRecordTtl == step8_settings.cacheFailureRecordTtl | int
+      - post_step8.settings.cachePrefetchEligibility == step8_settings.cachePrefetchEligibility | int
+      - post_step8.settings.cachePrefetchTrigger == step8_settings.cachePrefetchTrigger | int
+      - post_step8.settings.cachePrefetchSampleIntervalInMinutes == step8_settings.cachePrefetchSampleIntervalInMinutes | int
+      - post_step8.settings.cachePrefetchSampleEligibilityHitsPerHour == step8_settings.cachePrefetchSampleEligibilityHitsPerHour | int
+      - post_step8.settings.enableBlocking == step8_settings.enableBlocking
+      - post_step8.settings.allowTxtBlockingReport == step8_settings.allowTxtBlockingReport
+      - post_step8.settings.blockingBypassList == step8_settings.blockingBypassList
+      - post_step8.settings.blockingType == step8_settings.blockingType
+      - post_step8.settings.blockingAnswerTtl == step8_settings.blockingAnswerTtl | int
+
+- name: "Apply step 9 (blocking extras, proxy, forwarders core)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    customBlockingAddresses: "{{ step9_settings.customBlockingAddresses }}"
+    blockListUpdateIntervalHours: "{{ step9_settings.blockListUpdateIntervalHours }}"
+    proxyType: "{{ step9_settings.proxyType }}"
+    proxyAddress: "{{ step9_settings.proxyAddress }}"
+    proxyPort: "{{ step9_settings.proxyPort }}"
+    proxyBypass: "{{ step9_settings.proxyBypass }}"
+    forwarders: "{{ step9_settings.forwarders }}"
+    forwarderProtocol: "{{ step9_settings.forwarderProtocol }}"
+    concurrentForwarding: "{{ step9_settings.concurrentForwarding }}"
+    forwarderRetries: "{{ step9_settings.forwarderRetries }}"
+    forwarderTimeout: "{{ step9_settings.forwarderTimeout }}"
+  register: step9_apply
+
+- name: "Get settings after step 9"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_step9
+
+- name: Debug post_step9
+  ansible.builtin.debug:
+    var: post_step9
+  when: debug | default(false)
+
+- name: Debug step9_settings
+  ansible.builtin.debug:
+    var: step9_settings
+  when: debug | default(false)
+
+- name: "Re-apply step 9 (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    customBlockingAddresses: "{{ step9_settings.customBlockingAddresses }}"
+    blockListUpdateIntervalHours: "{{ step9_settings.blockListUpdateIntervalHours }}"
+    proxyType: "{{ step9_settings.proxyType }}"
+    proxyAddress: "{{ step9_settings.proxyAddress }}"
+    proxyPort: "{{ step9_settings.proxyPort }}"
+    proxyBypass: "{{ step9_settings.proxyBypass }}"
+    forwarderProtocol: "{{ step9_settings.forwarderProtocol }}"
+    forwarders: "{{ step9_settings.forwarders }}"
+    concurrentForwarding: "{{ step9_settings.concurrentForwarding }}"
+    forwarderRetries: "{{ step9_settings.forwarderRetries }}"
+    forwarderTimeout: "{{ step9_settings.forwarderTimeout }}"
+  register: step9_idem
+
+- name: "Get settings after step 9"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_step9
+
+- name: "Assert step 9 values"
+  assert:
+    that:
+      - step9_apply.changed
+      - not step9_idem.changed
+      - post_step9.settings.customBlockingAddresses == step9_settings.customBlockingAddresses
+      - post_step9.settings.blockListUpdateIntervalHours == step9_settings.blockListUpdateIntervalHours | int
+      - post_step9.settings.proxy.type == step9_settings.proxyType
+      - post_step9.settings.proxy.address == step9_settings.proxyAddress
+      - post_step9.settings.proxy.port == step9_settings.proxyPort | int
+      - post_step9.settings.proxy.bypass == step9_settings.proxyBypass
+      - post_step9.settings.forwarders == step9_settings.forwarders
+      - post_step9.settings.forwarderProtocol == step9_settings.forwarderProtocol
+      - post_step9.settings.concurrentForwarding == step9_settings.concurrentForwarding
+      - post_step9.settings.forwarderRetries == step9_settings.forwarderRetries | int
+      - post_step9.settings.forwarderTimeout == step9_settings.forwarderTimeout | int
+
+- name: "Apply step 10 (forwarder concurrency and logging)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    forwarderConcurrency: "{{ step10_settings.forwarderConcurrency }}"
+    loggingType: "{{ step10_settings.loggingType }}"
+    enableLogging: "{{ step10_settings.enableLogging }}"
+    ignoreResolverLogs: "{{ step10_settings.ignoreResolverLogs }}"
+    logQueries: "{{ step10_settings.logQueries }}"
+    useLocalTime: "{{ step10_settings.useLocalTime }}"
+    logFolder: "{{ step10_settings.logFolder }}"
+    maxLogFileDays: "{{ step10_settings.maxLogFileDays }}"
+    enableInMemoryStats: "{{ step10_settings.enableInMemoryStats }}"
+    maxStatFileDays: "{{ step10_settings.maxStatFileDays }}"
+  register: step10_apply
+
+- name: "Re-apply step 10 (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    forwarderConcurrency: "{{ step10_settings.forwarderConcurrency }}"
+    loggingType: "{{ step10_settings.loggingType }}"
+    enableLogging: "{{ step10_settings.enableLogging }}"
+    ignoreResolverLogs: "{{ step10_settings.ignoreResolverLogs }}"
+    logQueries: "{{ step10_settings.logQueries }}"
+    useLocalTime: "{{ step10_settings.useLocalTime }}"
+    logFolder: "{{ step10_settings.logFolder }}"
+    maxLogFileDays: "{{ step10_settings.maxLogFileDays }}"
+    enableInMemoryStats: "{{ step10_settings.enableInMemoryStats }}"
+    maxStatFileDays: "{{ step10_settings.maxStatFileDays }}"
+  register: step10_idem
+
+- name: "Get settings after step 10"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_step10
+
+- name: "Assert step 10 values"
+  assert:
+    that:
+      - step10_apply.changed
+      - not step10_idem.changed
+      - post_step10.settings.forwarderConcurrency == step10_settings.forwarderConcurrency | int
+      - post_step10.settings.loggingType == step10_settings.loggingType
+      - post_step10.settings.enableLogging == step10_settings.enableLogging
+      - post_step10.settings.ignoreResolverLogs == step10_settings.ignoreResolverLogs
+      - post_step10.settings.logQueries == step10_settings.logQueries
+      - post_step10.settings.useLocalTime == step10_settings.useLocalTime
+      - post_step10.settings.logFolder == step10_settings.logFolder
+      - post_step10.settings.maxLogFileDays == step10_settings.maxLogFileDays | int
+      - post_step10.settings.enableInMemoryStats == step10_settings.enableInMemoryStats
+      - post_step10.settings.maxStatFileDays == step10_settings.maxStatFileDays | int
+
+- name: "Apply step 11 (TSIG keys)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    tsigKeys: "{{ step11_settings.tsigKeys }}"
+  register: step11_apply
+
+- name: "Re-apply step 11 (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    tsigKeys: "{{ step11_settings.tsigKeys }}"
+  register: step11_idem
+
+- name: "Get settings after step 11"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_step11
+
+- name: "Assert step 11 values"
+  assert:
+    that:
+      - step11_apply.changed
+      - not step11_idem.changed
+      - post_step11.settings.tsigKeys | length == step11_settings.tsigKeys | length
+- name: Debug original_settings
+  ansible.builtin.debug:
+    var: original_settings
+  when: debug | default(false)
+
+- name: "Apply step 12 (blockListUrls set)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    blockListUrls:
+      - "https://example.com/list1.txt"
+      - "https://example.com/list2.txt"
+  register: step12_apply
+
+- name: "Re-apply step 12 (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    blockListUrls:
+      - "https://example.com/list1.txt"
+      - "https://example.com/list2.txt"
+  register: step12_idem
+
+- name: "Get settings after step 12"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_step12
+
+- name: "Assert step 12 values"
+  assert:
+    that:
+      - step12_apply.changed
+      - not step12_idem.changed
+      - post_step12.settings.blockListUrls is sequence
+      - post_step12.settings.blockListUrls | sort == ['https://example.com/list1.txt', 'https://example.com/list2.txt']
+
+- name: "Apply step 12 clear (blockListUrls clear flag)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    clear_blockListUrls: true
+  register: step12_clear
+
+- name: "Re-apply step 12 clear (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    clear_blockListUrls: true
+  register: step12_clear_idem
+
+- name: "Get settings after step 12 clear"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_step12_clear
+
+- name: Debug post_step12_clear
+  ansible.builtin.debug:
+    var: post_step12_clear
+  when: debug | default(false)
+
+- name: "Assert step 12 clear values"
+  assert:
+    that:
+      - step12_clear.changed
+      - not step12_clear_idem.changed
+      - post_step12_clear.settings.blockListUrls in [None, [], False, 'false']
+
+- name: "Seed qpmPrefixLimits before clear"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    qpmPrefixLimitsIPv4:
+      - { prefix: 32, udpLimit: 100, tcpLimit: 100 }
+    qpmPrefixLimitsIPv6:
+      - { prefix: 128, udpLimit: 100, tcpLimit: 100 }
+  register: step13_seed_qpm
+
+- name: "Apply step 13 clear (qpmPrefixLimits clear flag)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    clear_qpmPrefixLimitsIPv4: true
+    clear_qpmPrefixLimitsIPv6: true
+  register: step13_clear_qpm
+
+- name: "Re-apply step 13 clear (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    clear_qpmPrefixLimitsIPv4: true
+    clear_qpmPrefixLimitsIPv6: true
+  register: step13_clear_qpm_idem
+
+- name: "Get settings after step 13 clear"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_step13_clear
+
+- name: "Assert step 13 clear values"
+  assert:
+    that:
+      - step13_seed_qpm.changed
+      - step13_clear_qpm.changed
+      - not step13_clear_qpm_idem.changed
+      - post_step13_clear.settings.qpmPrefixLimitsIPv4 in [None, [], False, 'false']
+      - post_step13_clear.settings.qpmPrefixLimitsIPv6 in [None, [], False, 'false']
+
+- name: "Seed recursionNetworkACL before clear"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    recursionNetworkACL:
+      - "10.10.10.0/24"
+      - "127.0.0.1"
+  register: step14_seed_acl
+
+- name: "Apply step 14 clear (recursionNetworkACL clear flag)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    clear_recursionNetworkACL: true
+  register: step14_clear_recursion_acl
+
+- name: "Re-apply step 14 clear (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    clear_recursionNetworkACL: true
+  register: step14_clear_recursion_acl_idem
+
+- name: "Get settings after step 14 clear"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_step14_clear
+
+- name: "Assert step 14 clear values"
+  assert:
+    that:
+      - step14_seed_acl.changed
+      - step14_clear_recursion_acl.changed
+      - not step14_clear_recursion_acl_idem.changed
+      - post_step14_clear.settings.recursionNetworkACL in [None, [], False, 'false']
+
+- name: "Seed tsigKeys before clear"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    tsigKeys:
+      - { keyName: "clear-key", sharedSecret: "abc123", algorithmName: "hmac-sha256" }
+  register: step15_seed_tsig
+
+- name: "Apply step 15 clear (tsigKeys clear flag)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    clear_tsigKeys: true
+  register: step15_clear_tsig
+
+- name: "Re-apply step 15 clear (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    clear_tsigKeys: true
+  register: step15_clear_tsig_idem
+
+- name: "Get settings after step 15 clear"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_step15_clear
+
+- name: "Assert step 15 clear values"
+  assert:
+    that:
+      - step15_seed_tsig.changed
+      - step15_clear_tsig.changed
+      - not step15_clear_tsig_idem.changed
+      - post_step15_clear.settings.tsigKeys in [None, [], False, 'false']
+
+- name: "Seed forwarders before clear"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    forwarders:
+      - "9.9.9.9"
+      - "149.112.112.112"
+  register: step16_seed_forwarders
+
+- name: "Apply step 16 clear (forwarders clear flag)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    clear_forwarders: true
+  register: step16_clear_forwarders
+
+- name: "Re-apply step 16 clear (idempotent)"
+  technitium_dns_set_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+    clear_forwarders: true
+  register: step16_clear_forwarders_idem
+
+- name: "Get settings after step 16 clear"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: post_step16_clear
+
+- name: "Assert step 16 clear values"
+  assert:
+    that:
+      - step16_seed_forwarders.changed
+      - step16_clear_forwarders.changed
+      - not step16_clear_forwarders_idem.changed
+      - post_step16_clear.settings.forwarders in [None, [], False, 'false']

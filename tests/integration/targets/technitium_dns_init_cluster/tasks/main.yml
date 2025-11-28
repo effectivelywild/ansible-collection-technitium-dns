@@ -75,6 +75,9 @@
     api_token: "{{ token_cluster_primary_01 }}"
     api_port: "{{ api_port_cluster_primary_01 }}"
   register: delete_result
+  retries: 3        
+  delay: 30          
+  until: delete_result is success
 
 - name: Wait for things to stabilize after deletion
   ansible.builtin.pause:
