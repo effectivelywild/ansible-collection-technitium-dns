@@ -314,3 +314,12 @@ releases:
     release_date: '2025-11-26'
   1.0.1:
     release_date: '2025-11-26'
+  1.1.0:
+    modules:
+    - description: Get DNS server settings.
+      name: technitium_dns_get_server_settings
+      namespace: ''
+    - description: Update DNS server settings.
+      name: technitium_dns_set_server_settings
+      namespace: ''
+    release_date: '2025-12-01'

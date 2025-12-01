@@ -4,6 +4,15 @@ effectivelywild.technitium\_dns Release Notes
 
 .. contents:: Topics
 
+v1.1.0
+======
+
+New Modules
+-----------
+
+- effectivelywild.technitium_dns.technitium_dns_get_server_settings - Get DNS server settings.
+- effectivelywild.technitium_dns.technitium_dns_set_server_settings - Update DNS server settings.
+
 v1.0.1
 ======
 

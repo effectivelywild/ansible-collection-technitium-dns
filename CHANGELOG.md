@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/effectivelywild/ansible-collection-technitium-dns/compare/v1.0.1...v1.1.0) (2025-12-01)
+
+
+### Features
+
+* Add get/set server settings modules ([#47](https://github.com/effectivelywild/ansible-collection-technitium-dns/issues/47)) ([b47a8a2](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/b47a8a20c0ffcea2d1399a5d8dc3532cd4f1996a))
+
 ## [1.0.1](https://github.com/effectivelywild/ansible-collection-technitium-dns/compare/v1.0.0...v1.0.1) (2025-11-26)
 
 
