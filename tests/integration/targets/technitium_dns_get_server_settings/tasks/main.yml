@@ -1,0 +1,66 @@
+---
+# Integration test suite for technitium_dns_get_server_settings
+# Validates default settings retrieval and basic idempotency/error handling.
+
+# Phase 1: Setup - Load configuration
+- name: "Load test configuration"
+  include_vars: ../../integration_config.yml
+
+# Phase 2: Get server settings
+- name: "Get server settings"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: settings_result
+
+- name: "Assert settings retrieval succeeded"
+  assert:
+    that:
+      - not settings_result.failed
+      - not settings_result.changed
+      - settings_result.settings is defined
+    fail_msg: "Server settings should be retrieved successfully"
+
+# Phase 3: Verify some default values
+- name: "Assert expected defaults"
+  assert:
+    that:
+      - settings_result.settings.dnsServerLocalEndPoints is sequence
+      - settings_result.settings.defaultRecordTtl == 3600
+      - settings_result.settings.useSoaSerialDateScheme is boolean
+      - settings_result.settings.minSoaRefresh == 300
+      - settings_result.settings.minSoaRetry == 300
+      - settings_result.settings.dnsAppsEnableAutomaticUpdate is boolean
+      - settings_result.settings.enableUdpSocketPool is boolean
+      - settings_result.settings.socketPoolExcludedPorts is sequence
+      - settings_result.settings.udpPayloadSize == 1232
+      - settings_result.settings.dnssecValidation is boolean
+      - settings_result.settings.eDnsClientSubnet is boolean
+      - settings_result.settings.qpmPrefixLimitsIPv4 is sequence
+      - settings_result.settings.qpmPrefixLimitsIPv6 is sequence
+      - settings_result.settings.qpmLimitSampleMinutes == 5
+      - settings_result.settings.qpmLimitUdpTruncationPercentage == 50
+      - settings_result.settings.qpmLimitBypassList is sequence
+      - settings_result.settings.clientTimeout == 2000
+      - settings_result.settings.tcpSendTimeout == 10000
+      - settings_result.settings.tcpReceiveTimeout == 10000
+      - settings_result.settings.quicIdleTimeout == 60000
+    fail_msg: "Server settings defaults should match expected baseline"
+
+# Phase 5: Test failure with invalid token
+- name: "Get server settings with invalid token"
+  technitium_dns_get_server_settings:
+    api_url: "{{ technitium_api_url_2 }}"
+    api_token: "invalid_token_12345"
+    api_port: "{{ technitium_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: invalid_token_result
+  ignore_errors: true
+
+- name: "Assert failure on invalid token"
+  assert:
+    that:
+      - invalid_token_result.failed
+    fail_msg: "Invalid token should cause failure"
