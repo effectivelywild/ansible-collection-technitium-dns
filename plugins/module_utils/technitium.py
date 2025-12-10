@@ -50,7 +50,6 @@ class TechnitiumModule(AnsibleModule):
             data = urlencode(params)
             headers['Content-Type'] = 'application/x-www-form-urlencoded'
 
-
         try:
             resp, info = fetch_url(
                 self,
