@@ -4,6 +4,38 @@
     dns_servers: "{{ dns_servers | default({}) | combine({ item.name: item }) }}"
   loop: "{{ dns_servers_to_create }}"
 
+- name: "Create Mockoon content-type test container"
+  community.docker.docker_container:
+    name: "mockoon_content_type_test"
+    image: mockoon/cli:latest
+    state: started
+    restart_policy: unless-stopped
+    detach: true
+    published_ports:
+      - "{{ lookup('env', 'MOCKOON_HTTP_PORT_1') | default('5395') }}:{{ lookup('env', 'MOCKOON_HTTP_PORT_1') | default('5395') }}"
+    mounts:
+      - source: "{{ playbook_dir }}/../files/mockoon/mockoon_content_type_test.json"
+        target: /data
+        type: bind
+        read_only: true
+    command: "--data /data --port {{ lookup('env', 'MOCKOON_HTTP_PORT_1') | default('5395') }}"
+
+- name: "Create Mockoon error test container"
+  community.docker.docker_container:
+    name: "mockoon_error_test"
+    image: mockoon/cli:latest
+    state: started
+    restart_policy: unless-stopped
+    detach: true
+    published_ports:
+      - "{{ lookup('env', 'MOCKOON_HTTP_PORT_2') | default('5396') }}:{{ lookup('env', 'MOCKOON_HTTP_PORT_2') | default('5396') }}"
+    mounts:
+      - source: "{{ playbook_dir }}/../files/mockoon/mockoon_error_test.json"
+        target: /data
+        type: bind
+        read_only: true
+    command: "--data /data --port {{ lookup('env', 'MOCKOON_HTTP_PORT_2') | default('5396') }}"
+
 - name: "Create Technitium containers"
   community.docker.docker_container:
     name: "{{ item.name }}"

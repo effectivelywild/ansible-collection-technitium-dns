@@ -1,0 +1,4 @@
+---
+mockoon_content_type_container_name: mockoon_content_type
+mockoon_content_type_container_port: 5395
+mockoon_content_type_container_data: roles/test_utils/files/mockoon/mockoon_content_type_test.json

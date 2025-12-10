@@ -1,7 +1,7 @@
 {
   "uuid": "cf1cf949-cd4b-43f3-bacd-74e1f2b99297",
   "lastMigration": 33,
-  "name": "Technitium DNS - Error Status Code Test",
+  "name": "Technitium DNS - Invalid Content-Type Test",
   "endpointPrefix": "",
   "latency": 0,
   "port": 3000,
@@ -17,14 +17,14 @@
       "responses": [
         {
           "uuid": "8d5f063f-dfda-4f44-a009-06462b692620",
-          "body": "testing error status code 466",
+          "body": "testing invalid content-type",
           "latency": 0,
-          "statusCode": 466,
+          "statusCode": 200,
           "label": "",
           "headers": [
             {
               "key": "Content-Type",
-              "value": "application/json"
+              "value": "text/plain"
             }
           ],
           "bodyType": "INLINE",
