@@ -68,7 +68,17 @@ class TechnitiumModule(AnsibleModule):
                     error_msg += f": {info['msg']}"
                 self.fail_json(msg=error_msg)
 
-            body_bytes = resp.read()
+            body_bytes = resp.read() if resp else b''
+
+            # fetch_url may stash the body on info['body']
+            # so fall back to that if the response stream is empty
+            if not body_bytes:
+                info_body = info.get('body')
+                if isinstance(info_body, bytes):
+                    body_bytes = info_body
+                elif isinstance(info_body, str):
+                    body_bytes = info_body.encode('utf-8', errors='replace')
+
             body_text = body_bytes.decode('utf-8', errors='replace')
             content_type = (info.get('content-type') or '').lower()
             info_status = info.get('status', 0)
