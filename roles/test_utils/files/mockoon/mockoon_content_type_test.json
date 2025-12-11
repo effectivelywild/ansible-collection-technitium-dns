@@ -1,0 +1,72 @@
+{
+  "uuid": "cf1cf949-cd4b-43f3-bacd-74e1f2b99297",
+  "lastMigration": 33,
+  "name": "Technitium DNS - Invalid Content-Type Test",
+  "endpointPrefix": "",
+  "latency": 0,
+  "port": 3000,
+  "hostname": "",
+  "folders": [],
+  "routes": [
+    {
+      "uuid": "e3fddb99-91c6-415e-958c-ca5ae8509821",
+      "type": "http",
+      "documentation": "Path supports various patterns",
+      "method": "get",
+      "endpoint": "*",
+      "responses": [
+        {
+          "uuid": "8d5f063f-dfda-4f44-a009-06462b692620",
+          "body": "testing invalid content-type",
+          "latency": 0,
+          "statusCode": 200,
+          "label": "",
+          "headers": [
+            {
+              "key": "Content-Type",
+              "value": "text/plain"
+            }
+          ],
+          "bodyType": "INLINE",
+          "filePath": "",
+          "databucketID": "",
+          "sendFileAsBody": false,
+          "rules": [],
+          "rulesOperator": "OR",
+          "disableTemplating": false,
+          "fallbackTo404": false,
+          "default": false,
+          "crudKey": "id",
+          "callbacks": []
+        }
+      ],
+      "responseMode": null,
+      "streamingMode": null,
+      "streamingInterval": 0
+    }
+  ],
+  "rootChildren": [
+    {
+      "type": "route",
+      "uuid": "e3fddb99-91c6-415e-958c-ca5ae8509821"
+    }
+  ],
+  "proxyMode": false,
+  "proxyHost": "",
+  "proxyRemovePrefix": false,
+  "tlsOptions": {
+    "enabled": false,
+    "type": "CERT",
+    "pfxPath": "",
+    "certPath": "",
+    "keyPath": "",
+    "caPath": "",
+    "passphrase": ""
+  },
+  "cors": true,
+  "headers": [],
+  "proxyReqHeaders": [],
+  "proxyResHeaders": [],
+  "data": [],
+  "callbacks": []
+}

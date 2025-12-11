@@ -1,0 +1,88 @@
+---
+# Test 1 - Invalid content-type response
+- name: "Test invalid content-type using mockoon"
+  technitium_dns_list_users:
+    api_url: "http://localhost"
+    api_token: "does_not_matter"
+    api_port: "{{ mockoon_api_port_1 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: test_result
+  ignore_errors: true
+
+- name: "Debug test result"
+  debug:
+    var: test_result
+  when: debug | default(false)
+
+- name: "Assert test result failed due to invalid content-type"
+  assert:
+    that:
+      - test_result.failed
+      - "'testing invalid content-type' in (test_result.body_preview | lower)"
+      - "'unexpected content type: text/plain' in (test_result.msg | lower)"
+      - "(test_result.status | int) == 200"
+
+# Test 2 - Unresolvable URL endpoint
+- name: "Test unresolvable url endpoint using"
+  technitium_dns_list_users:
+    api_url: "http://localhost-invalid-endpoint"
+    api_token: "does_not_matter"
+    api_port: "{{ mockoon_api_port_1 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: test_result_2
+  ignore_errors: true
+
+- name: "Debug test result 2"
+  debug:
+    var: test_result_2
+  when: debug | default(false)
+
+- name: "Assert test result 2 failed due to name or service not known"
+  assert:
+    that:
+      - test_result_2.failed
+      - "'name or service not known' in (test_result_2.msg | lower) or 'temporary failure in name resolution' in (test_result_2.msg | lower)"
+
+# Test 3 - Connection refused / no server listening on API port
+- name: "Test connection refused using"
+  technitium_dns_list_users:
+    api_url: "http://localhost"
+    api_token: "does_not_matter"
+    api_port: 5999
+    validate_certs: "{{ validate_certs }}"
+  register: test_result_3
+  ignore_errors: true
+
+- name: "Debug test result 3"
+  debug:
+    var: test_result_3
+  when: debug | default(false)
+
+- name: "Assert test result 3 failed due to connection refused"
+  assert:
+    that:
+      - test_result_3.failed
+      - "'no response received' in (test_result_3.msg | lower)"
+      - "'connection refused' in (test_result_3.msg | lower)"
+
+# Test 4 - >= 400 error catch 
+- name: "Test error response using mockoon"
+  technitium_dns_list_users:
+    api_url: "http://localhost"
+    api_token: "does_not_matter"
+    api_port: "{{ mockoon_api_port_2 | int }}"
+    validate_certs: "{{ validate_certs }}"
+  register: test_result_4
+  ignore_errors: true
+
+- name: "Debug test result 4"
+  debug:
+    var: test_result_4
+  when: debug | default(false)
+
+- name: "Assert test result 4 failed due to 466 error response"
+  assert:
+    that:
+      - test_result_4.failed
+      - "'api request failed with status: 466' in (test_result_4.msg | lower)"
+      - "'testing error status code 466' in (test_result_4.body_preview | lower)"

@@ -67,14 +67,42 @@ class TechnitiumModule(AnsibleModule):
                     error_msg += f": {info['msg']}"
                 self.fail_json(msg=error_msg)
 
-            # Check if the request failed with HTTP error status
-            if info['status'] >= 400:
-                error_msg = f"API request failed with status {info['status']}"
-                if 'msg' in info:
-                    error_msg += f": {info['msg']}"
-                self.fail_json(msg=error_msg)
+            body_bytes = resp.read() if resp else b''
 
-            return json.loads(resp.read().decode('utf-8'))
+            # fetch_url may stash the body on info['body']
+            # so fall back to that if the response stream is empty
+            if not body_bytes:
+                info_body = info.get('body')
+                if isinstance(info_body, bytes):
+                    body_bytes = info_body
+                elif isinstance(info_body, str):
+                    body_bytes = info_body.encode('utf-8', errors='replace')
+
+            body_text = body_bytes.decode('utf-8', errors='replace')
+            content_type = (info.get('content-type') or '').lower()
+            info_status = info.get('status', 0)
+
+            if info_status >= 400:
+                self.fail_json(
+                    msg=f"API request failed with status: {info_status}",
+                    body_preview=body_text[:200]
+                )
+
+            if 'application/json' not in content_type:
+                self.fail_json(
+                    msg=f"API request failed - unexpected content type: {content_type or 'missing'}",
+                    status=info_status or 'unknown',
+                    body_preview=body_text[:200]
+                )
+            try:
+                return json.loads(body_text)
+            except json.JSONDecodeError as e:
+                self.fail_json(
+                    msg=f"Technitium API response was not valid JSON: {e}",
+                    status=info_status or 'unknown',
+                    body_preview=body_text[:200],
+                    content_type=content_type
+                )
         except Exception as e:
             self.fail_json(msg=f"Technitium API request failed: {e}")
 

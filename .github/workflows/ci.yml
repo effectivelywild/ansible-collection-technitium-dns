@@ -175,6 +175,8 @@ jobs:
           echo "HTTP_PORT_1=$((6000 + PORT_OFFSET * 10 + 1))" >> $GITHUB_ENV
           echo "HTTP_PORT_2=$((6000 + PORT_OFFSET * 10 + 2))" >> $GITHUB_ENV
           echo "HTTP_PORT_3=$((6000 + PORT_OFFSET * 10 + 3))" >> $GITHUB_ENV
+          echo "MOCKOON_HTTP_PORT_1=$((6000 + PORT_OFFSET * 10 + 4))" >> $GITHUB_ENV
+          echo "MOCKOON_HTTP_PORT_2=$((6000 + PORT_OFFSET * 10 + 5))" >> $GITHUB_ENV
           echo "HTTPS_PORT_1=$((50000 + PORT_OFFSET * 10 + 1))" >> $GITHUB_ENV  
           echo "HTTPS_PORT_2=$((50000 + PORT_OFFSET * 10 + 2))" >> $GITHUB_ENV
           echo "HTTPS_PORT_3=$((50000 + PORT_OFFSET * 10 + 3))" >> $GITHUB_ENV
@@ -218,6 +220,9 @@ jobs:
           technitium_api_token_3: ${{ steps.get_server_values.outputs.api_token_3 }}
           technitium_api_port_3: ${HTTP_PORT_3}
           technitium_https_port_3: ${HTTPS_PORT_3}
+
+          mockoon_api_port_1: ${MOCKOON_HTTP_PORT_1}
+          mockoon_api_port_2: ${MOCKOON_HTTP_PORT_2}
 
           validate_certs: false
 
