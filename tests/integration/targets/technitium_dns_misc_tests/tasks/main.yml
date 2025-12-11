@@ -41,7 +41,7 @@
   assert:
     that:
       - test_result_2.failed
-      - "'name or service not known' or 'temporary failure in name resolution' in (test_result_2.msg | lower)"
+      - "'name or service not known' in (test_result_2.msg | lower) or 'temporary failure in name resolution' in (test_result_2.msg | lower)"
 
 # Test 3 - Connection refused / no server listening on API port
 - name: "Test connection refused using"
