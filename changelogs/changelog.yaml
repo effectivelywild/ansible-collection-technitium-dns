@@ -323,3 +323,5 @@ releases:
       name: technitium_dns_set_server_settings
       namespace: ''
     release_date: '2025-12-01'
+  1.1.1:
+    release_date: '2025-12-12'
