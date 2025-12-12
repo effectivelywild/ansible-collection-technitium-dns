@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/effectivelywild/ansible-collection-technitium-dns/compare/v1.1.0...v1.1.1) (2025-12-12)
+
+
+### Bug Fixes
+
+* catch invalid json content-type ([#51](https://github.com/effectivelywild/ansible-collection-technitium-dns/issues/51)) ([42dd3b1](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/42dd3b14f57aa63c230141276dbbd9b47ee85020))
+
 ## [1.1.0](https://github.com/effectivelywild/ansible-collection-technitium-dns/compare/v1.0.1...v1.1.0) (2025-12-01)
 
 
