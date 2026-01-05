@@ -35,7 +35,7 @@
     ignore_certificate_errors: true
   register: join_cluster_secondary_01_result
   retries: 3
-  delay: 20
+  delay: 60
   until: join_cluster_secondary_01_result is success
 
 - name: Debug join cluster secondary 01 result
