@@ -102,6 +102,7 @@ options:
     createPtrZone:
         description:
             - Create reverse zone for PTR (A/AAAA only)
+            - Requires C(ptr=true); otherwise Technitium ignores this setting
         required: false
         type: bool
     digest:
@@ -701,6 +702,8 @@ msg:
     type: str
 '''
 
+import ipaddress
+
 from ansible_collections.effectivelywild.technitium_dns.plugins.module_utils.technitium import TechnitiumModule
 
 # Parameter mappings for the update API endpoint
@@ -879,7 +882,6 @@ RECORD_SCHEMAS = {
 }
 
 # Singleton record types: DNS record types that only allow one record per DNS name
-# "Singleton" is DNS terminology used in BIND and other DNS software
 # See: RFC 1034 Section 3.6.2 for CNAME restrictions
 SINGLETON_RECORD_TYPES = {
     'APP',      # Technitium-specific: Only one APP record per DNS name
@@ -900,10 +902,9 @@ class RecordModule(TechnitiumModule):
         ]),
         state=dict(type='str', required=False, default='present', choices=['present', 'absent']),
         ttl=dict(type='int', required=False),
-        overwrite=dict(type='bool', required=False, default=True),  # v1.0.0: default=True for declarative behavior
+        overwrite=dict(type='bool', required=False, default=True),
         comments=dict(type='str', required=False),
         expiryTtl=dict(type='int', required=False),
-        # New v1.0.0: records list for managing record sets
         records=dict(type='list', elements='dict', required=False),
         # Legacy shorthand parameters (auto-converted to records list)
         ipAddress=dict(type='str', required=False),
@@ -1157,7 +1158,6 @@ class RecordModule(TechnitiumModule):
 
     def _validate_parameters(self, record_type, params):
         """Validate that parameters are appropriate for the record type"""
-        # v1.0.0: All record types now support 'records' parameter
         allowed_params = {
             'A': {'records', 'ipAddress', 'ttl', 'overwrite', 'comments', 'expiryTtl', 'ptr', 'createPtrZone', 'updateSvcbHints'},
             'AAAA': {'records', 'ipAddress', 'ttl', 'overwrite', 'comments', 'expiryTtl', 'ptr', 'createPtrZone', 'updateSvcbHints'},
@@ -1219,7 +1219,7 @@ class RecordModule(TechnitiumModule):
                     self.fail_json(
                         msg=f"Parameter '{param}' is not supported for record type '{record_type}'.")
 
-        # Check for required parameters (v1.0.0: validated in _normalize_records)
+        # Check for required parameters
         # If using 'records' parameter, validation happens there
         # If using shorthand, we need at least one record in normalized list
         normalized_records = params.get('_normalized_records', [])
@@ -1230,6 +1230,13 @@ class RecordModule(TechnitiumModule):
                 self.fail_json(
                     msg=f"No records specified for state=present. Either provide 'records' list or shorthand parameters: {', '.join(missing)}"
                 )
+        # API ignores 'createPtrZone' without 'ptr' for A/AAAA records - validate here and print error
+        if record_type in {'A', 'AAAA'}:
+            for idx, record in enumerate(normalized_records):
+                if record.get('createPtrZone') is True and record.get('ptr') is not True:
+                    self.fail_json(
+                        msg="You cannot set 'createPtrZone: true' without 'ptr: true'. You must set 'ptr: true' to have the reverse zone created."
+                    )
 
         # For state=absent with records specified, validate records have identifying fields
         # (Non-identifying fields are ignored during deletion - only identifying fields matter)
@@ -1574,6 +1581,46 @@ class RecordModule(TechnitiumModule):
         # Note: comments and expiryTtl would go here too
         return False
 
+    def _normalize_ptr_target(self, name):
+        """Normalize PTR targets for comparison."""
+        if not name:
+            return ''
+        return name.rstrip('.').lower()
+
+    def _ptr_record_exists(self, ip_address, forward_name):
+        """Check whether a PTR record exists for the given IP -> forward name."""
+        try:
+            reverse_fqdn = ipaddress.ip_address(ip_address).reverse_pointer
+        except ValueError:
+            return False
+
+        query = {
+            'token': self.api_token,
+            'domain': reverse_fqdn
+        }
+
+        try:
+            data = self.request('/api/zones/records/get', params=query)
+        except Exception:
+            return False
+
+        if data.get('status') != 'ok':
+            return False
+
+        desired_ptr = self._normalize_ptr_target(forward_name)
+        records = data.get('response', {}).get('records', [])
+
+        for record in records:
+            if record.get('type', '').upper() != 'PTR':
+                continue
+            if record.get('name', '').lower() != reverse_fqdn.lower():
+                continue
+            ptr_name = record.get('rData', {}).get('ptrName')
+            if self._normalize_ptr_target(ptr_name) == desired_ptr:
+                return True
+
+        return False
+
     def _all_fields_match(self, record1, record2, record_type):
         """Check if all fields (not just identifying) match between records"""
         if record_type not in RECORD_SCHEMAS:
@@ -1585,6 +1632,24 @@ class RecordModule(TechnitiumModule):
         for field in all_fields:
             val1 = record1.get(field)
             val2 = record2.get(field)
+
+            if field == 'ptr':
+                if val1 is True:
+                    ip_address = record1.get('ipAddress') or record2.get('ipAddress')
+                    if not ip_address:
+                        return False
+                    if not self._ptr_record_exists(ip_address, self.params.get('name', '')):
+                        return False
+                continue
+
+            if field == 'createPtrZone':
+                if val1 is True and record1.get('ptr') is True:
+                    ip_address = record1.get('ipAddress') or record2.get('ipAddress')
+                    if not ip_address:
+                        return False
+                    if not self._ptr_record_exists(ip_address, self.params.get('name', '')):
+                        return False
+                continue
 
             # Skip comparison if record1 doesn't have this field or has None
             # This prevents false negatives when API returns default values for optional fields

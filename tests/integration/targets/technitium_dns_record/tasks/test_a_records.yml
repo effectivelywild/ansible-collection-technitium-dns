@@ -461,6 +461,25 @@
     that:
       - test9_ptr is changed
 
+- name: "Test 9.1.1: Idempotency - Create A record with PTR using shorthand"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "ptr-test.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: A
+    ipAddress: "192.0.5.10"
+    ptr: true
+    createPtrZone: true
+    state: present
+  register: test9_ptr
+
+- name: "Test 9.1: Assert PTR record created"
+  ansible.builtin.assert:
+    that:
+      - not test9_ptr is changed
+
 - name: "Test 9.2: Calculate PTR reverse zone and FQDN"
   ansible.builtin.set_fact:
     ptr_ip_parts: "{{ '192.0.5.10'.split('.') }}"
@@ -876,6 +895,29 @@
     that:
       - test15_missing_id is failed
       - test15_missing_id.msg is search("missing required field|missing identifying fields")
+
+# =============================================================================
+# Test 16: Negative Tests - createPtrZone Without PTR - API ignores createPtrZone if no ptr is specified
+# =============================================================================
+- name: "Test 16.1: createPtrZone without ptr should fail"
+  effectivelywild.technitium_dns.technitium_dns_record:
+    api_url: "{{ technitium_api_url_2 | default('http://localhost') }}"
+    api_token: "{{ technitium_api_token_2 }}"
+    api_port: "{{ technitium_api_port_2 | default(5380) }}"
+    name: "create-ptrzone-only.{{ primary_zone_name }}"
+    zone: "{{ primary_zone_name }}"
+    type: A
+    ipAddress: "192.0.2.210"
+    createPtrZone: true
+    state: present
+  register: test16_create_ptrzone_only
+  ignore_errors: true
+
+- name: "Test 16.1: Assert createPtrZone without ptr error"
+  ansible.builtin.assert:
+    that:
+      - test16_create_ptrzone_only is failed
+      - test16_create_ptrzone_only.msg is search("createPtrZone: true")
 
 - name: "Test Completion Message"
   ansible.builtin.debug:
