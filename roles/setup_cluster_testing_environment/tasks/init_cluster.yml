@@ -21,6 +21,18 @@
   ansible.builtin.pause:
     seconds: 30
 
+- name: "Login to secondary01 to create new token before join"
+  effectivelywild.technitium_dns.technitium_dns_login:
+    api_url: "http://localhost"
+    api_port: "{{ api_port_cluster_secondary_01 }}"
+    username: "{{ admin_username }}"
+    password: "{{ admin_password }}"
+  register: secondary01_pre_join_login
+
+- name: "Update token fact for secondary01 before join"
+  ansible.builtin.set_fact:
+    token_cluster_secondary_01: "{{ secondary01_pre_join_login.token }}"
+
 - name: Join secondary node 1 to cluster
   effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
     api_url: http://localhost
@@ -59,6 +71,18 @@
   debug:
     var: cluster_state
   when: debug | default(false)
+
+- name: "Login to secondary02 to create new token before join"
+  effectivelywild.technitium_dns.technitium_dns_login:
+    api_url: "http://localhost"
+    api_port: "{{ api_port_cluster_secondary_02 }}"
+    username: "{{ admin_username }}"
+    password: "{{ admin_password }}"
+  register: secondary02_pre_join_login
+
+- name: "Update token fact for secondary02 before join"
+  ansible.builtin.set_fact:
+    token_cluster_secondary_02: "{{ secondary02_pre_join_login.token }}"
 
 - name: Join secondary node 2 to cluster
   effectivelywild.technitium_dns.technitium_dns_init_join_cluster:
