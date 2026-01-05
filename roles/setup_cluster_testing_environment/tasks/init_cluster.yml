@@ -40,7 +40,7 @@
     api_port: "{{ api_port_cluster_secondary_01 }}"
     secondary_node_ip_addresses:
       - "{{ cluster_secondary01_ip }}"
-    primary_node_url: "http://{{ cluster_primary01_ip }}:{{ api_port_cluster_primary_01 }}"
+    primary_node_url: "http://cluster_primary01{{ container_suffix }}:{{ api_port_cluster_primary_01 }}"
     primary_node_ip_address: "{{ cluster_primary01_ip }}"
     primary_node_username: "{{ admin_username }}"
     primary_node_password: "{{ admin_password }}"
@@ -91,7 +91,7 @@
     api_port: "{{ api_port_cluster_secondary_02 }}"
     secondary_node_ip_addresses:
       - "{{ cluster_secondary02_ip }}"
-    primary_node_url: "http://{{ cluster_primary01_ip }}:{{ api_port_cluster_primary_01 }}"
+    primary_node_url: "http://cluster_primary01{{ container_suffix }}:{{ api_port_cluster_primary_01 }}"
     primary_node_ip_address: "{{ cluster_primary01_ip }}"
     primary_node_username: "{{ admin_username }}"
     primary_node_password: "{{ admin_password }}"
