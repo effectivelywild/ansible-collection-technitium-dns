@@ -230,7 +230,7 @@ jobs:
           notify_name_server: ${{ steps.get_server_values.outputs.technitium01_ip }}
 
           # Debugging options
-          debug: true
+          debug: false
 
           # Login Info
           admin_username: admin
