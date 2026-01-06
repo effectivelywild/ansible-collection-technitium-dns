@@ -917,7 +917,7 @@
   ansible.builtin.assert:
     that:
       - test16_create_ptrzone_only is failed
-      - test16_create_ptrzone_only.msg is search("createPtrZone: true")
+      - "'createPtrZone: true' in test16_create_ptrzone_only.msg"
 
 - name: "Test Completion Message"
   ansible.builtin.debug:
