@@ -4,6 +4,9 @@ effectivelywild.technitium\_dns Release Notes
 
 .. contents:: Topics
 
+v1.1.2
+======
+
 v1.1.1
 ======
 

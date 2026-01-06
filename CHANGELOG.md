@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/effectivelywild/ansible-collection-technitium-dns/compare/v1.1.1...v1.1.2) (2026-01-06)
+
+
+### Bug Fixes
+
+* Add PTR idempotent support in a/aaaa ([#55](https://github.com/effectivelywild/ansible-collection-technitium-dns/issues/55)) ([6a06e86](https://github.com/effectivelywild/ansible-collection-technitium-dns/commit/6a06e86ef7dd3732fd74b3b5fa6cb1e374931bd0))
+
 ## [1.1.1](https://github.com/effectivelywild/ansible-collection-technitium-dns/compare/v1.1.0...v1.1.1) (2025-12-12)
 
 
