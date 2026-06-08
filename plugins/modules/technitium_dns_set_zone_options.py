@@ -511,7 +511,7 @@ class SetZoneOptionsModule(TechnitiumModule):
                          'validateZone', 'queryAccess', 'queryAccessNetworkACL']),
             'Forwarder': set(['disabled', 'catalog', 'overrideCatalogQueryAccess', 'overrideCatalogZoneTransfer',
                               'overrideCatalogNotify', 'notify', 'notifyNameServers', 'update', 'updateNetworkACL',
-                              'updateSecurityPolicies']),
+                              'updateSecurityPolicies', 'zoneTransfer', 'zoneTransferNetworkACL', 'zoneTransferTsigKeyNames']),
             'Secondary': set(['disabled', 'primaryNameServerAddresses', 'primaryZoneTransferProtocol',
                               'primaryZoneTransferTsigKeyName', 'validateZone', 'zoneTransfer', 'zoneTransferNetworkACL',
                               'zoneTransferTsigKeyNames', 'notify', 'notifyNameServers', 'update', 'updateNetworkACL',
